@@ -375,21 +375,29 @@
       }
     }
 
-    // Collision: player bullets vs enemies
-    for (const bullet of game.playerBullets) {
-      if (!bullet.active) continue;
-      for (const enemy of game.enemies) {
-        if (!enemy.active) continue;
-        if (game.checkCollision(bullet, enemy)) {
-          handleBulletHitEnemy(bullet, enemy);
-          break; // Bullet hit one enemy
+    // Collision: player bullets vs enemies (only if both sides exist)
+    if (game.playerBullets.length > 0 && game.enemies.length > 0) {
+      for (let bi = 0; bi < game.playerBullets.length; bi++) {
+        const bullet = game.playerBullets[bi];
+        if (!bullet.active) continue;
+        for (let ei = 0; ei < game.enemies.length; ei++) {
+          const enemy = game.enemies[ei];
+          if (!enemy.active) continue;
+          if (game.checkCollision(bullet, enemy)) {
+            handleBulletHitEnemy(bullet, enemy);
+            if (!bullet.active) break; // Bullet destroyed
+          }
         }
+        // Safety: break if too many collision iterations (performance guard)
+        if (bi > 200) break;
       }
     }
 
-    // Collision: enemy bullets vs player
-    if (playerEntity.invincibleTimer <= 0) {
-      for (const bullet of game.enemyBullets) {
+    // Collision: enemy bullets vs player (check at most 50 per frame)
+    if (playerEntity.invincibleTimer <= 0 && game.enemyBullets.length > 0) {
+      const maxCheck = Math.min(game.enemyBullets.length, 50);
+      for (let bi = 0; bi < maxCheck; bi++) {
+        const bullet = game.enemyBullets[bi];
         if (!bullet.active) continue;
         if (game.checkCollision(bullet, playerEntity)) {
           handleEnemyBulletHitPlayer(bullet);
@@ -398,9 +406,11 @@
       }
     }
 
-    // Collision: enemies vs player (body collision)
-    if (playerEntity.invincibleTimer <= 0) {
-      for (const enemy of game.enemies) {
+    // Collision: enemies vs player body (check at most 30 per frame)
+    if (playerEntity.invincibleTimer <= 0 && game.enemies.length > 0) {
+      const maxCheck = Math.min(game.enemies.length, 30);
+      for (let ei = 0; ei < maxCheck; ei++) {
+        const enemy = game.enemies[ei];
         if (!enemy.active) continue;
         if (game.checkCollision(enemy, playerEntity)) {
           handleEnemyBodyHitPlayer(enemy);
@@ -435,7 +445,9 @@
   function handleBulletHitEnemy(bullet, enemy) {
     // Calculate damage
     let damage = bullet.damage;
-    const isCrit = Math.random() < (playerEntity.stats.critRate || 0);
+    let critRate = playerEntity.stats.critRate || 0;
+    if (buffManager) critRate += buffManager.getModifier('critRate');
+    const isCrit = Math.random() < critRate;
     if (isCrit) {
       damage *= playerEntity.stats.critMult || 1.5;
       window.ParticleSystem.spark(enemy.x, enemy.y);
@@ -477,7 +489,7 @@
     window.ParticleSystem.hitEffect(enemy.x, enemy.y);
 
     if (!alive) {
-      handleEnemyKilled(enemy, isCrit);
+      handleEnemyKilled(enemy, isCrit, damage);
     }
 
     // Arc weapon chain (if player has arc weapon)
@@ -486,7 +498,7 @@
     }
   }
 
-  function handleEnemyKilled(enemy, isCrit) {
+  function handleEnemyKilled(enemy, isCrit, damage) {
     // Particles
     if (enemy.isBoss) {
       window.ParticleSystem.bossExplosion(enemy.x, enemy.y);
@@ -545,6 +557,9 @@
   }
 
   function checkBossSpawn() {
+    // Enforce max 1 boss at a time
+    if (game.enemies.some(e => e.isBoss && e.active)) return;
+
     const bossThresholds = cfg.WAVES.bossTriggers;
     for (const threshold of bossThresholds) {
       if (game.score >= threshold && lastBossScore < threshold) {
@@ -581,7 +596,7 @@
       drawLightningLine(originEnemy.x, originEnemy.y, closest.x, closest.y);
       const alive = closest.takeDamage(damage);
       window.ParticleSystem.spark(closest.x, closest.y);
-      if (!alive) handleEnemyKilled(closest, false);
+      if (!alive) handleEnemyKilled(closest, false, damage);
       else chainDamage(closest, damage * 0.7, depth + 1);
     }
   }
@@ -608,7 +623,7 @@
     if (playerEntity.stats.reflectDamage) {
       const reflectDmg = Math.floor(cfg.BALANCE.COLLISION_DAMAGE * playerEntity.stats.reflectDamage);
       const alive = enemy.takeDamage(reflectDmg);
-      if (!alive) handleEnemyKilled(enemy, false);
+      if (!alive) handleEnemyKilled(enemy, false, reflectDmg);
     }
     // Shield reflect
     if (playerEntity.stats.shieldReflect && playerEntity.shield > 0) {

@@ -1025,25 +1025,28 @@ const GAME_CONFIG = {
         { minDifficulty: 0, templates: [
           { enemy: 'small', count: 2, spacing: 80, pattern: 'line' },
         ]},
-        // Difficulty 1: small + fast
+        // Difficulty 1: small + fast + obstacle chance
         { minDifficulty: 1, templates: [
           { enemy: 'small', count: 3, spacing: 70, pattern: 'v' },
           { enemy: 'fastSmall', count: 2, spacing: 80, pattern: 'random' },
+          { enemy: 'obstacle', count: 1, spacing: 60, pattern: 'random' },
         ]},
-        // Difficulty 2: mediums + new types
+        // Difficulty 2: mediums + new types + obstacles
         { minDifficulty: 2, templates: [
           { enemy: 'small', count: 4, spacing: 60, pattern: 'circle' },
           { enemy: 'fastSmall', count: 3, spacing: 60, pattern: 'random' },
           { enemy: 'medium', count: 1, spacing: 80, pattern: 'line' },
           { enemy: 'weaver', count: 1, spacing: 70, pattern: 'wave' },
+          { enemy: 'obstacle', count: 2, spacing: 70, pattern: 'random' },
         ]},
-        // Difficulty 3: elites + more variety
+        // Difficulty 3: elites + more variety + obstacles
         { minDifficulty: 3, templates: [
           { enemy: 'small', count: 5, spacing: 50, pattern: 'wave' },
           { enemy: 'medium', count: 2, spacing: 70, pattern: 'v' },
           { enemy: 'elite', count: 1, spacing: 0, pattern: 'single' },
           { enemy: 'sniper', count: 1, spacing: 100, pattern: 'line' },
           { enemy: 'charger', count: 1, spacing: 90, pattern: 'random' },
+          { enemy: 'obstacle', count: 2, spacing: 80, pattern: 'random' },
         ]},
         // Difficulty 4+: heavy + all types
         { minDifficulty: 4, templates: [

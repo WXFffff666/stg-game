@@ -142,6 +142,17 @@ class Game {
 
   // ===== ENTITY MANAGEMENT =====
   addEntity(entity) {
+    // Cap total entities to prevent memory explosion
+    if (this.entities.length >= 800) {
+      // Drop oldest inactive entity to make room
+      for (let i = 0; i < this.entities.length; i++) {
+        if (!this.entities[i].active) {
+          this.entities.splice(i, 1);
+          break;
+        }
+      }
+      if (this.entities.length >= 800) return; // All active, refuse new
+    }
     this.pendingAdd.push(entity);
   }
 
@@ -185,6 +196,21 @@ class Game {
       const idx = list.indexOf(entity);
       if (idx >= 0) list.splice(idx, 1);
     }
+  }
+
+  // Periodically clean inactive entities from category arrays to prevent memory leaks
+  _purgeCategoryArrays() {
+    const purgeList = (list) => {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (!list[i].active) list.splice(i, 1);
+      }
+    };
+    purgeList(this.players);
+    purgeList(this.enemies);
+    purgeList(this.playerBullets);
+    purgeList(this.enemyBullets);
+    purgeList(this.items);
+    purgeList(this.particles);
   }
 
   // ===== OBJECT POOL =====
@@ -255,6 +281,14 @@ class Game {
       this.pendingRemove.length = 0;
     }
 
+    // Periodically purge inactive entities from category arrays (every 60 frames ~1 second)
+    if (this._purgeCounter === undefined) this._purgeCounter = 0;
+    this._purgeCounter++;
+    if (this._purgeCounter >= 60) {
+      this._purgeCounter = 0;
+      this._purgeCategoryArrays();
+    }
+
     // Update combo timer
     if (this.comboTimer > 0) {
       this.comboTimer -= dt * 1000;
@@ -277,9 +311,15 @@ class Game {
     }
 
     // Update all active entities (backward iteration for safe removal)
+    // Also purge inactive entities from the array to prevent memory leaks
     for (let i = this.entities.length - 1; i >= 0; i--) {
       const entity = this.entities[i];
-      if (entity.active && entity.update) {
+      if (!entity.active) {
+        // Remove dead entities from the main array immediately
+        this.entities.splice(i, 1);
+        continue;
+      }
+      if (entity.update) {
         entity.update(dt);
       }
     }

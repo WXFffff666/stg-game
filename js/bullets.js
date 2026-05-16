@@ -722,6 +722,101 @@ var BulletPatterns = {
     bullet._waveBaseAngle = angle;
 
     return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  11. circle — N bullets in a full 360° circle
+  // ----------------------------------------------------------
+  circle: function(x, y, count, speed, damage, color) {
+    var bullets = [];
+    if (count <= 0) return bullets;
+
+    var angleStep = (Math.PI * 2) / count;
+    for (var i = 0; i < count; i++) {
+      var angle = angleStep * i;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: color,
+        category: 'enemyBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 4,
+        drawLayer: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  12. aimed — N bullets aimed at target position with spread
+  // ----------------------------------------------------------
+  aimed: function(x, y, count, targetX, targetY, speed, damage, color, spreadAngle) {
+    var bullets = [];
+    if (count <= 0) return bullets;
+
+    var baseAngle = Math.atan2(targetY - y, targetX - x);
+    var spread = typeof spreadAngle === 'number' ? spreadAngle : 0;
+    var spreadRad = spread * (Math.PI / 180);
+    var startAngle = baseAngle - spreadRad / 2;
+    var step = count > 1 ? spreadRad / (count - 1) : 0;
+
+    for (var i = 0; i < count; i++) {
+      var angle = startAngle + step * i;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: color,
+        category: 'enemyBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 4,
+        drawLayer: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  13. spiralOut — Bullets in expanding spiral pattern
+  // ----------------------------------------------------------
+  spiralOut: function(x, y, count, speed, damage, color, spreadAngle) {
+    var bullets = [];
+    if (count <= 0) return bullets;
+
+    // Each bullet fires at an increasing angle offset, creating a spiral
+    var offsetDeg = typeof spreadAngle === 'number' ? spreadAngle : 30;
+    var offsetRad = offsetDeg * (Math.PI / 180);
+
+    for (var i = 0; i < count; i++) {
+      var angle = offsetRad * i;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: color,
+        category: 'enemyBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 4,
+        drawLayer: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
   }
 
 };

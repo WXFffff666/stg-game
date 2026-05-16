@@ -941,12 +941,18 @@ class Player {
     // --- Pull player-relevant values out of stats ---
 
     // HP
+    var oldMaxHp = this.maxHp;
     if (s.hp !== undefined) {
       this.maxHp = s.hp;
     } else {
       this.maxHp = GAME_CONFIG.BALANCE.PLAYER_BASE_HP;
     }
-    this.hp = Math.min(this.hp, this.maxHp);
+    if (oldMaxHp > 0 && this.maxHp !== oldMaxHp) {
+      var hpPct = this.hp / oldMaxHp;
+      this.hp = Math.floor(this.maxHp * hpPct);
+    } else {
+      this.hp = Math.min(this.hp, this.maxHp);
+    }
 
     // Speed
     if (s.speed !== undefined) {

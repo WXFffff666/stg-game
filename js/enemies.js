@@ -29,6 +29,7 @@ class Enemy {
     this.maxHp = template.hp * (1 + diff * cfg.DIFFICULTY_ENEMY_HP);
     this.hp = this.maxHp;
     this.speed = template.speed;
+    this.baseSpeed = template.speed;
     this.damage = template.damage;
     this.score = template.score;
     this.xp = template.xp;
@@ -85,7 +86,6 @@ class Enemy {
     this.chargeSpeed = template.chargeSpeed || 500;
     this.isCharging = false;
     this.chargeAngle = 0;
-    this.baseSpeed = template.speed; // Store base speed for reset
 
     // Teleporter
     this.teleportTimer = Math.random() * (template.teleportInterval || 3000);
@@ -145,6 +145,44 @@ class Enemy {
 
     this.moveTimer += dt * 1000;
     if (this.flashTimer > 0) this.flashTimer -= dt * 1000;
+
+    // --- Status Effects (before AI so speed mods take effect) ---
+    // Freeze: stop movement
+    if (this.frozenTimer > 0) {
+      this.speed = 0;
+      this.frozenTimer -= dt * 1000;
+      if (this.frozenTimer <= 0) {
+        this.frozenTimer = 0;
+        this.speed = this.baseSpeed;
+      }
+    }
+    // Slow: reduce speed (only if not frozen)
+    else if (this.slowTimer > 0) {
+      this.speed = this.baseSpeed * (1 - (this.slowAmount || 0.4));
+      this.slowTimer -= dt * 1000;
+      if (this.slowTimer <= 0) {
+        this.slowTimer = 0;
+        this.speed = this.baseSpeed;
+      }
+    }
+
+    // Poison DoT
+    if (this.poisonTimer > 0) {
+      this.takeDamage(this.poisonDamage * dt);
+      this.poisonTimer -= dt * 1000;
+      if (this.poisonTimer <= 0) {
+        this.poisonTimer = 0;
+      }
+    }
+
+    // Burn DoT
+    if (this.burnTimer > 0) {
+      this.takeDamage(this.burnDamage * dt);
+      this.burnTimer -= dt * 1000;
+      if (this.burnTimer <= 0) {
+        this.burnTimer = 0;
+      }
+    }
 
     // --- AI Behavior ---
     this._executeAI(dt, game);
@@ -530,19 +568,23 @@ class Enemy {
     const angle = Math.atan2(player.y - this.y, player.x - this.x);
     const coneCount = 7;
     const coneSpread = 40 * (Math.PI / 180);
+    const BP = window.BulletPatterns;
     for (let i = 0; i < coneCount; i++) {
       const a = angle - coneSpread / 2 + (coneSpread / (coneCount - 1)) * i;
-      window.BulletPatterns.aimed({
+      BP._create({
         x: this.x,
         y: this.y + this.size,
-        targetX: this.x + Math.cos(a) * 300,
-        targetY: this.y + Math.sin(a) * 300,
+        vx: Math.cos(a) * this.bulletConfig.speed * 0.8,
+        vy: Math.sin(a) * this.bulletConfig.speed * 0.8,
         speed: this.bulletConfig.speed * 0.8,
         damage: this.bulletConfig.damage * 1.3,
         color: '#ff6600',
-        count: 1,
-        spreadAngle: 0,
-        size: 5,
+        trailColor: '#ff4400',
+        category: 'enemyBullet',
+        size: 6,
+        hitRadius: 5,
+        lifetime: 3,
+        drawLayer: 2,
       });
     }
   }
@@ -553,18 +595,14 @@ class Enemy {
   _tailSwipe(game) {
     if (!game || !window.BulletPatterns) return;
     // Sweep bullets in an arc
-    window.BulletPatterns.circle({
-      x: this.x,
-      y: this.y + this.size,
-      targetX: GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2,
-      targetY: GAME_CONFIG.BALANCE.CANVAS_HEIGHT,
-      speed: this.bulletConfig.speed * 1.1,
-      damage: this.bulletConfig.damage * 0.8,
-      color: '#ffaa00',
-      count: 16,
-      spreadAngle: 180,
-      size: 4,
-    });
+    window.BulletPatterns.circle(
+      this.x,
+      this.y + this.size,
+      16,
+      this.bulletConfig.speed * 1.1,
+      this.bulletConfig.damage * 0.8,
+      '#ffaa00'
+    );
   }
   _fire(game) {
     const BulletPatterns = window.BulletPatterns;
@@ -607,19 +645,17 @@ class Enemy {
       }
     }
 
-    if (BulletPatterns[pattern]) {
-      BulletPatterns[pattern]({
-        x: this.x,
-        y: this.y + this.size,
-        targetX: player ? player.x : GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2,
-        targetY: player ? player.y : GAME_CONFIG.BALANCE.CANVAS_HEIGHT,
-        speed: cfg.speed,
-        damage: cfg.damage,
-        color: cfg.color,
-        count: cfg.count || 1,
-        spreadAngle: cfg.spreadAngle || 0,
-        size: this.isBoss ? 5 : 3,
-      });
+    const px = player ? player.x : GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2;
+    const py = player ? player.y : GAME_CONFIG.BALANCE.CANVAS_HEIGHT;
+    const baseX = this.x;
+    const baseY = this.y + this.size;
+
+    if (pattern === 'circle' && BulletPatterns.circle) {
+      BulletPatterns.circle(baseX, baseY, cfg.count || 12, cfg.speed, cfg.damage, cfg.color);
+    } else if (pattern === 'aimed' && BulletPatterns.aimed) {
+      BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0);
+    } else if (pattern === 'spiralOut' && BulletPatterns.spiralOut) {
+      BulletPatterns.spiralOut(baseX, baseY, cfg.count || 8, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 30);
     }
   }
 
@@ -765,69 +801,29 @@ class Enemy {
       this._drawHpBar(ctx);
     }
 
-    // Draw shape based on type/size
+    // Draw shape based on type - AIRCRAFT themed
     switch (this.type) {
-      case 'small':
-      case 'fastSmall':
-        this._drawCircle(ctx, color);
-        break;
-      case 'medium':
-        this._drawDiamond(ctx, color);
-        break;
-      case 'elite':
-        this._drawHexagon(ctx, color);
-        break;
-      case 'sniper':
-        this._drawTriangle(ctx, color);
-        break;
-      case 'obstacle':
-        this._drawCircle(ctx, color, true);
-        break;
-      case 'boss':
-        this._drawBoss(ctx, color);
-        break;
-      case 'splitter':
-        this._drawSplitter(ctx, color);
-        break;
-      case 'shielder':
-        this._drawShielder(ctx, color);
-        break;
-      case 'charger':
-        this._drawCharger(ctx, color);
-        break;
-      case 'weaver':
-        this._drawWeaver(ctx, color);
-        break;
-      case 'teleporter':
-        this._drawTeleporter(ctx, color);
-        break;
-      case 'spawner':
-        this._drawSpawner(ctx, color);
-        break;
-      case 'tank':
-        this._drawTank(ctx, color);
-        break;
-      case 'sniperElite':
-        this._drawSniperElite(ctx, color);
-        break;
-      case 'swarmer':
-        this._drawSwarmer(ctx, color);
-        break;
-      case 'kamikaze':
-        this._drawKamikaze(ctx, color);
-        break;
-      case 'boss_guardian':
-        this._drawBossGuardian(ctx, color);
-        break;
-      case 'boss_summoner':
-        this._drawBossSummoner(ctx, color);
-        break;
-      case 'boss_dragon':
-        this._drawBossDragon(ctx, color);
-        break;
-      default:
-        this._drawCircle(ctx, color);
-        break;
+      case 'small':       this._drawFighter(ctx, color, false); break;
+      case 'fastSmall':   this._drawInterceptor(ctx, color); break;
+      case 'medium':      this._drawStandardFighter(ctx, color); break;
+      case 'elite':       this._drawHeavyFighter(ctx, color); break;
+      case 'sniper':      this._drawBomber(ctx, color); break;
+      case 'obstacle':    this._drawAsteroid(ctx, color); break;
+      case 'boss':        this._drawBattleship(ctx, color); break;
+      case 'splitter':    this._drawDroneCarrier(ctx, color); break;
+      case 'shielder':    this._drawArmoredBomber(ctx, color); break;
+      case 'charger':     this._drawRammingInterceptor(ctx, color); break;
+      case 'weaver':      this._drawAgileFighter(ctx, color); break;
+      case 'teleporter':  this._drawStealthFighter(ctx, color); break;
+      case 'spawner':     this._drawCarrier(ctx, color); break;
+      case 'tank':        this._drawHeavyBomber(ctx, color); break;
+      case 'sniperElite': this._drawPrecisionBomber(ctx, color); break;
+      case 'swarmer':     this._drawDroneSwarm(ctx, color); break;
+      case 'kamikaze':    this._drawSuicideDrone(ctx, color); break;
+      case 'boss_guardian': this._drawBattleshipGuardian(ctx, color); break;
+      case 'boss_summoner': this._drawBattleshipSummoner(ctx, color); break;
+      case 'boss_dragon':   this._drawBattleshipDragon(ctx, color); break;
+      default:            this._drawFighter(ctx, color, false); break;
     }
 
     ctx.restore();
