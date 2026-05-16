@@ -830,432 +830,412 @@ class Enemy {
   }
 
   // ---------------------------------------------------------------------------
-  // SHAPE DRAWING
+  // AIRCRAFT SHAPE DRAWING (飞机大战 - 飞机形状)
   // ---------------------------------------------------------------------------
-  _drawCircle(ctx, color, thick) {
-    const r = this.size;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    if (thick) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
-    // Core highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawDiamond(ctx, color) {
-    const r = this.size;
+  // Helper: draw a standard fuselage (nose pointing up)
+  _drawFuselage(ctx, w, h, color, noseY, bodyW, bodyH) {
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.75, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r * 0.75, 0);
+    ctx.moveTo(0, noseY);                          // nose tip
+    ctx.lineTo(bodyW * 0.4, noseY + h * 0.3);      // right shoulder
+    ctx.lineTo(bodyW * 0.5, noseY + h * 0.85);     // right hip
+    ctx.lineTo(-bodyW * 0.5, noseY + h * 0.85);     // left hip
+    ctx.lineTo(-bodyW * 0.4, noseY + h * 0.3);      // left shoulder
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    // Border
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  },
 
-  _drawHexagon(ctx, color) {
-    const r = this.size;
-    const sides = 6;
+  // Helper: cockpit highlight
+  _drawCockpit(ctx, x, y, r) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.beginPath();
-    for (let i = 0; i < sides; i++) {
-      const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
-      const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fillStyle = color;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  },
 
-  _drawTriangle(ctx, color) {
-    const r = this.size;
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.8, r * 0.6);
-    ctx.lineTo(-r * 0.8, r * 0.6);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.beginPath();
-    ctx.arc(0, -r * 0.1, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawBoss(ctx, color) {
-    const r = this.size;
-
-    // Outer glow
-    const grad = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 1.3);
-    grad.addColorStop(0, 'rgba(255,0,0,0.6)');
-    grad.addColorStop(0.5, 'rgba(255,0,0,0.2)');
-    grad.addColorStop(1, 'rgba(255,0,0,0)');
+  // Helper: engine glow
+  _drawEngineGlow(ctx, x, y, r, glowColor) {
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.3, glowColor || '#ffaa00');
+    grad.addColorStop(1, 'rgba(255,100,0,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+  },
 
-    // Main body - complex geometric shape
+  // Helper: draw wing (left or right)
+  _drawWing(ctx, side, attachX, attachY, tipOffsetX, tipOffsetY, sweepFactor, color) {
+    const dir = side === 'left' ? -1 : 1;
     ctx.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 / 8) * i - Math.PI / 2;
-      const radius = i % 2 === 0 ? r : r * 0.65;
-      const px = Math.cos(angle) * radius;
-      const py = Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
+    ctx.moveTo(dir * attachX, attachY);
+    ctx.lineTo(dir * tipOffsetX, attachY + tipOffsetY);
+    ctx.lineTo(dir * (tipOffsetX - sweepFactor), attachY + tipOffsetY + 3);
+    ctx.lineTo(dir * (attachX - 0.5 * sweepFactor), attachY + 5);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 0.8;
     ctx.stroke();
+  },
 
-    // Inner ring
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
-    ctx.stroke();
+  // ===========================================================================
+  // FIGHTERS
+  // ===========================================================================
 
-    // Center eye/core
-    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.35);
-    coreGrad.addColorStop(0, '#ffffff');
-    coreGrad.addColorStop(0.3, '#ffdd00');
-    coreGrad.addColorStop(0.7, '#ff4400');
-    coreGrad.addColorStop(1, 'rgba(255,0,0,0)');
-    ctx.fillStyle = coreGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Phase indicator rings (only in higher phases)
-    if (this.bossPhase >= 0) {
-      ctx.strokeStyle = 'rgba(255,255,100,0.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    if (this.bossPhase >= 1) {
-      ctx.strokeStyle = 'rgba(255,100,100,0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.05, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Spinning outer ring
-      const rotAngle = (this.moveTimer * 0.004) % (Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = rotAngle + (Math.PI * 2 / 4) * i;
-        ctx.arc(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7, r * 0.2, 0, Math.PI * 2);
-      }
-      ctx.stroke();
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // NEW ENEMY SHAPES
-  // ---------------------------------------------------------------------------
-  _drawSplitter(ctx, color) {
-    // Diamond with inner cross
+  // 'small': Tiny fighter plane - triangle body + small straight wings
+  _drawFighter(ctx, color, sweptWings) {
     const r = this.size;
-    // Main diamond
+    const sweep = sweptWings ? r * 0.6 : 0;
+
+    // Fuselage
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.75, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r * 0.75, 0);
+    ctx.moveTo(0, -r * 1.4);
+    ctx.lineTo(r * 0.35, -r * 0.1);
+    ctx.lineTo(r * 0.2, r * 0.7);
+    ctx.lineTo(-r * 0.2, r * 0.7);
+    ctx.lineTo(-r * 0.35, -r * 0.1);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 0.8;
     ctx.stroke();
-    // Inner cross
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.5, 0);
-    ctx.lineTo(r * 0.5, 0);
-    ctx.moveTo(0, -r * 0.5);
-    ctx.lineTo(0, r * 0.5);
-    ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawShielder(ctx, color) {
-    // Circle with shield ring
-    const r = this.size;
-    // Shield ring (outer glow)
-    if (this.shieldHp > 0 && !this.shieldDepleted) {
-      const shieldAlpha = 0.3 + (this.shieldHp / this.shieldMaxHp) * 0.4;
-      ctx.strokeStyle = this.shieldColor.replace(')', `,${shieldAlpha})`).replace('rgb', 'rgba');
-      if (this.shieldColor.startsWith('#')) {
-        ctx.strokeStyle = this.shieldColor;
-        ctx.globalAlpha = shieldAlpha;
-      }
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
-      ctx.stroke();
-      // Pulse animation
-      const pulse = 1 + Math.sin(this.moveTimer * 0.01) * 0.15;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.15 * pulse, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-    // Main body
+    // Wings
+    const wingBaseY = r * 0.1 + sweep * 0.3;
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.moveTo(r * 0.2, wingBaseY);
+    ctx.lineTo(r * 1.0, wingBaseY + sweep);
+    ctx.lineTo(r * 0.6, wingBaseY + r * 0.35);
+    ctx.lineTo(r * 0.15, wingBaseY + r * 0.25);
+    ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    // Depleted shield indicator
-    if (this.shieldDepleted && this.shieldRegenTimer < this.shieldRegenDelay) {
-      const regenPercent = this.shieldRegenTimer / this.shieldRegenDelay;
-      ctx.strokeStyle = 'rgba(255,100,100,0.5)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * regenPercent);
-      ctx.stroke();
-    }
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
+    ctx.moveTo(-r * 0.2, wingBaseY);
+    ctx.lineTo(-r * 1.0, wingBaseY + sweep);
+    ctx.lineTo(-r * 0.6, wingBaseY + r * 0.35);
+    ctx.lineTo(-r * 0.15, wingBaseY + r * 0.25);
+    ctx.closePath();
+    ctx.fillStyle = color;
     ctx.fill();
-  }
 
-  _drawCharger(ctx, color) {
-    // Arrow/chevron shape pointing movement direction
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.5, r * 0.22);
+  },
+
+  // 'fastSmall': Swept-wing interceptor - narrow body + swept-back wings
+  _drawInterceptor(ctx, color) {
     const r = this.size;
-    let angle = 0;
-    if (this.isCharging) {
-      angle = this.chargeAngle - Math.PI / 2;
-    }
-    ctx.save();
-    ctx.rotate(angle);
-    // Chevron body
+
+    // Fuselage - narrow dart
     ctx.beginPath();
-    ctx.moveTo(0, -r * 1.2);
-    ctx.lineTo(r * 0.7, r * 0.4);
-    ctx.lineTo(r * 0.2, r * 0.1);
+    ctx.moveTo(0, -r * 1.6);
+    ctx.lineTo(r * 0.22, -r * 0.2);
+    ctx.lineTo(r * 0.12, r * 0.6);
+    ctx.lineTo(-r * 0.12, r * 0.6);
+    ctx.lineTo(-r * 0.22, -r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Swept-back wings (delta) - swept backward
+    ctx.beginPath();
+    ctx.moveTo(r * 0.1, -r * 0.1);
+    ctx.lineTo(r * 1.1, r * 0.55);
+    ctx.lineTo(r * 0.5, r * 0.35);
+    ctx.lineTo(r * 0.05, r * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.1, -r * 0.1);
+    ctx.lineTo(-r * 1.1, r * 0.55);
+    ctx.lineTo(-r * 0.5, r * 0.35);
+    ctx.lineTo(-r * 0.05, r * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Sharp cockpit
+    this._drawCockpit(ctx, 0, -r * 0.65, r * 0.18);
+
+    // Tail engine glow
+    this._drawEngineGlow(ctx, 0, r * 0.55, r * 0.25, '#ff6600');
+  },
+
+  // 'medium': Standard fighter - triangle nose + wings + tail fins
+  _drawStandardFighter(ctx, color) {
+    const r = this.size;
+
+    // Fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.3);
+    ctx.lineTo(r * 0.4, -r * 0.15);
+    ctx.lineTo(r * 0.35, r * 0.5);
     ctx.lineTo(r * 0.2, r * 0.8);
     ctx.lineTo(-r * 0.2, r * 0.8);
-    ctx.lineTo(-r * 0.2, r * 0.1);
-    ctx.lineTo(-r * 0.7, r * 0.4);
+    ctx.lineTo(-r * 0.35, r * 0.5);
+    ctx.lineTo(-r * 0.4, -r * 0.15);
     ctx.closePath();
-    ctx.fillStyle = this.isCharging ? '#ffffff' : color;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,100,0,0.4)';
-    ctx.beginPath();
-    ctx.arc(0, r * 0.1, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  _drawWeaver(ctx, color) {
-    // Wavy/sine shape
-    const r = this.size;
-    // Draw a wavy line through body
-    ctx.beginPath();
-    for (let ty = -r; ty <= r; ty += 2) {
-      const wx = Math.sin(ty * 0.3 + this.moveTimer * 0.01) * r * 0.6;
-      if (ty === -r) ctx.moveTo(wx, ty);
-      else ctx.lineTo(wx, ty);
-    }
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    // Elliptical body
-    ctx.beginPath();
-    ctx.ellipse(0, 0, r * 0.7, r * 1.1, 0, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath();
-    ctx.arc(0, -r * 0.2, r * 0.25, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawTeleporter(ctx, color) {
-    // Dashed outline circle
-    const r = this.size;
-    // Dashed outer ring
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    // Main wings
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // Inner filled circle
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+    ctx.moveTo(r * 0.25, -r * 0.1);
+    ctx.lineTo(r * 1.15, r * 0.25);
+    ctx.lineTo(r * 0.8, r * 0.5);
+    ctx.lineTo(r * 0.15, r * 0.2);
+    ctx.closePath();
     ctx.fillStyle = color;
-    ctx.globalAlpha = 0.7;
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.25, -r * 0.1);
+    ctx.lineTo(-r * 1.15, r * 0.25);
+    ctx.lineTo(-r * 0.8, r * 0.5);
+    ctx.lineTo(-r * 0.15, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Tail fins
+    ctx.beginPath();
+    ctx.moveTo(r * 0.12, r * 0.65);
+    ctx.lineTo(r * 0.45, r * 0.95);
+    ctx.lineTo(r * 0.08, r * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.12, r * 0.65);
+    ctx.lineTo(-r * 0.45, r * 0.95);
+    ctx.lineTo(-r * 0.08, r * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.5, r * 0.25);
+
+    // Engine glow
+    this._drawEngineGlow(ctx, 0, r * 0.7, r * 0.2, '#ffaa00');
+  },
+
+  // 'elite': Heavy fighter - larger, twin tails, engine glow
+  _drawHeavyFighter(ctx, color) {
+    const r = this.size;
+
+    // Fuselage - thicker
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.2);
+    ctx.lineTo(r * 0.5, -r * 0.1);
+    ctx.lineTo(r * 0.55, r * 0.4);
+    ctx.lineTo(r * 0.3, r * 0.75);
+    ctx.lineTo(-r * 0.3, r * 0.75);
+    ctx.lineTo(-r * 0.55, r * 0.4);
+    ctx.lineTo(-r * 0.5, -r * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Main wings - larger
+    ctx.beginPath();
+    ctx.moveTo(r * 0.3, -r * 0.05);
+    ctx.lineTo(r * 1.2, r * 0.25);
+    ctx.lineTo(r * 0.7, r * 0.55);
+    ctx.lineTo(r * 0.15, r * 0.25);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.3, -r * 0.05);
+    ctx.lineTo(-r * 1.2, r * 0.25);
+    ctx.lineTo(-r * 0.7, r * 0.55);
+    ctx.lineTo(-r * 0.15, r * 0.25);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Twin tail fins (vertical stabilizers)
+    ctx.beginPath();
+    ctx.moveTo(r * 0.15, r * 0.55);
+    ctx.lineTo(r * 0.6, r * 1.0);
+    ctx.lineTo(r * 0.1, r * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.15, r * 0.55);
+    ctx.lineTo(-r * 0.6, r * 1.0);
+    ctx.lineTo(-r * 0.1, r * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.45, r * 0.28);
+
+    // Glowing engines
+    this._drawEngineGlow(ctx, r * 0.25, r * 0.7, r * 0.18, '#ff8800');
+    this._drawEngineGlow(ctx, -r * 0.25, r * 0.7, r * 0.18, '#ff8800');
+  },
+
+  // 'weaver': Agile fighter - curved body, swept wings, flowing shape
+  _drawAgileFighter(ctx, color) {
+    const r = this.size;
+    const sway = Math.sin(this.moveTimer * 0.01) * r * 0.25;
+
+    // Curved fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.3);
+    ctx.quadraticCurveTo(r * 0.45 + sway, -r * 0.2, r * 0.3, r * 0.5);
+    ctx.lineTo(r * 0.15, r * 0.8);
+    ctx.lineTo(-r * 0.15, r * 0.8);
+    ctx.lineTo(-r * 0.3, r * 0.5);
+    ctx.quadraticCurveTo(-r * 0.45 - sway, -r * 0.2, 0, -r * 1.3);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    // Core glow
-    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.4);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawSpawner(ctx, color) {
-    // Larger diamond with smaller diamonds inside
-    const r = this.size;
-    // Main diamond
+    // Swept wings
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.8, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r * 0.8, 0);
+    ctx.moveTo(r * 0.2, -r * 0.05);
+    ctx.lineTo(r * 1.05, r * 0.4);
+    ctx.lineTo(r * 0.55, r * 0.55);
+    ctx.lineTo(r * 0.1, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.2, -r * 0.05);
+    ctx.lineTo(-r * 1.05, r * 0.4);
+    ctx.lineTo(-r * 0.55, r * 0.55);
+    ctx.lineTo(-r * 0.1, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Streamlined cockpit
+    this._drawCockpit(ctx, 0, -r * 0.55, r * 0.22);
+  },
+
+  // ===========================================================================
+  // BOMBERS
+  // ===========================================================================
+
+  // 'sniper': Long-range bomber - elongated body, wide wingspan
+  _drawBomber(ctx, color) {
+    const r = this.size;
+
+    // Long fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.4);
+    ctx.lineTo(r * 0.25, -r * 0.6);
+    ctx.lineTo(r * 0.35, r * 0.3);
+    ctx.lineTo(r * 0.15, r * 0.95);
+    ctx.lineTo(-r * 0.15, r * 0.95);
+    ctx.lineTo(-r * 0.35, r * 0.3);
+    ctx.lineTo(-r * 0.25, -r * 0.6);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Wide wingspan
+    ctx.beginPath();
+    ctx.moveTo(r * 0.2, -r * 0.1);
+    ctx.lineTo(r * 1.4, r * 0.35);
+    ctx.lineTo(r * 0.9, r * 0.55);
+    ctx.lineTo(r * 0.1, r * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.2, -r * 0.1);
+    ctx.lineTo(-r * 1.4, r * 0.35);
+    ctx.lineTo(-r * 0.9, r * 0.55);
+    ctx.lineTo(-r * 0.1, r * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Tail section
+    ctx.beginPath();
+    ctx.moveTo(r * 0.08, r * 0.7);
+    ctx.lineTo(r * 0.55, r * 1.05);
+    ctx.lineTo(-r * 0.55, r * 1.05);
+    ctx.lineTo(-r * 0.08, r * 0.7);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fill();
+
+    // Bomber cockpit (bubble style)
+    this._drawCockpit(ctx, 0, -r * 0.7, r * 0.22);
+
+    // Four engine glows
+    this._drawEngineGlow(ctx, r * 0.3, r * 0.55, r * 0.12, '#ffaa00');
+    this._drawEngineGlow(ctx, -r * 0.3, r * 0.55, r * 0.12, '#ffaa00');
+  },
+
+  // 'sniperElite': Precision bomber - thin long body, targeting sight
+  _drawPrecisionBomber(ctx, color) {
+    const r = this.size;
+    const player = window.game ? window.game.player : null;
+
+    // Thin elongated fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.5);
+    ctx.lineTo(r * 0.2, -r * 0.4);
+    ctx.lineTo(r * 0.25, r * 0.3);
+    ctx.lineTo(r * 0.12, r * 1.0);
+    ctx.lineTo(-r * 0.12, r * 1.0);
+    ctx.lineTo(-r * 0.25, r * 0.3);
+    ctx.lineTo(-r * 0.2, -r * 0.4);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    // Small orbiting diamonds
-    const count = 3;
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 / count) * i + this.moveTimer * 0.003;
-      const sx = Math.cos(angle) * r * 0.55;
-      const sy = Math.sin(angle) * r * 0.55;
-      const sr = r * 0.2;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy - sr);
-      ctx.lineTo(sx + sr * 0.6, sy);
-      ctx.lineTo(sx, sy + sr);
-      ctx.lineTo(sx - sr * 0.6, sy);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fill();
-    }
-    // Center eye
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawTank(ctx, color) {
-    // Thick hexagon
-    const r = this.size;
-    const sides = 6;
+    // Precision wings
     ctx.beginPath();
-    for (let i = 0; i < sides; i++) {
-      const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
-      const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
+    ctx.moveTo(r * 0.15, -r * 0.05);
+    ctx.lineTo(r * 1.2, r * 0.4);
+    ctx.lineTo(r * 0.7, r * 0.6);
+    ctx.lineTo(r * 0.08, r * 0.2);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    // Inner armor plate
     ctx.beginPath();
-    for (let i = 0; i < sides; i++) {
-      const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
-      const px = Math.cos(angle) * r * 0.6;
-      const py = Math.sin(angle) * r * 0.6;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,200,150,0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawSniperElite(ctx, color) {
-    // Triangle with targeting line
-    const r = this.size;
-    const player = window.game ? window.game.player : null;
-    // Triangle pointing down
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.9, r * 0.5);
-    ctx.lineTo(-r * 0.9, r * 0.5);
+    ctx.moveTo(-r * 0.15, -r * 0.05);
+    ctx.lineTo(-r * 1.2, r * 0.4);
+    ctx.lineTo(-r * 0.7, r * 0.6);
+    ctx.lineTo(-r * 0.08, r * 0.2);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    // Targeting line toward player
+
+    // Targeting line toward player (keep existing behavior)
     if (player && player.active) {
       const dx = player.x - this.x;
       const dy = player.y - this.y;
@@ -1264,112 +1244,649 @@ class Enemy {
         const tLineLen = Math.min(dist * 0.8, 200);
         const endX = (dx / dist) * tLineLen;
         const endY = (dy / dist) * tLineLen;
-        ctx.strokeStyle = 'rgba(255,50,50,0.4)';
+        ctx.strokeStyle = 'rgba(255,50,50,0.5)';
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 5]);
         ctx.beginPath();
-        ctx.moveTo(0, r * 0.5);
+        ctx.moveTo(0, -r * 0.5);
         ctx.lineTo(endX, endY);
         ctx.stroke();
         ctx.setLineDash([]);
-        // Targeting dot at end
-        ctx.fillStyle = 'rgba(255,50,50,0.7)';
+        // Targeting crosshair at end
+        ctx.strokeStyle = 'rgba(255,50,50,0.8)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(endX, endY, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(endX, endY, 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(endX - 6, endY);
+        ctx.lineTo(endX + 6, endY);
+        ctx.moveTo(endX, endY - 6);
+        ctx.lineTo(endX, endY + 6);
+        ctx.stroke();
       }
     }
-    // Core
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.beginPath();
-    ctx.arc(0, -r * 0.15, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawSwarmer(ctx, color) {
-    // Small clustered triangles
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.6, r * 0.18);
+  },
+
+  // 'tank': Heavy bomber - very wide, slow, bomb bay
+  _drawHeavyBomber(ctx, color) {
     const r = this.size;
-    const wobble = Math.sin(this.moveTimer * 0.01 + this.swarmPhase) * 0.3;
-    // 3 tiny triangles
-    for (let i = 0; i < 3; i++) {
-      const angle = (Math.PI * 2 / 3) * i + wobble;
-      const cx = Math.cos(angle) * r * 0.5;
-      const cy = Math.sin(angle) * r * 0.5;
+
+    // Very wide fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.0);
+    ctx.lineTo(r * 0.7, -r * 0.1);
+    ctx.lineTo(r * 0.75, r * 0.3);
+    ctx.lineTo(r * 0.4, r * 0.8);
+    ctx.lineTo(-r * 0.4, r * 0.8);
+    ctx.lineTo(-r * 0.75, r * 0.3);
+    ctx.lineTo(-r * 0.7, -r * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Extra wide wings (squared off - bomber style)
+    ctx.beginPath();
+    ctx.moveTo(r * 0.35, -r * 0.05);
+    ctx.lineTo(r * 1.5, r * 0.3);
+    ctx.lineTo(r * 1.5, r * 0.5);
+    ctx.lineTo(r * 0.3, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.35, -r * 0.05);
+    ctx.lineTo(-r * 1.5, r * 0.3);
+    ctx.lineTo(-r * 1.5, r * 0.5);
+    ctx.lineTo(-r * 0.3, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.stroke();
+
+    // Bomb bay markings (rectangles on belly)
+    ctx.strokeStyle = 'rgba(255,200,50,0.4)';
+    ctx.lineWidth = 1;
+    for (let i = -1; i <= 1; i++) {
+      const bx = i * r * 0.35;
+      ctx.strokeRect(bx - r * 0.15, r * 0.3, r * 0.3, r * 0.25);
+    }
+
+    // Four engines in wings
+    for (let s = -1; s <= 1; s += 2) {
+      this._drawEngineGlow(ctx, s * r * 0.9, r * 0.25, r * 0.14, '#ffaa00');
+      this._drawEngineGlow(ctx, s * r * 1.2, r * 0.38, r * 0.14, '#ffaa00');
+    }
+
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.3, r * 0.22);
+  },
+
+  // 'shielder': Armored bomber - thick body, shield ring
+  _drawArmoredBomber(ctx, color) {
+    const r = this.size;
+
+    // Shield ring (keep existing shield logic)
+    if (this.shieldHp > 0 && !this.shieldDepleted) {
+      const shieldAlpha = 0.3 + (this.shieldHp / this.shieldMaxHp) * 0.4;
+      let shieldStroke = this.shieldColor;
+      if (shieldStroke.startsWith('#')) {
+        ctx.strokeStyle = shieldStroke;
+        ctx.globalAlpha = shieldAlpha;
+      } else {
+        ctx.strokeStyle = shieldStroke.replace(')', `,${shieldAlpha})`).replace('rgb', 'rgba');
+      }
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(cx, cy - r * 0.5);
-      ctx.lineTo(cx + r * 0.35, cy + r * 0.3);
-      ctx.lineTo(cx - r * 0.35, cy + r * 0.3);
+      ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2);
+      ctx.stroke();
+      const pulse = 1 + Math.sin(this.moveTimer * 0.01) * 0.12;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.1 * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (this.shieldDepleted && this.shieldRegenTimer < this.shieldRegenDelay) {
+      const regenPercent = this.shieldRegenTimer / this.shieldRegenDelay;
+      ctx.strokeStyle = 'rgba(255,100,100,0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.05, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * regenPercent);
+      ctx.stroke();
+    }
+
+    // Thick armored fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.1);
+    ctx.lineTo(r * 0.55, -r * 0.1);
+    ctx.lineTo(r * 0.6, r * 0.3);
+    ctx.lineTo(r * 0.3, r * 0.75);
+    ctx.lineTo(-r * 0.3, r * 0.75);
+    ctx.lineTo(-r * 0.6, r * 0.3);
+    ctx.lineTo(-r * 0.55, -r * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Armored wings
+    ctx.beginPath();
+    ctx.moveTo(r * 0.3, r * 0.05);
+    ctx.lineTo(r * 1.1, r * 0.3);
+    ctx.lineTo(r * 0.8, r * 0.5);
+    ctx.lineTo(r * 0.2, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.3, r * 0.05);
+    ctx.lineTo(-r * 1.1, r * 0.3);
+    ctx.lineTo(-r * 0.8, r * 0.5);
+    ctx.lineTo(-r * 0.2, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Cockpit
+    this._drawCockpit(ctx, 0, -r * 0.35, r * 0.24);
+  },
+
+  // ===========================================================================
+  // SPECIAL AIRCRAFT
+  // ===========================================================================
+
+  // 'splitter': Drone carrier - boxy body with side drones
+  _drawDroneCarrier(ctx, color) {
+    const r = this.size;
+
+    // Boxy fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.9);
+    ctx.lineTo(r * 0.5, -r * 0.15);
+    ctx.lineTo(r * 0.5, r * 0.5);
+    ctx.lineTo(-r * 0.5, r * 0.5);
+    ctx.lineTo(-r * 0.5, -r * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Deck markings
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 0.5;
+    for (let sy = -r * 0.2; sy <= r * 0.3; sy += r * 0.25) {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.4, sy);
+      ctx.lineTo(r * 0.4, sy);
+      ctx.stroke();
+    }
+
+    // Side drones (small attached planes)
+    const wobble = Math.sin(this.moveTimer * 0.005) * r * 0.15;
+    for (let side = -1; side <= 1; side += 2) {
+      const dx = side * (r * 0.6 + wobble);
+      const dy = r * 0.1 + wobble;
+      ctx.beginPath();
+      ctx.moveTo(dx, dy - r * 0.4);
+      ctx.lineTo(dx + side * r * 0.2, dy + r * 0.15);
+      ctx.lineTo(dx - side * r * 0.2, dy + r * 0.15);
       ctx.closePath();
-      ctx.fillStyle = color;
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.3)';
       ctx.lineWidth = 0.5;
       ctx.stroke();
     }
-    // Central core
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
-  _drawKamikaze(ctx, color) {
-    // Flashing red circle
+    // Cockpit/bridge
+    this._drawCockpit(ctx, 0, -r * 0.4, r * 0.2);
+  },
+
+  // 'spawner': Carrier - larger body, hangar deck shape, orbiting drones
+  _drawCarrier(ctx, color) {
     const r = this.size;
-    const flash = 0.5 + Math.sin(this.moveTimer * 0.02) * 0.5;
-    // Outer glow (pulsing)
-    const grad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.5);
-    grad.addColorStop(0, `rgba(255,50,0,${0.7 + flash * 0.3})`);
-    grad.addColorStop(0.5, `rgba(255,0,0,${0.3})`);
-    grad.addColorStop(1, 'rgba(255,0,0,0)');
-    ctx.fillStyle = grad;
+
+    // Large carrier hull
     ctx.beginPath();
-    ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
-    ctx.fill();
-    // Main body
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.moveTo(0, -r * 0.8);
+    ctx.lineTo(r * 0.7, -r * 0.1);
+    ctx.lineTo(r * 0.7, r * 0.4);
+    ctx.lineTo(r * 0.3, r * 0.8);
+    ctx.lineTo(-r * 0.3, r * 0.8);
+    ctx.lineTo(-r * 0.7, r * 0.4);
+    ctx.lineTo(-r * 0.7, -r * 0.1);
+    ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,100,0.6)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Hangar deck (flat top with runway markings)
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.5, -r * 0.1);
+    ctx.lineTo(r * 0.5, -r * 0.1);
+    ctx.lineTo(r * 0.5, r * 0.2);
+    ctx.lineTo(-r * 0.5, r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Orbiting drones (small triangles)
+    const count = 3;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i + this.moveTimer * 0.003;
+      const sx = Math.cos(angle) * r * 0.6;
+      const sy = Math.sin(angle) * r * 0.6;
+      const sr = r * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - sr);
+      ctx.lineTo(sx + sr * 0.6, sy + sr * 0.6);
+      ctx.lineTo(sx - sr * 0.6, sy + sr * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // Bridge/superstructure
+    this._drawCockpit(ctx, 0, -r * 0.3, r * 0.22);
+
+    // Engine glow
+    this._drawEngineGlow(ctx, -r * 0.35, r * 0.7, r * 0.15, '#ff8800');
+    this._drawEngineGlow(ctx, r * 0.35, r * 0.7, r * 0.15, '#ff8800');
+  },
+
+  // 'charger': Ramming interceptor - arrowhead shape, engine trail
+  _drawRammingInterceptor(ctx, color) {
+    const r = this.size;
+    let angle = 0;
+    if (this.isCharging) {
+      angle = this.chargeAngle - Math.PI / 2;
+    }
+    ctx.save();
+    ctx.rotate(angle);
+
+    // Arrowhead fuselage
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.4);
+    ctx.lineTo(r * 0.55, -r * 0.3);
+    ctx.lineTo(r * 0.3, r * 0.3);
+    ctx.lineTo(r * 0.15, r * 0.7);
+    ctx.lineTo(-r * 0.15, r * 0.7);
+    ctx.lineTo(-r * 0.3, r * 0.3);
+    ctx.lineTo(-r * 0.55, -r * 0.3);
+    ctx.closePath();
+    ctx.fillStyle = this.isCharging ? '#ffffff' : color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Forward-swept canards (small forward wings)
+    ctx.beginPath();
+    ctx.moveTo(r * 0.2, -r * 0.5);
+    ctx.lineTo(r * 0.7, -r * 0.7);
+    ctx.lineTo(r * 0.3, -r * 0.35);
+    ctx.closePath();
+    ctx.fillStyle = this.isCharging ? '#ffffff' : color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.2, -r * 0.5);
+    ctx.lineTo(-r * 0.7, -r * 0.7);
+    ctx.lineTo(-r * 0.3, -r * 0.35);
+    ctx.closePath();
+    ctx.fillStyle = this.isCharging ? '#ffffff' : color;
+    ctx.fill();
+
+    // Engine trail (when charging)
+    if (this.isCharging) {
+      const trailGrad = ctx.createLinearGradient(0, r * 0.5, 0, r * 2);
+      trailGrad.addColorStop(0, 'rgba(255,200,50,0.8)');
+      trailGrad.addColorStop(0.5, 'rgba(255,100,0,0.4)');
+      trailGrad.addColorStop(1, 'rgba(255,0,0,0)');
+      ctx.fillStyle = trailGrad;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.1, r * 0.6);
+      ctx.lineTo(r * 0.1, r * 0.6);
+      ctx.lineTo(r * 0.25, r * 1.8);
+      ctx.lineTo(-r * 0.25, r * 1.8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Cockpit highlight
+    this._drawCockpit(ctx, 0, -r * 0.5, r * 0.2);
+    ctx.restore();
+  },
+
+  // 'teleporter': Stealth fighter - angular stealth-bomber shape
+  _drawStealthFighter(ctx, color) {
+    const r = this.size;
+
+    // Teleport effect - dashed ring
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Angular stealth fuselage (B-2 style from top down)
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.2);
+    ctx.lineTo(r * 0.8, -r * 0.3);
+    ctx.lineTo(r * 1.0, r * 0.4);
+    ctx.lineTo(r * 0.5, r * 0.6);
+    ctx.lineTo(r * 0.2, r * 0.3);
+    ctx.lineTo(-r * 0.2, r * 0.3);
+    ctx.lineTo(-r * 0.5, r * 0.6);
+    ctx.lineTo(-r * 1.0, r * 0.4);
+    ctx.lineTo(-r * 0.8, -r * 0.3);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.75;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Cockpit (small, stealthy)
+    ctx.fillStyle = 'rgba(100,200,255,0.5)';
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.2, r * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core glow (teleport signature)
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.35);
+    coreGrad.addColorStop(0, '#ffffff');
+    coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 'swarmer': Drone swarm - multiple small planes clustered
+  _drawDroneSwarm(ctx, color) {
+    const r = this.size;
+    const wobble = Math.sin(this.moveTimer * 0.01 + this.swarmPhase) * 0.3;
+    // 4 small drone planes arranged in cluster
+    for (let i = 0; i < 4; i++) {
+      const angle = (Math.PI * 2 / 4) * i + wobble;
+      const cx = Math.cos(angle) * r * 0.55;
+      const cy = Math.sin(angle) * r * 0.55;
+      // Mini triangle plane
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.45);
+      ctx.lineTo(cx + r * 0.2, cy + r * 0.15);
+      ctx.lineTo(cx - r * 0.2, cy + r * 0.15);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+      // Mini wing stubs
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.05, cy - r * 0.1);
+      ctx.lineTo(cx + r * 0.35, cy + r * 0.05);
+      ctx.lineTo(cx + r * 0.2, cy + r * 0.12);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.05, cy - r * 0.1);
+      ctx.lineTo(cx - r * 0.35, cy + r * 0.05);
+      ctx.lineTo(cx - r * 0.2, cy + r * 0.12);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+    // Central core
+    this._drawCockpit(ctx, 0, 0, r * 0.25);
+  },
+
+  // 'kamikaze': Suicide drone - arrow shape, pulsing red glow
+  _drawSuicideDrone(ctx, color) {
+    const r = this.size;
+    const flash = 0.5 + Math.sin(this.moveTimer * 0.02) * 0.5;
+
+    // Pulsing red outer glow
+    const outerGrad = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 1.6);
+    outerGrad.addColorStop(0, `rgba(255,30,0,${0.7 + flash * 0.3})`);
+    outerGrad.addColorStop(0.5, `rgba(255,0,0,${0.3})`);
+    outerGrad.addColorStop(1, 'rgba(255,0,0,0)');
+    ctx.fillStyle = outerGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Arrow body
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.3);
+    ctx.lineTo(r * 0.5, -r * 0.2);
+    ctx.lineTo(r * 0.25, r * 0.3);
+    ctx.lineTo(r * 0.1, r * 0.7);
+    ctx.lineTo(-r * 0.1, r * 0.7);
+    ctx.lineTo(-r * 0.25, r * 0.3);
+    ctx.lineTo(-r * 0.5, -r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,80,0.7)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    // Danger marks (X)
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+
+    // Danger marks (X on body)
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-r * 0.4, -r * 0.4);
-    ctx.lineTo(r * 0.4, r * 0.4);
-    ctx.moveTo(r * 0.4, -r * 0.4);
-    ctx.lineTo(-r * 0.4, r * 0.4);
+    ctx.moveTo(-r * 0.25, -r * 0.45);
+    ctx.lineTo(r * 0.25, r * 0.15);
+    ctx.moveTo(r * 0.25, -r * 0.45);
+    ctx.lineTo(-r * 0.25, r * 0.15);
     ctx.stroke();
-  }
 
-  // ---------------------------------------------------------------------------
-  // BOSS SHAPES
-  // ---------------------------------------------------------------------------
-  _drawBossGuardian(ctx, color) {
+    // Cockpit (blood red glow)
+    const cockpitGrad = ctx.createRadialGradient(0, -r * 0.3, 0, 0, -r * 0.3, r * 0.2);
+    cockpitGrad.addColorStop(0, '#ffffff');
+    cockpitGrad.addColorStop(0.5, `rgba(255,50,50,${0.6 + flash * 0.4})`);
+    cockpitGrad.addColorStop(1, 'rgba(255,0,0,0)');
+    ctx.fillStyle = cockpitGrad;
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.3, r * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 'obstacle': Asteroid/debris - irregular rocky shape
+  _drawAsteroid(ctx, color) {
     const r = this.size;
-    // Outer glow
-    const grad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.4);
-    grad.addColorStop(0, 'rgba(68,136,255,0.5)');
-    grad.addColorStop(0.5, 'rgba(68,136,255,0.15)');
-    grad.addColorStop(1, 'rgba(68,136,255,0)');
-    ctx.fillStyle = grad;
+    // Irregular jagged asteroid shape
+    const points = 10;
+    ctx.beginPath();
+    for (let i = 0; i < points; i++) {
+      const angle = (Math.PI * 2 / points) * i;
+      const jitter = 0.65 + Math.random() * 0.35;
+      const px = Math.cos(angle) * r * jitter;
+      const py = Math.sin(angle) * r * jitter;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#666666';
+    ctx.fill();
+    ctx.strokeStyle = '#888888';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Rocky texture - craters
+    ctx.fillStyle = 'rgba(80,80,80,0.5)';
+    ctx.beginPath();
+    ctx.arc(-r * 0.2, -r * 0.15, r * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.25, r * 0.1, r * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, r * 0.3, r * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    // Highlight edge
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.85, -Math.PI * 0.4, Math.PI * 0.2);
+    ctx.stroke();
+  },
+
+  // ===========================================================================
+  // BATTLESHIPS (BOSSES)
+  // ===========================================================================
+
+  // 'boss': Massive battleship - complex multi-part shape with turrets, bridge, engine
+  _drawBattleship(ctx, color) {
+    const r = this.size;
+
+    // Outer glow (red)
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.4);
+    glowGrad.addColorStop(0, 'rgba(255,30,0,0.5)');
+    glowGrad.addColorStop(0.5, 'rgba(255,0,0,0.15)');
+    glowGrad.addColorStop(1, 'rgba(255,0,0,0)');
+    ctx.fillStyle = glowGrad;
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Main body - hexagon
-    const sides = 6;
+    // Main hull - massive elongated shape
     ctx.beginPath();
-    for (let i = 0; i < sides; i++) {
-      const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
-      const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    ctx.moveTo(0, -r * 1.0);
+    ctx.lineTo(r * 0.7, -r * 0.4);
+    ctx.lineTo(r * 0.9, r * 0.15);
+    ctx.lineTo(r * 0.5, r * 0.55);
+    ctx.lineTo(r * 0.3, r * 0.9);
+    ctx.lineTo(-r * 0.3, r * 0.9);
+    ctx.lineTo(-r * 0.5, r * 0.55);
+    ctx.lineTo(-r * 0.9, r * 0.15);
+    ctx.lineTo(-r * 0.7, -r * 0.4);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Bridge/superstructure
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.35);
+    ctx.lineTo(r * 0.25, r * 0.05);
+    ctx.lineTo(r * 0.15, r * 0.3);
+    ctx.lineTo(-r * 0.15, r * 0.3);
+    ctx.lineTo(-r * 0.25, r * 0.05);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Turrets (side gun batteries)
+    for (let side = -1; side <= 1; side += 2) {
+      for (let ty = -0.1; ty <= 0.4; ty += 0.25) {
+        ctx.beginPath();
+        ctx.arc(side * r * 0.55, r * ty, r * 0.1, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,200,100,0.5)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        // Turret barrel
+        ctx.beginPath();
+        ctx.moveTo(side * r * 0.55, r * ty);
+        ctx.lineTo(side * r * 0.65, r * (ty + 0.06));
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
+
+    // Engine glow (large afterburners)
+    this._drawEngineGlow(ctx, -r * 0.35, r * 0.7, r * 0.22, '#ff3300');
+    this._drawEngineGlow(ctx, 0, r * 0.75, r * 0.25, '#ff4400');
+    this._drawEngineGlow(ctx, r * 0.35, r * 0.7, r * 0.22, '#ff3300');
+
+    // Phase rings
+    if (this.bossPhase >= 0) {
+      ctx.strokeStyle = 'rgba(255,255,100,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (this.bossPhase >= 1) {
+      ctx.strokeStyle = 'rgba(255,100,100,0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.05, 0, Math.PI * 2);
+      ctx.stroke();
+      // Spinning outer ring
+      const rotAngle = (this.moveTimer * 0.004) % (Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = rotAngle + (Math.PI * 2 / 4) * i;
+        ctx.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+        ctx.arc(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7, r * 0.18, 0, Math.PI * 2);
+      }
+      ctx.stroke();
+    }
+  },
+
+  // 'boss_guardian': Battleship with shield turrets
+  _drawBattleshipGuardian(ctx, color) {
+    const r = this.size;
+
+    // Outer glow (blue)
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.4);
+    glowGrad.addColorStop(0, 'rgba(68,136,255,0.5)');
+    glowGrad.addColorStop(0.5, 'rgba(68,136,255,0.15)');
+    glowGrad.addColorStop(1, 'rgba(68,136,255,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main hull
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.9);
+    ctx.lineTo(r * 0.65, -r * 0.3);
+    ctx.lineTo(r * 0.85, r * 0.15);
+    ctx.lineTo(r * 0.45, r * 0.6);
+    ctx.lineTo(r * 0.25, r * 0.85);
+    ctx.lineTo(-r * 0.25, r * 0.85);
+    ctx.lineTo(-r * 0.45, r * 0.6);
+    ctx.lineTo(-r * 0.85, r * 0.15);
+    ctx.lineTo(-r * 0.65, -r * 0.3);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -1377,16 +1894,26 @@ class Enemy {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Rotating shields
+    // Bridge
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.3);
+    ctx.lineTo(r * 0.2, r * 0.05);
+    ctx.lineTo(r * 0.1, r * 0.25);
+    ctx.lineTo(-r * 0.1, r * 0.25);
+    ctx.lineTo(-r * 0.2, r * 0.05);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fill();
+
+    // Rotating shield orbs (keep existing logic)
     for (const shield of this.activeShields) {
       if (shield.hp <= 0) continue;
       const sx = Math.cos(shield.angle) * shield.radius;
       const sy = Math.sin(shield.angle) * shield.radius;
       const shieldHpPercent = shield.hp / shield.maxHp;
-      // Shield orb
       ctx.beginPath();
-      ctx.arc(sx, sy, r * 0.22, 0, Math.PI * 2);
-      const shieldGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 0.22);
+      ctx.arc(sx, sy, r * 0.2, 0, Math.PI * 2);
+      const shieldGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 0.2);
       shieldGrad.addColorStop(0, 'rgba(200,220,255,0.8)');
       shieldGrad.addColorStop(0.6, 'rgba(100,150,255,0.5)');
       shieldGrad.addColorStop(1, 'rgba(50,100,255,0)');
@@ -1395,68 +1922,75 @@ class Enemy {
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      // Shield HP arc
       if (shieldHpPercent < 1) {
         ctx.strokeStyle = 'rgba(255,100,100,0.6)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(sx, sy, r * 0.28, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldHpPercent);
+        ctx.arc(sx, sy, r * 0.26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldHpPercent);
         ctx.stroke();
       }
     }
 
+    // Turrets
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.5, r * 0.15, r * 0.09, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,220,150,0.5)';
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Engine glow
+    this._drawEngineGlow(ctx, -r * 0.3, r * 0.65, r * 0.2, '#4488ff');
+    this._drawEngineGlow(ctx, r * 0.3, r * 0.65, r * 0.2, '#4488ff');
+
     // Inner ring
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+    ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
     ctx.stroke();
-
-    // Center core
-    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.3);
-    coreGrad.addColorStop(0, '#ffffff');
-    coreGrad.addColorStop(0.5, '#88bbff');
-    coreGrad.addColorStop(1, 'rgba(68,136,255,0)');
-    ctx.fillStyle = coreGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
 
     // Phase indicators
     if (this.bossPhase >= 0) {
       ctx.strokeStyle = 'rgba(255,255,100,0.5)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (this.bossPhase >= 1) {
       ctx.strokeStyle = 'rgba(255,100,100,0.6)';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }
+  },
 
-  _drawBossSummoner(ctx, color) {
+  // 'boss_summoner': Carrier battleship with minions
+  _drawBattleshipSummoner(ctx, color) {
     const r = this.size;
+
     // Outer glow (purple)
-    const grad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.5);
-    grad.addColorStop(0, 'rgba(170,68,255,0.5)');
-    grad.addColorStop(0.5, 'rgba(170,68,255,0.15)');
-    grad.addColorStop(1, 'rgba(170,68,255,0)');
-    ctx.fillStyle = grad;
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.5);
+    glowGrad.addColorStop(0, 'rgba(170,68,255,0.5)');
+    glowGrad.addColorStop(0.5, 'rgba(170,68,255,0.15)');
+    glowGrad.addColorStop(1, 'rgba(170,68,255,0)');
+    ctx.fillStyle = glowGrad;
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Main body - diamond
+    // Carrier hull (wide, flat top for launching)
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.85, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r * 0.85, 0);
+    ctx.moveTo(0, -r * 0.7);
+    ctx.lineTo(r * 0.75, -r * 0.1);
+    ctx.lineTo(r * 0.75, r * 0.35);
+    ctx.lineTo(r * 0.4, r * 0.7);
+    ctx.lineTo(-r * 0.4, r * 0.7);
+    ctx.lineTo(-r * 0.75, r * 0.35);
+    ctx.lineTo(-r * 0.75, -r * 0.1);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -1464,25 +1998,57 @@ class Enemy {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Orbiting minion dots
+    // Flight deck markings
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.6, r * 0.0);
+    ctx.lineTo(r * 0.6, r * 0.0);
+    ctx.moveTo(-r * 0.5, r * 0.2);
+    ctx.lineTo(r * 0.5, r * 0.2);
+    ctx.stroke();
+
+    // Bridge tower
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.25);
+    ctx.lineTo(r * 0.18, r * 0.0);
+    ctx.lineTo(r * 0.08, r * 0.15);
+    ctx.lineTo(-r * 0.08, r * 0.15);
+    ctx.lineTo(-r * 0.18, r * 0.0);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fill();
+
+    // Orbiting minion drones
     for (let i = 0; i < 4; i++) {
       const angle = (Math.PI * 2 / 4) * i + this.moveTimer * 0.002;
       const ox = Math.cos(angle) * r * 0.7;
       const oy = Math.sin(angle) * r * 0.7;
-      ctx.fillStyle = 'rgba(255,200,255,0.7)';
+      // Mini plane shape
       ctx.beginPath();
-      ctx.arc(ox, oy, r * 0.15, 0, Math.PI * 2);
+      ctx.moveTo(ox, oy - r * 0.15);
+      ctx.lineTo(ox + r * 0.1, oy + r * 0.08);
+      ctx.lineTo(ox - r * 0.1, oy + r * 0.08);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,200,255,0.7)';
       ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
     }
 
-    // Inner glow
-    const innerGrad = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 0.5);
-    innerGrad.addColorStop(0, '#ffffff');
-    innerGrad.addColorStop(0.4, 'rgba(200,100,255,0.6)');
-    innerGrad.addColorStop(1, 'rgba(170,68,255,0)');
-    ctx.fillStyle = innerGrad;
+    // Engine glow
+    this._drawEngineGlow(ctx, -r * 0.3, r * 0.6, r * 0.18, '#aa44ff');
+    this._drawEngineGlow(ctx, r * 0.3, r * 0.6, r * 0.18, '#aa44ff');
+
+    // Inner core
+    const coreGrad = ctx.createRadialGradient(0, 0, r * 0.08, 0, 0, r * 0.45);
+    coreGrad.addColorStop(0, '#ffffff');
+    coreGrad.addColorStop(0.4, 'rgba(200,100,255,0.6)');
+    coreGrad.addColorStop(1, 'rgba(170,68,255,0)');
+    ctx.fillStyle = coreGrad;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+    ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
     ctx.fill();
 
     // Phase indicators
@@ -1493,31 +2059,33 @@ class Enemy {
       ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
       ctx.stroke();
     }
-  }
+  },
 
-  _drawBossDragon(ctx, color) {
+  // 'boss_dragon': Dragon battleship with wing/tail extensions and fire
+  _drawBattleshipDragon(ctx, color) {
     const r = this.size;
+
     // Outer glow (orange/red)
-    const grad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.6);
-    grad.addColorStop(0, 'rgba(255,100,0,0.6)');
-    grad.addColorStop(0.5, 'rgba(255,100,0,0.15)');
-    grad.addColorStop(1, 'rgba(255,100,0,0)');
-    ctx.fillStyle = grad;
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.6);
+    glowGrad.addColorStop(0, 'rgba(255,100,0,0.6)');
+    glowGrad.addColorStop(0.5, 'rgba(255,100,0,0.15)');
+    glowGrad.addColorStop(1, 'rgba(255,100,0,0)');
+    ctx.fillStyle = glowGrad;
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Main body - large jagged/star shape
-    const points = 8;
+    // Main hull - jagged dragon-like shape
     ctx.beginPath();
-    for (let i = 0; i < points; i++) {
-      const angle = (Math.PI * 2 / points) * i - Math.PI / 2;
-      const radius = i % 2 === 0 ? r : r * 0.6;
-      const px = Math.cos(angle) * radius;
-      const py = Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
+    ctx.moveTo(0, -r * 0.85);
+    ctx.lineTo(r * 0.5, -r * 0.35);
+    ctx.lineTo(r * 0.7, r * 0.1);
+    ctx.lineTo(r * 0.35, r * 0.5);
+    ctx.lineTo(r * 0.1, r * 0.8);
+    ctx.lineTo(-r * 0.1, r * 0.8);
+    ctx.lineTo(-r * 0.35, r * 0.5);
+    ctx.lineTo(-r * 0.7, r * 0.1);
+    ctx.lineTo(-r * 0.5, -r * 0.35);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -1525,15 +2093,16 @@ class Enemy {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Wings (side extensions)
+    // Wings (side extensions - like dragon wings)
     const wingSpread = Math.sin(this.moveTimer * 0.003) * 0.2;
     for (let side = -1; side <= 1; side += 2) {
       ctx.beginPath();
       ctx.moveTo(side * r * 0.3, -r * 0.2);
-      ctx.lineTo(side * (r * 0.9 + wingSpread * 20), -r * 0.6);
-      ctx.lineTo(side * (r * 0.7 + wingSpread * 15), r * 0.1);
+      ctx.lineTo(side * (r * 0.95 + wingSpread * 18), -r * 0.35);
+      ctx.lineTo(side * (r * 0.8 + wingSpread * 12), r * 0.1);
+      ctx.lineTo(side * r * 0.2, r * 0.05);
       ctx.closePath();
-      ctx.fillStyle = 'rgba(255,80,0,0.5)';
+      ctx.fillStyle = 'rgba(255,80,0,0.45)';
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,150,50,0.5)';
       ctx.lineWidth = 1;
@@ -1542,9 +2111,9 @@ class Enemy {
 
     // Tail (bottom extension)
     ctx.beginPath();
-    ctx.moveTo(-r * 0.2, r * 0.5);
-    ctx.lineTo(0, r * 1.1);
-    ctx.lineTo(r * 0.2, r * 0.5);
+    ctx.moveTo(-r * 0.15, r * 0.55);
+    ctx.lineTo(0, r * 1.15);
+    ctx.lineTo(r * 0.15, r * 0.55);
     ctx.closePath();
     ctx.fillStyle = 'rgba(255,80,0,0.4)';
     ctx.fill();
@@ -1563,38 +2132,38 @@ class Enemy {
     ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes
-    const eyeY = -r * 0.2;
+    // Eyes (bridge viewports)
+    const eyeY = -r * 0.25;
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(-r * 0.2, eyeY, r * 0.12, 0, Math.PI * 2);
+    ctx.arc(-r * 0.18, eyeY, r * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(r * 0.2, eyeY, r * 0.12, 0, Math.PI * 2);
+    ctx.arc(r * 0.18, eyeY, r * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#000000';
     ctx.beginPath();
-    ctx.arc(-r * 0.2, eyeY, r * 0.06, 0, Math.PI * 2);
+    ctx.arc(-r * 0.18, eyeY, r * 0.05, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(r * 0.2, eyeY, r * 0.06, 0, Math.PI * 2);
+    ctx.arc(r * 0.18, eyeY, r * 0.05, 0, Math.PI * 2);
     ctx.fill();
 
     // Phase indicators
     if (this.bossPhase >= 0) {
       ctx.strokeStyle = 'rgba(255,255,100,0.5)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (this.bossPhase >= 1) {
       ctx.strokeStyle = 'rgba(255,100,100,0.6)';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, 0, r * 1.0, 0, Math.PI * 2);
       ctx.stroke();
-      // Tail swipe zone indicator (bottom arc)
+      // Tail swipe indicator
       ctx.strokeStyle = 'rgba(255,200,50,0.4)';
       ctx.lineWidth = 1;
       ctx.beginPath();
