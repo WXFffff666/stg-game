@@ -380,6 +380,9 @@
       for (let bi = 0; bi < game.playerBullets.length; bi++) {
         const bullet = game.playerBullets[bi];
         if (!bullet.active) continue;
+        // Early bounds check: skip bullets far off screen
+        if (bullet.x < -100 || bullet.x > game.width + 100 ||
+            bullet.y < -100 || bullet.y > game.height + 100) continue;
         for (let ei = 0; ei < game.enemies.length; ei++) {
           const enemy = game.enemies[ei];
           if (!enemy.active) continue;
@@ -387,6 +390,11 @@
             handleBulletHitEnemy(bullet, enemy);
             if (!bullet.active) break; // Bullet destroyed
           }
+        }
+        // Safety: break if too many collision iterations (performance guard)
+        if (bi > 200) break;
+      }
+    }
         }
         // Safety: break if too many collision iterations (performance guard)
         if (bi > 200) break;
@@ -480,6 +488,11 @@
     } else {
       bullet.active = false;
       game.removeEntity(bullet);
+    }
+
+    // Void rift execute: instant kill enemies below HP threshold
+    if (bullet.executeThreshold && enemy.hp && enemy.maxHp && enemy.hp / enemy.maxHp < bullet.executeThreshold) {
+      damage = 9999;
     }
 
     // Apply damage
@@ -712,7 +725,7 @@
     
     if (skillManager) {
       document.getElementById('level-text').textContent = skillManager.level;
-      const xpNeeded = skillManager._xpNeeded;
+      const xpNeeded = skillManager.xpNeeded;
       const xpPct = xpNeeded > 0 ? Math.min(100, (skillManager.xp / xpNeeded) * 100) : 0;
       document.getElementById('xp-fill').style.width = xpPct + '%';
     }
