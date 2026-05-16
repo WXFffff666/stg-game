@@ -237,48 +237,31 @@ class Bullet {
     var game = window.game;
     if (game.particles.length >= GAME_CONFIG.BALANCE.MAX_PARTICLES) return;
 
-    var self = this;
-    game.addEntity({
-      x: this.x,
-      y: this.y,
-      vx: (Math.random() - 0.5) * 30,
-      vy: (Math.random() - 0.5) * 30,
-      size: this.size * 0.45,
-      color: this.trailColor,
-      lifetime: 0.25 + Math.random() * 0.15,
-      active: true,
-      category: 'particle',
-      drawLayer: this.drawLayer,
-      _age: 0,
+    // Use particle pool instead of creating new objects (prevents GC pressure)
+    var p = game.getFromPool(game.particlePool, function() { return new Particle(); });
+    if (!p) return;
 
-      update: function(dt) {
-        this._age += dt;
-        if (this._age >= this.lifetime || this.size <= 0.1) {
-          self._cleanupParticle(this);
-          return;
-        }
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
-        this.size *= 0.94;
-      },
-
-      draw: function(ctx) {
-        if (!this.active) return;
-        var alpha = 1 - this._age / this.lifetime;
-        ctx.globalAlpha = Math.max(0, alpha);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-    });
-  }
-
-  _cleanupParticle(particle) {
-    particle.active = false;
-    window.game.removeEntity(particle);
-    // Trail particles are plain objects, don't pool them
+    p.x = this.x;
+    p.y = this.y;
+    p.vx = (Math.random() - 0.5) * 30;
+    p.vy = (Math.random() - 0.5) * 30;
+    p.size = this.size * 0.45;
+    p.color = this.trailColor;
+    p.life = 250; // ms
+    p.maxLife = 250;
+    p.alpha = 1;
+    p.gravity = 0;
+    p.rotation = 0;
+    p.rotationSpeed = 0;
+    p.active = true;
+    p.category = 'particle';
+    p.drawLayer = this.drawLayer;
+    p.hitRadius = 0;
+    p.isSquare = false;
+    p._customDraw = null;
+    p._customUpdate = null;
+    p._data = null;
+    game.addEntity(p);
   }
 
   // ============================================================

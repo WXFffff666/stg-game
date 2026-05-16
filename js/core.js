@@ -144,10 +144,11 @@ class Game {
   addEntity(entity) {
     // Cap total entities to prevent memory explosion
     if (this.entities.length >= 800) {
-      // Drop oldest inactive entity to make room
+      // Drop oldest inactive entity to make room (swap-and-pop)
       for (let i = 0; i < this.entities.length; i++) {
         if (!this.entities[i].active) {
-          this.entities.splice(i, 1);
+          this.entities[i] = this.entities[this.entities.length - 1];
+          this.entities.pop();
           break;
         }
       }
@@ -194,16 +195,24 @@ class Game {
     const list = lists[entity.category];
     if (list) {
       const idx = list.indexOf(entity);
-      if (idx >= 0) list.splice(idx, 1);
+      if (idx >= 0) {
+        list[idx] = list[list.length - 1];
+        list.pop();
+      }
     }
   }
 
   // Periodically clean inactive entities from category arrays to prevent memory leaks
   _purgeCategoryArrays() {
     const purgeList = (list) => {
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (!list[i].active) list.splice(i, 1);
+      let write = 0;
+      for (let read = 0; read < list.length; read++) {
+        if (list[read].active) {
+          list[write] = list[read];
+          write++;
+        }
       }
+      list.length = write;
     };
     purgeList(this.players);
     purgeList(this.enemies);
@@ -275,7 +284,10 @@ class Game {
     if (this.pendingRemove.length > 0) {
       for (const entity of this.pendingRemove) {
         const idx = this.entities.indexOf(entity);
-        if (idx >= 0) this.entities.splice(idx, 1);
+        if (idx >= 0) {
+          this.entities[idx] = this.entities[this.entities.length - 1];
+          this.entities.pop();
+        }
         this._uncategorizeEntity(entity);
       }
       this.pendingRemove.length = 0;
@@ -315,8 +327,9 @@ class Game {
     for (let i = this.entities.length - 1; i >= 0; i--) {
       const entity = this.entities[i];
       if (!entity.active) {
-        // Remove dead entities from the main array immediately
-        this.entities.splice(i, 1);
+        // Swap-and-pop: O(1) removal instead of splice O(N)
+        this.entities[i] = this.entities[this.entities.length - 1];
+        this.entities.pop();
         continue;
       }
       if (entity.update) {

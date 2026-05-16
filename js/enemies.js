@@ -399,15 +399,17 @@ class Enemy {
         this.y += Math.sin(this.moveTimer * 0.003 + this.swarmPhase * 1.5) * 15;
         // Drift toward other swarmers
         if (game && game.enemies) {
-          const swarmBuddies = game.enemies.filter(e =>
-            e.active && e !== this && e.type === 'swarmer' && !e.isCharging);
-          if (swarmBuddies.length > 0) {
-            let avgX = 0, avgY = 0;
-            for (const s of swarmBuddies) {
-              avgX += s.x; avgY += s.y;
+          let swarmCount = 0, avgX = 0, avgY = 0;
+          for (let i = 0; i < game.enemies.length; i++) {
+            const e = game.enemies[i];
+            if (e.active && e !== this && e.type === 'swarmer' && !e.isCharging) {
+              avgX += e.x; avgY += e.y;
+              swarmCount++;
             }
-            avgX /= swarmBuddies.length;
-            avgY /= swarmBuddies.length;
+          }
+          if (swarmCount > 0) {
+            avgX /= swarmCount;
+            avgY /= swarmCount;
             this.x += (avgX - this.x) * 0.01;
             this.y += (avgY - this.y) * 0.005;
           }
@@ -528,7 +530,10 @@ class Enemy {
     if (!game || !game.addEntity) return;
     // Count existing minions from this spawner
     if (game.enemies) {
-      const myMinions = game.enemies.filter(e => e.active && e._spawnedBy === this).length;
+      let myMinions = 0;
+      for (let i = 0; i < game.enemies.length; i++) {
+        if (game.enemies[i].active && game.enemies[i]._spawnedBy === this) myMinions++;
+      }
       if (myMinions >= this.maxMinions) return;
     }
     const template = GAME_CONFIG.ENEMIES[this.spawnType];
@@ -2292,7 +2297,10 @@ class WaveSpawner {
 
     if (this.waveState === 'active') {
       // Check wave complete
-      const activeNonBoss = game.enemies.filter(e => e.active && !e.isBoss).length;
+      let activeNonBoss = 0;
+      for (let i = 0; i < game.enemies.length; i++) {
+        if (game.enemies[i].active && !game.enemies[i].isBoss) activeNonBoss++;
+      }
       if (this.waveEnemiesSpawned >= this.waveEnemiesTotal && activeNonBoss === 0) {
         this._completeWave(game);
         return;
@@ -2388,7 +2396,10 @@ class WaveSpawner {
   // ---------------------------------------------------------------------------
   _spawnWaveGroup(game, difficulty, spawnRules) {
     // Existing logic but track spawned count
-    const activeEnemies = game.enemies.filter(e => e.active && !e.isBoss).length;
+    let activeEnemies = 0;
+    for (let i = 0; i < game.enemies.length; i++) {
+      if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
+    }
     if (activeEnemies >= spawnRules.maxEnemiesOnScreen) return;
 
     const applicableGroups = [];
@@ -2419,7 +2430,10 @@ class WaveSpawner {
   // SPAWN ELITE WAVE GROUP
   // ---------------------------------------------------------------------------
   _spawnEliteWaveGroup(game, difficulty, spawnRules) {
-    const activeEnemies = game.enemies.filter(e => e.active && !e.isBoss).length;
+    let activeEnemies = 0;
+    for (let i = 0; i < game.enemies.length; i++) {
+      if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
+    }
     if (activeEnemies >= spawnRules.maxEnemiesOnScreen) return;
 
     // Elite wave compositions
