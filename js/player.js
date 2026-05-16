@@ -389,15 +389,12 @@ var ShipDesigns = {
     // Edge glow
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.moveTo(0, -s * 0.9);
     ctx.lineTo(-s * 0.7, s * 0.6);
     ctx.lineTo(s * 0.7, s * 0.6);
     ctx.closePath();
     ctx.stroke();
-    ctx.shadowBlur = 0;
   },
 
   // 13. thunder: Lightning bolt shaped
@@ -833,10 +830,6 @@ class Player {
 
     // --- Draw ship design (skip hull if invincibility flicker) ---
     if (!invFlicker) {
-      // Outer glow
-      ctx.shadowColor = this.factionColor;
-      ctx.shadowBlur = 18;
-
       // Draw faction-specific ship design
       var s = 13; // base ship size
       var design = ShipDesigns[this.factionId];
@@ -852,9 +845,9 @@ class Player {
         ctx.closePath();
         ctx.fill();
       }
+    }
 
       // Reset shadow
-      ctx.shadowBlur = 0;
     }
 
     // --- Invincibility energy ring (draws even during flicker) ---

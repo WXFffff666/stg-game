@@ -14,31 +14,23 @@
 function _drawCross(ctx, x, y, size, color, isDebuff) {
   var hw = size * 0.3;
   var hh = size * 0.5;
-  // Glow
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.fillStyle = color;
   ctx.fillRect(x - hw, y - hh, hw * 2, hh * 2);
   ctx.fillRect(x - hh, y - hw, hh * 2, hw * 2);
   // Debuff: red warning ring
   if (isDebuff) {
-    ctx.shadowColor = 'rgba(255,0,0,0.7)';
-    ctx.shadowBlur = 6;
     ctx.strokeStyle = 'rgba(255,40,40,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
 }
 
 function _drawStar(ctx, x, y, size, color, isDebuff) {
   var outerR = size * 0.5;
   var innerR = size * 0.2;
   var points = 5;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.beginPath();
   for (var i = 0; i < points * 2; i++) {
     var r = i % 2 === 0 ? outerR : innerR;
@@ -65,21 +57,16 @@ function _drawStar(ctx, x, y, size, color, isDebuff) {
   ctx.closePath();
   ctx.fill();
   if (isDebuff) {
-    ctx.shadowColor = 'rgba(255,0,0,0.7)';
-    ctx.shadowBlur = 6;
     ctx.strokeStyle = 'rgba(255,40,40,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
 }
 
 function _drawDiamond(ctx, x, y, size, color, isDebuff) {
   var half = size * 0.5;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.moveTo(x, y - half);
   ctx.lineTo(x + half, y);
@@ -99,20 +86,15 @@ function _drawDiamond(ctx, x, y, size, color, isDebuff) {
   ctx.closePath();
   ctx.fill();
   if (isDebuff) {
-    ctx.shadowColor = 'rgba(255,0,0,0.7)';
-    ctx.shadowBlur = 6;
     ctx.strokeStyle = 'rgba(255,40,40,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
 }
 
 function _drawCircle(ctx, x, y, size, color, isDebuff) {
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
   ctx.fillStyle = color;
@@ -123,15 +105,12 @@ function _drawCircle(ctx, x, y, size, color, isDebuff) {
   ctx.arc(x, y, size * 0.25, 0, Math.PI * 2);
   ctx.fill();
   if (isDebuff) {
-    ctx.shadowColor = 'rgba(255,0,0,0.7)';
-    ctx.shadowBlur = 6;
     ctx.strokeStyle = 'rgba(255,40,40,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
 }
 
 var _SHAPE_DRAWERS = {
@@ -602,10 +581,7 @@ Item.prototype = {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillStyle = this.color;
-      ctx.shadowColor = this.color;
-      ctx.shadowBlur = 4;
       ctx.fillText(this.config.dropText, this.x, this.y - this.size * 0.65);
-      ctx.shadowBlur = 0;
       ctx.restore();
     }
   },

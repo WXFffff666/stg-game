@@ -197,17 +197,12 @@ function _createDamageNumber() {
       ctx.globalAlpha = alpha;
       ctx.translate(this.x, this.y);
       ctx.scale(this._scale, this._scale);
-      // Shadow for readability
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 3;
       ctx.fillStyle = this.color;
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this.value, 0, 0);
       // Bright outline
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 2;
       ctx.strokeText(this.value, 0, 0);
@@ -511,8 +506,6 @@ var ParticleSystem = {
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
-      ctx.shadowColor = this._glowColor;
-      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.moveTo(segs[0].x, segs[0].y);
       for (var i = 1; i < segs.length; i++) {
@@ -523,8 +516,11 @@ var ParticleSystem = {
       // Thin inner white core
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 0.8;
-      ctx.shadowBlur = 4;
-      ctx.shadowColor = '#ffffff';
+      ctx.stroke();
+
+      // Thin inner white core
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.8;
       ctx.stroke();
 
       ctx.restore();
