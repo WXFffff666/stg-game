@@ -633,8 +633,6 @@ class SkillManager {
         ctx.save();
         ctx.strokeStyle = 'rgba(100, 200, 255, ' + (alpha * 0.9) + ')';
         ctx.lineWidth = 2.5 * alpha;
-        ctx.shadowColor = '#44aaff';
-        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.moveTo(this.x1, this.y1);
         // Jagged line segments
@@ -737,9 +735,9 @@ class SkillManager {
             this._hitEnemies[e._id] = true;
             e.takeDamage(this.damage);
             // Apply burn
-            if (e._burnTimer === undefined) e._burnTimer = 0;
-            e._burnTimer = this.burnDuration;
-            e._burnDamage = 5;
+            if (e.burnTimer === undefined) e.burnTimer = 0;
+            e.burnTimer = this.burnDuration;
+            e.burnDamage = 5;
           }
         }
       },
@@ -817,6 +815,8 @@ class SkillManager {
             this._slowedEnemies[e._id] = e;
             e._origSpeed = e.speed;
             e.speed *= 0.35;
+            // Apply freeze effect to enemies in blizzard radius
+            e.frozenTimer = Math.max(e.frozenTimer || 0, 1000);
           }
         }
 
@@ -1161,8 +1161,6 @@ class SkillManager {
           ctx.save();
           ctx.globalAlpha = alpha;
           ctx.translate(this.x, this.y);
-          ctx.shadowColor = player.factionColor;
-          ctx.shadowBlur = 12;
           ctx.fillStyle = player.factionColor;
           ctx.beginPath();
           ctx.moveTo(0, -10);
