@@ -826,6 +826,41 @@ class Enemy {
       default:            this._drawFighter(ctx, color, false); break;
     }
 
+    // Status effect visual overlays
+    if (this.frozenTimer > 0) {
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(200, 240, 255, 0.6)';
+      ctx.lineWidth = 1;
+      for (var ci = 0; ci < 4; ci++) {
+        var ca = ci * Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(ca) * this.size * 0.8, Math.sin(ca) * this.size * 0.8);
+        ctx.stroke();
+      }
+    }
+    else if (this.slowTimer > 0) {
+      ctx.fillStyle = 'rgba(100, 150, 255, 0.25)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (this.poisonTimer > 0) {
+      ctx.fillStyle = 'rgba(80, 200, 60, 0.3)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (this.burnTimer > 0) {
+      ctx.fillStyle = 'rgba(255, 100, 20, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
