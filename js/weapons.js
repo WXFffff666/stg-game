@@ -158,6 +158,46 @@ class WeaponManager {
       case 'wave':
         if (B) B.wave(x, y, angleUp, spd, dmg, cfg.waveAmplitude || 3, cfg.waveFrequency || 0.06, color, trail);
         break;
+
+      case 'gravityWell':
+        if (B) B.gravityWell(x, y, angleUp, spd, dmg, cfg.wellRadius || 100, cfg.pullForce || 80, color, trail);
+        break;
+
+      case 'voidRift':
+        if (B) B.voidRift(x, y, angleUp, spd, dmg, cfg.executeThreshold || 0.1, color, trail);
+        break;
+
+      case 'missile':
+        if (B) B.missile(x, y, angleUp, spd, dmg, cfg.homingStrength || 0.04, cfg.explosionRadius || 80, color, trail);
+        break;
+
+      case 'needle':
+        if (B) B.needle(x, y, angleUp, spd, dmg, color, trail);
+        break;
+
+      case 'flame':
+        if (B) B.flame(x, y, angleUp, spd, dmg, cfg.flameLength || 180, color, trail);
+        break;
+
+      case 'shuriken':
+        if (B) B.shuriken(x, y, angleUp, spd, dmg, cfg.spinSpeed || 8, cfg.pierceCount || 5, color, trail);
+        break;
+
+      case 'lightningBolt':
+        if (B) B.lightningBolt(x, y, angleUp, spd, dmg, cfg.chainCount || 4, cfg.chainRange || 150, color, trail);
+        break;
+
+      case 'iceShard':
+        if (B) B.iceShard(x, y, angleUp, spd, dmg, cfg.slowAmount || 0.4, cfg.slowDuration || 2000, color, trail);
+        break;
+
+      case 'rocketBarrage':
+        if (B) B.rocketBarrage(x, y, angleUp, spd, dmg, cfg.rocketCount || 5, cfg.explosionRadius || 90, cfg.spreadAngle || 30, color, trail);
+        break;
+
+      case 'photonBeam':
+        if (B) B.photonBeam(x, y, angleUp, spd, dmg, cfg.beamWidth || 8, color, trail);
+        break;
     }
 
     // Extra bullets from stats (dual-wield style spread)
