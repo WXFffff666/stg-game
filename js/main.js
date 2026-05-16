@@ -689,7 +689,7 @@
     }
 
     // Apply effect via buff manager
-    buffManager.applyItem(item.config);
+    buffManager.applyBuff(item.config.effect, item.config);
 
     // Show toast
     if (item.config.dropText) {
