@@ -847,9 +847,6 @@ class Player {
       }
     }
 
-      // Reset shadow
-    }
-
     // --- Invincibility energy ring (draws even during flicker) ---
     if (this.invincibleTimer > 0) {
       var invRingRadius = this.hitboxRadius + 6 + Math.sin(this._visualTime * 8) * 3;

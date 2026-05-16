@@ -882,7 +882,7 @@ class Enemy {
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-  },
+  }
 
   // Helper: cockpit highlight
   _drawCockpit(ctx, x, y, r) {
@@ -890,7 +890,7 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-  },
+  }
 
   // Helper: engine glow
   _drawEngineGlow(ctx, x, y, r, glowColor) {
@@ -902,7 +902,7 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-  },
+  }
 
   // Helper: draw wing (left or right)
   _drawWing(ctx, side, attachX, attachY, tipOffsetX, tipOffsetY, sweepFactor, color) {
@@ -918,7 +918,7 @@ class Enemy {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
-  },
+  }
 
   // ===========================================================================
   // FIGHTERS
@@ -964,7 +964,7 @@ class Enemy {
 
     // Cockpit
     this._drawCockpit(ctx, 0, -r * 0.5, r * 0.22);
-  },
+  }
 
   // 'fastSmall': Swept-wing interceptor - narrow body + swept-back wings
   _drawInterceptor(ctx, color) {
@@ -1004,7 +1004,7 @@ class Enemy {
 
     // Tail engine glow
     this._drawEngineGlow(ctx, 0, r * 0.55, r * 0.25, '#ff6600');
-  },
+  }
 
   // 'medium': Standard fighter - triangle nose + wings + tail fins
   _drawStandardFighter(ctx, color) {
@@ -1065,7 +1065,7 @@ class Enemy {
 
     // Engine glow
     this._drawEngineGlow(ctx, 0, r * 0.7, r * 0.2, '#ffaa00');
-  },
+  }
 
   // 'elite': Heavy fighter - larger, twin tails, engine glow
   _drawHeavyFighter(ctx, color) {
@@ -1127,7 +1127,7 @@ class Enemy {
     // Glowing engines
     this._drawEngineGlow(ctx, r * 0.25, r * 0.7, r * 0.18, '#ff8800');
     this._drawEngineGlow(ctx, -r * 0.25, r * 0.7, r * 0.18, '#ff8800');
-  },
+  }
 
   // 'weaver': Agile fighter - curved body, swept wings, flowing shape
   _drawAgileFighter(ctx, color) {
@@ -1169,7 +1169,7 @@ class Enemy {
 
     // Streamlined cockpit
     this._drawCockpit(ctx, 0, -r * 0.55, r * 0.22);
-  },
+  }
 
   // ===========================================================================
   // BOMBERS
@@ -1229,7 +1229,7 @@ class Enemy {
     // Four engine glows
     this._drawEngineGlow(ctx, r * 0.3, r * 0.55, r * 0.12, '#ffaa00');
     this._drawEngineGlow(ctx, -r * 0.3, r * 0.55, r * 0.12, '#ffaa00');
-  },
+  }
 
   // 'sniperElite': Precision bomber - thin long body, targeting sight
   _drawPrecisionBomber(ctx, color) {
@@ -1304,7 +1304,7 @@ class Enemy {
 
     // Cockpit
     this._drawCockpit(ctx, 0, -r * 0.6, r * 0.18);
-  },
+  }
 
   // 'tank': Heavy bomber - very wide, slow, bomb bay
   _drawHeavyBomber(ctx, color) {
@@ -1364,7 +1364,7 @@ class Enemy {
 
     // Cockpit
     this._drawCockpit(ctx, 0, -r * 0.3, r * 0.22);
-  },
+  }
 
   // 'shielder': Armored bomber - thick body, shield ring
   _drawArmoredBomber(ctx, color) {
@@ -1437,7 +1437,7 @@ class Enemy {
 
     // Cockpit
     this._drawCockpit(ctx, 0, -r * 0.35, r * 0.24);
-  },
+  }
 
   // ===========================================================================
   // SPECIAL AIRCRAFT
@@ -1490,7 +1490,7 @@ class Enemy {
 
     // Cockpit/bridge
     this._drawCockpit(ctx, 0, -r * 0.4, r * 0.2);
-  },
+  }
 
   // 'spawner': Carrier - larger body, hangar deck shape, orbiting drones
   _drawCarrier(ctx, color) {
@@ -1550,7 +1550,7 @@ class Enemy {
     // Engine glow
     this._drawEngineGlow(ctx, -r * 0.35, r * 0.7, r * 0.15, '#ff8800');
     this._drawEngineGlow(ctx, r * 0.35, r * 0.7, r * 0.15, '#ff8800');
-  },
+  }
 
   // 'charger': Ramming interceptor - arrowhead shape, engine trail
   _drawRammingInterceptor(ctx, color) {
@@ -1613,7 +1613,7 @@ class Enemy {
     // Cockpit highlight
     this._drawCockpit(ctx, 0, -r * 0.5, r * 0.2);
     ctx.restore();
-  },
+  }
 
   // 'teleporter': Stealth fighter - angular stealth-bomber shape
   _drawStealthFighter(ctx, color) {
@@ -1662,7 +1662,7 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
     ctx.fill();
-  },
+  }
 
   // 'swarmer': Drone swarm - multiple small planes clustered
   _drawDroneSwarm(ctx, color) {
@@ -1702,7 +1702,7 @@ class Enemy {
     }
     // Central core
     this._drawCockpit(ctx, 0, 0, r * 0.25);
-  },
+  }
 
   // 'kamikaze': Suicide drone - arrow shape, pulsing red glow
   _drawSuicideDrone(ctx, color) {
@@ -1754,7 +1754,7 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(0, -r * 0.3, r * 0.2, 0, Math.PI * 2);
     ctx.fill();
-  },
+  }
 
   // 'obstacle': Asteroid/debris - irregular rocky shape
   _drawAsteroid(ctx, color) {
@@ -1793,7 +1793,7 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.85, -Math.PI * 0.4, Math.PI * 0.2);
     ctx.stroke();
-  },
+  }
 
   // ===========================================================================
   // BATTLESHIPS (BOSSES)
@@ -1895,7 +1895,7 @@ class Enemy {
       }
       ctx.stroke();
     }
-  },
+  }
 
   // 'boss_guardian': Battleship with shield turrets
   _drawBattleshipGuardian(ctx, color) {
@@ -2001,7 +2001,7 @@ class Enemy {
       ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
       ctx.stroke();
     }
-  },
+  }
 
   // 'boss_summoner': Carrier battleship with minions
   _drawBattleshipSummoner(ctx, color) {
@@ -2094,7 +2094,7 @@ class Enemy {
       ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
       ctx.stroke();
     }
-  },
+  }
 
   // 'boss_dragon': Dragon battleship with wing/tail extensions and fire
   _drawBattleshipDragon(ctx, color) {
@@ -2363,9 +2363,9 @@ class WaveSpawner {
     // Wave notification
     if (game.addMessage) {
       if (this.waveNumber % 10 === 0) {
-        game.addMessage(`⚠ BOSS WAVE ${this.waveNumber} ⚠`, '#ff4444');
+        game.addMessage(`�?BOSS WAVE ${this.waveNumber} ⚠`, '#ff4444');
       } else if (this.waveNumber % 5 === 0) {
-        game.addMessage(`⚡ Elite Wave ${this.waveNumber} ⚡`, '#ffaa00');
+        game.addMessage(`�?Elite Wave ${this.waveNumber} ⚡`, '#ffaa00');
       } else {
         game.addMessage(`Wave ${this.waveNumber}`, '#ffffff');
       }
@@ -2465,7 +2465,7 @@ class WaveSpawner {
     game.addEntity(enemy);
 
     if (game.addMessage) {
-      game.addMessage(`⚠ ${template.name} appears!`, '#ff4444');
+      game.addMessage(`�?${template.name} appears!`, '#ff4444');
     }
   }
 

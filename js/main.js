@@ -395,11 +395,6 @@
         if (bi > 200) break;
       }
     }
-        }
-        // Safety: break if too many collision iterations (performance guard)
-        if (bi > 200) break;
-      }
-    }
 
     // Collision: enemy bullets vs player (check at most 50 per frame)
     if (playerEntity.invincibleTimer <= 0 && game.enemyBullets.length > 0) {
