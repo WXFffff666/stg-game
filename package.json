@@ -1,0 +1,25 @@
+{
+	"name": "stg-game-v2",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview",
+		"zip": "npm run build && mkdir -p dist && zip -r dist/game.zip dist -x \"**/.DS_Store\"",
+		"check": "tsc"
+	},
+	"dependencies": {
+		"kaplay": "^3001.0.19"
+	},
+	"version": "1.0.0",
+	"description": "- `src` - source code for your kaplay project - `dist` - distribution folder, contains your index.html, built js bundle and static assets",
+	"main": "index.js",
+	"devDependencies": {
+		"@types/node": "^25.8.0",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.13"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}
