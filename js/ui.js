@@ -32,6 +32,9 @@ class UIManager {
     this.elBtnHowto = gid('btn-howto');
     this.elBtnBackMenu = gid('btn-back-menu');
 
+    // Star coin earned display (reused for gold)
+    this.elStarCoinEarned = gid('star-coin-earned');
+
     // Screens
     this.elMenuScreen = gid('menu-screen');
     this.elCharSelectScreen = gid('char-select-screen');
@@ -49,11 +52,18 @@ class UIManager {
     this.elHowtoScreen = gid('howto-screen');
     this.elBtnBackFromHowto = gid('btn-back-from-howto');
 
+    // Fusion notification
+    this.elFusionNotification = gid('fusion-notification');
+    this.elFusionDesc = gid('fusion-notification-desc');
+
     // Toast timer ref
     this._toastTimer = null;
 
     // Combo fade timer
     this._comboFadeTimer = null;
+
+    // Fusion notification timer
+    this._fusionNotificationTimer = null;
 
     // Callbacks (set by main.js)
     this.onStartGame = null;       // (factionId) => {}
@@ -61,6 +71,7 @@ class UIManager {
     this.onRestart = null;         // () => {}
     this.onMenu = null;            // () => {}
     this.onPauseToggle = null;     // () => {}
+    this.onFusionExecute = null;   // (fusionData) => {}
 
     // Init
     this._attachEvents();
@@ -303,44 +314,108 @@ class UIManager {
   //  Level-Up Overlay
   // ====================================================================
 
-  showLevelUp(skills, onSelect) {
-    const choices = this.elSkillChoices;
-    if (!choices) return;
+  showLevelUp(choices, onSelect) {
+    const container = this.elSkillChoices;
+    if (!container) return;
 
-    // Build skill cards
-    choices.innerHTML = '';
-    for (let i = 0; i < skills.length; i++) {
-      const s = skills[i];
+    // Build choice cards (skills and weapons)
+    container.innerHTML = '';
+    for (let i = 0; i < choices.length; i++) {
+      const item = choices[i];
+      const isWeapon = item._choiceType === 'weapon';
+      const data = item._data;
+
       const card = document.createElement('div');
-      card.className = 'skill-card rarity-' + (s.rarity || 'common');
-      card.dataset.skillId = s.id;
+      card.className = 'skill-card rarity-' + (data.rarity || 'common');
+      if (isWeapon) {
+        card.classList.add('weapon-card');
+        // Add bullet color accent
+        card.style.borderColor = data.bulletColor || '#fff';
+      }
 
+      // Icon line
+      const iconEl = document.createElement('div');
+      iconEl.className = 'skill-icon';
+      iconEl.textContent = data.icon || '';
+      iconEl.style.fontSize = '24px';
+      iconEl.style.marginBottom = '4px';
+      card.appendChild(iconEl);
+
+      // Name
       const nameEl = document.createElement('div');
       nameEl.className = 'skill-name';
-      nameEl.textContent = s.name || s.id;
+      if (isWeapon) {
+        const curLvl = item._currentLevel || 0;
+        const nextLvl = item._nextLevel || 1;
+        const upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+        const lvlLabel = upgradeCfg && upgradeCfg.descriptions ? upgradeCfg.descriptions[nextLvl] : '';
+        if (curLvl === 0) {
+          nameEl.textContent = data.name;
+        } else {
+          nameEl.textContent = data.name + ' ' + lvlLabel;
+        }
+      } else {
+        nameEl.textContent = data.name || data.id;
+      }
+      card.appendChild(nameEl);
 
+      // Description
       const descEl = document.createElement('div');
       descEl.className = 'skill-desc';
-      descEl.textContent = s.description || '';
+      if (isWeapon) {
+        descEl.textContent = data.description || '';
+        // Show upgrade preview for owned weapons
+        if (item._currentLevel > 0) {
+          const upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+          if (upgradeCfg) {
+            const curLvl = item._currentLevel;
+            const nextLvl = item._nextLevel;
+            const dmgCur = upgradeCfg.damageMult[curLvl] || 1;
+            const dmgNext = upgradeCfg.damageMult[nextLvl] || dmgCur;
+            const rateCur = upgradeCfg.fireRateMult[curLvl] || 1;
+            const rateNext = upgradeCfg.fireRateMult[nextLvl] || rateCur;
+            const upgradeText = '伤害 x' + dmgNext.toFixed(2) + ' | 射速 x' + rateNext.toFixed(2);
+            const upgradeEl = document.createElement('div');
+            upgradeEl.className = 'weapon-upgrade-info';
+            upgradeEl.textContent = upgradeText;
+            upgradeEl.style.fontSize = '9px';
+            upgradeEl.style.color = '#88ff88';
+            upgradeEl.style.marginTop = '2px';
+            descEl.appendChild(upgradeEl);
+          }
+        }
+      } else {
+        descEl.textContent = data.description || '';
+      }
+      card.appendChild(descEl);
 
+      // Type badge (for weapons)
+      if (isWeapon) {
+        const typeEl = document.createElement('div');
+        typeEl.className = 'skill-type';
+        typeEl.textContent = item._currentLevel > 0 ? '⬆️ 升级武器' : '🆕 新武器';
+        typeEl.style.fontSize = '9px';
+        typeEl.style.color = item._currentLevel > 0 ? '#ffdd44' : '#44ddff';
+        typeEl.style.marginTop = '2px';
+        card.appendChild(typeEl);
+      }
+
+      // Rarity label
       const rarityEl = document.createElement('div');
       rarityEl.className = 'skill-rarity';
-      rarityEl.textContent = this._rarityLabel(s.rarity);
-
-      card.appendChild(nameEl);
-      card.appendChild(descEl);
+      rarityEl.textContent = this._rarityLabel(data.rarity);
       card.appendChild(rarityEl);
 
-      // Add click handler
-      card.addEventListener('click', (function(skillId) {
+      // Click handler: pass full item object back
+      card.addEventListener('click', (function(selectedItem) {
         return function() {
           if (typeof onSelect === 'function') {
-            onSelect(skillId);
+            onSelect(selectedItem);
           }
         };
-      })(s.id));
+      })(item));
 
-      choices.appendChild(card);
+      container.appendChild(card);
     }
 
     // Show the overlay as flex
@@ -351,6 +426,178 @@ class UIManager {
     if (this.elLevelUp) this.elLevelUp.style.display = 'none';
   }
 
+  // ====================================================================
+  //  Fusion UI
+  // ====================================================================
+
+  /**
+   * Show fusion notification banner.
+   * @param {Array} fusions - Array of available fusion objects { type, recipe }
+   */
+  showFusionNotification(fusions) {
+    if (!this.elFusionNotification || !fusions || fusions.length === 0) return;
+
+    var desc = '';
+    for (var i = 0; i < fusions.length; i++) {
+      var f = fusions[i];
+      if (i > 0) desc += ' | ';
+      desc += f.recipe.icon + ' ' + f.recipe.name;
+    }
+    if (this.elFusionDesc) this.elFusionDesc.textContent = '点击融合: ' + desc;
+    this.elFusionNotification.style.display = 'block';
+
+    // Auto-hide after 8 seconds
+    if (this._fusionNotificationTimer) clearTimeout(this._fusionNotificationTimer);
+    this._fusionNotificationTimer = setTimeout(() => {
+      this.hideFusionNotification();
+    }, 8000);
+  }
+
+  /**
+   * Hide fusion notification banner.
+   */
+  hideFusionNotification() {
+    if (this.elFusionNotification) this.elFusionNotification.style.display = 'none';
+    if (this._fusionNotificationTimer) {
+      clearTimeout(this._fusionNotificationTimer);
+      this._fusionNotificationTimer = null;
+    }
+  }
+
+  /**
+   * Add fusion cards to the level-up choices.
+   * Called before showing level-up overlay when fusions are available.
+   * @param {Array} fusions - Array of available fusion objects { type, recipe }
+   * @param {HTMLElement} container - The skill-choices container
+   */
+  addFusionCards(fusions, container, onSelect) {
+    if (!fusions || fusions.length === 0 || !container) return;
+
+    for (var i = 0; i < fusions.length; i++) {
+      var fusion = fusions[i];
+      var recipe = fusion.recipe;
+
+      var card = document.createElement('div');
+      card.className = 'skill-card fusion-card';
+      card.setAttribute('data-fusion-id', recipe.id);
+      card.setAttribute('data-fusion-type', fusion.type);
+
+      // Icon
+      var iconEl = document.createElement('div');
+      iconEl.className = 'skill-icon';
+      iconEl.textContent = recipe.icon;
+      iconEl.style.fontSize = '24px';
+      iconEl.style.marginBottom = '4px';
+      card.appendChild(iconEl);
+
+      // Name
+      var nameEl = document.createElement('div');
+      nameEl.className = 'skill-name';
+      nameEl.textContent = '🔮 ' + recipe.name;
+      card.appendChild(nameEl);
+
+      // Description
+      var descEl = document.createElement('div');
+      descEl.className = 'skill-desc';
+      descEl.textContent = recipe.description;
+      card.appendChild(descEl);
+
+      // Ingredients
+      var ingredEl = document.createElement('div');
+      ingredEl.className = 'fusion-ingredients';
+      ingredEl.textContent = '⚡ 点击融合';
+      card.appendChild(ingredEl);
+
+      // Type badge
+      var typeEl = document.createElement('div');
+      typeEl.className = 'skill-type';
+      typeEl.textContent = '✨ 融合';
+      typeEl.style.fontSize = '9px';
+      typeEl.style.color = '#ff88ff';
+      typeEl.style.marginTop = '2px';
+      card.appendChild(typeEl);
+
+      // Rarity label
+      var rarityEl = document.createElement('div');
+      rarityEl.className = 'skill-rarity';
+      rarityEl.textContent = '传说';
+      rarityEl.style.color = '#ffaa00';
+      card.appendChild(rarityEl);
+
+      // Create a fusion item object that works with the onSelect callback
+      var fusionItem = {
+        _choiceType: 'fusion',
+        _fusionType: fusion.type,
+        _recipe: recipe,
+        _data: { id: recipe.result, name: recipe.name, rarity: 'legendary' }
+      };
+
+      // Click handler using onSelect callback (same pattern as regular cards)
+      card.addEventListener('click', (function(selectedItem) {
+        return function() {
+          if (typeof onSelect === 'function') {
+            onSelect(selectedItem);
+          }
+        };
+      })(fusionItem));
+
+      container.appendChild(card);
+    }
+  }
+
+  /**
+   * Show fusion confirmation overlay.
+   * @param {object} recipe - Fusion recipe
+   * @param {Function} onConfirm - Callback when confirmed
+   * @param {Function} onCancel - Callback when cancelled
+   */
+  showFusionConfirm(recipe, onConfirm, onCancel) {
+    // Create overlay
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:24px;font-weight:bold;color:#ff88ff;margin-bottom:16px;text-shadow:0 0 20px rgba(255,136,255,0.6);';
+    title.textContent = '🔮 融合确认';
+    overlay.appendChild(title);
+
+    var name = document.createElement('div');
+    name.style.cssText = 'font-size:20px;font-weight:bold;color:#fff;margin-bottom:8px;';
+    name.textContent = recipe.icon + ' ' + recipe.name;
+    overlay.appendChild(name);
+
+    var desc = document.createElement('div');
+    desc.style.cssText = 'font-size:13px;color:#ccaaff;margin-bottom:24px;text-align:center;max-width:300px;';
+    desc.textContent = recipe.description;
+    overlay.appendChild(desc);
+
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:16px;';
+
+    var btnConfirm = document.createElement('button');
+    btnConfirm.className = 'menu-btn highlight';
+    btnConfirm.textContent = '确认融合';
+    btnConfirm.style.cssText = 'background:linear-gradient(135deg,#6633aa,#3366aa);border:2px solid #ff44ff;';
+    btnConfirm.addEventListener('click', function() {
+      document.body.removeChild(overlay);
+      if (typeof onConfirm === 'function') onConfirm();
+    });
+    btnRow.appendChild(btnConfirm);
+
+    var btnCancel = document.createElement('button');
+    btnCancel.className = 'menu-btn';
+    btnCancel.textContent = '取消';
+    btnCancel.addEventListener('click', function() {
+      document.body.removeChild(overlay);
+      if (typeof onCancel === 'function') onCancel();
+    });
+    btnRow.appendChild(btnCancel);
+
+    overlay.appendChild(btnRow);
+    document.getElementById('ui-overlay').appendChild(overlay);
+  }
+
+  // ====================================================================
   _rarityLabel(rarity) {
     const labels = {
       common: '普通',
@@ -370,6 +617,17 @@ class UIManager {
     // Populate final score
     if (this.elFinalScore) {
       this.elFinalScore.textContent = stats.score || 0;
+    }
+
+    // Show gold earned
+    if (this.elStarCoinEarned) {
+      var earned = stats.goldEarned || 0;
+      if (earned > 0) {
+        this.elStarCoinEarned.textContent = '💰 +' + earned + ' 金币';
+        this.elStarCoinEarned.style.display = 'block';
+      } else {
+        this.elStarCoinEarned.style.display = 'none';
+      }
     }
 
     // Populate stats text
