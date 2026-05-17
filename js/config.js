@@ -21,10 +21,10 @@ const GAME_CONFIG = {
       256000, 290000, 328000, 370000, 416000, 466000, 520000, 580000, 645000, 715000, 790000, 870000, 955000, 1045000
     ],
     DIFFICULTY_INTERVAL: 45000,
-    DIFFICULTY_MULTIPLIER: 0.1,
-    DIFFICULTY_BULLET_SPEED: 0.05,
-    DIFFICULTY_ENEMY_HP: 0.08,
-    DIFFICULTY_SPAWN_RATE: 0.08,
+    DIFFICULTY_MULTIPLIER: 0.05,
+    DIFFICULTY_BULLET_SPEED: 0.02,
+    DIFFICULTY_ENEMY_HP: 0.04,
+    DIFFICULTY_SPAWN_RATE: 0.05,
     ENEMY_BULLET_DAMAGE: 10,
     COLLISION_DAMAGE: 15,
     ITEM_DROP_CHANCE: 0.15,
@@ -962,8 +962,8 @@ const GAME_CONFIG = {
     // --- Boss Types ---
     boss: {
       type: 'boss', name: 'BOSS',
-      hp: 1500, speed: 40, damage: 50, score: 5000, xp: 500,
-      size: 40, color: '#ff0000',
+      hp: 5000, speed: 40, damage: 50, score: 5000, xp: 500,
+      size: 50, color: '#ff0000',
       ai: 'boss', fireRate: 500, bulletSpeed: 250, bulletDamage: 15, bulletColor: '#ff0000',
       bulletCount: 12, spreadAngle: 360,
       dropRate: 1.0,
@@ -975,8 +975,8 @@ const GAME_CONFIG = {
     },
     boss_guardian: {
       type: 'boss_guardian', name: '守护者',
-      hp: 2000, speed: 30, damage: 40, score: 8000, xp: 700,
-      size: 45, color: '#4488ff',
+      hp: 8000, speed: 30, damage: 40, score: 8000, xp: 700,
+      size: 55, color: '#4488ff',
       ai: 'boss_guardian', fireRate: 600, bulletSpeed: 220, bulletDamage: 15, bulletColor: '#4488ff',
       bulletCount: 8, spreadAngle: 360,
       dropRate: 1.0,
@@ -988,8 +988,8 @@ const GAME_CONFIG = {
     },
     boss_summoner: {
       type: 'boss_summoner', name: '召唤之主',
-      hp: 1800, speed: 25, damage: 35, score: 7500, xp: 650,
-      size: 42, color: '#aa44ff',
+      hp: 6000, speed: 25, damage: 35, score: 7500, xp: 650,
+      size: 50, color: '#aa44ff',
       ai: 'boss_summoner', fireRate: 800, bulletSpeed: 200, bulletDamage: 12, bulletColor: '#aa44ff',
       bulletCount: 6, spreadAngle: 360,
       dropRate: 1.0,
@@ -1000,8 +1000,8 @@ const GAME_CONFIG = {
     },
     boss_dragon: {
       type: 'boss_dragon', name: '龙王',
-      hp: 2500, speed: 35, damage: 45, score: 10000, xp: 800,
-      size: 50, color: '#ff6600',
+      hp: 10000, speed: 35, damage: 45, score: 10000, xp: 800,
+      size: 60, color: '#ff6600',
       ai: 'boss_dragon', fireRate: 500, bulletSpeed: 240, bulletDamage: 18, bulletColor: '#ff6600',
       bulletCount: 10, spreadAngle: 45,
       dropRate: 1.0,

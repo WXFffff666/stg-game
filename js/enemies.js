@@ -703,7 +703,9 @@ class Enemy {
     if (this.hp <= 0) {
       this.hp = 0;
       this._onDeath();
+      return false; // Dead
     }
+    return true; // Alive
   }
 
   // ---------------------------------------------------------------------------

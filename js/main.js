@@ -475,6 +475,36 @@
     if (playerEntity.stats.freezeChance && Math.random() < playerEntity.stats.freezeChance) {
       enemy.frozenTimer = 1500;
     }
+    // Thunder: chain lightning on hit
+    if (playerEntity.stats.chainChance && Math.random() < playerEntity.stats.chainChance) {
+      chainDamage(enemy, damage * (playerEntity.stats.chainDamage || 0.5), 0);
+    }
+    // Wind: push enemy away
+    if (playerEntity.stats.pushForce) {
+      const dx = enemy.x - playerEntity.x;
+      const dy = enemy.y - playerEntity.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      enemy.x += (dx / dist) * playerEntity.stats.pushForce;
+      enemy.y += (dy / dist) * playerEntity.stats.pushForce;
+    }
+    // Void: execute enemies below HP threshold
+    if (playerEntity.stats.executeThreshold && enemy.hp / enemy.maxHp < playerEntity.stats.executeThreshold) {
+      damage = 9999;
+    }
+    // Gravity: pull enemies toward bullet impact
+    if (playerEntity.stats.pullRadius && playerEntity.stats.pullForce) {
+      for (const other of game.enemies) {
+        if (!other.active || other === enemy) continue;
+        const dx = enemy.x - other.x;
+        const dy = enemy.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < playerEntity.stats.pullRadius && dist > 1) {
+          const pull = playerEntity.stats.pullForce * (1 - dist / playerEntity.stats.pullRadius);
+          other.x += (dx / dist) * pull;
+          other.y += (dy / dist) * pull;
+        }
+      }
+    }
 
     // Pierce handling
     if (bullet.pierceCount > 0) {
