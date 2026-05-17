@@ -80,6 +80,10 @@ class Enemy {
     this.shieldDepleted = false;
     this.shieldColor = template.shieldColor || template.color;
 
+    // Elite affix system
+    this.affixes = [];
+    this._applyAffixes(template);
+
     // Charger
     this.chargeTimer = 0;
     this.chargeInterval = template.chargeInterval || 4000;
@@ -135,6 +139,72 @@ class Enemy {
   }
 
   // ---------------------------------------------------------------------------
+  // ELITE AFFIX SYSTEM
+  // ---------------------------------------------------------------------------
+  _applyAffixes(template) {
+    // Only apply affixes to elite enemies (wave 5, 15, 25, etc.)
+    const game = window.game;
+    if (!game) return;
+
+    // Check if this is an elite wave (every 5 waves, not boss wave)
+    const waveSpawner = game._waveSpawner;
+    if (!waveSpawner) return;
+
+    const waveNumber = waveSpawner.waveNumber || 0;
+    if (waveNumber % 5 !== 0 || waveNumber % 10 === 0) return;
+
+    // 30% chance to get an affix
+    if (Math.random() > 0.3) return;
+
+    // Available affixes
+    const affixes = [
+      { id: 'berserker', name: '狂暴', color: '#ff4444', effect: () => {
+        this.fireRate *= 0.5; // Attack twice as fast
+        this.bulletConfig.speed *= 1.3;
+      }},
+      { id: 'split', name: '分裂', color: '#44ff44', effect: () => {
+        this.splitCount = 2;
+        this.splitType = 'small';
+      }},
+      { id: 'shield', name: '护盾', color: '#4488ff', effect: () => {
+        this.shieldHp = this.maxHp * 0.3;
+        this.shieldMaxHp = this.shieldHp;
+      }},
+      { id: 'regen', name: '再生', color: '#44ff88', effect: () => {
+        this._regenRate = this.maxHp * 0.02; // 2% HP per second
+      }},
+      { id: 'fast', name: '迅捷', color: '#ffff44', effect: () => {
+        this.speed *= 1.5;
+        this.baseSpeed = this.speed;
+      }},
+      { id: 'tank', name: '坚韧', color: '#8844ff', effect: () => {
+        this.maxHp *= 2;
+        this.hp = this.maxHp;
+        this.size *= 1.2;
+      }},
+      { id: 'volatile', name: '易爆', color: '#ff8800', effect: () => {
+        this._volatile = true;
+        this._volatileRadius = 100;
+        this._volatileDamage = 30;
+      }},
+      { id: 'ghost', name: '幽灵', color: '#88ffff', effect: () => {
+        this._ghost = true;
+        this.hitRadius *= 0.5; // Harder to hit
+      }},
+    ];
+
+    // Pick 1-2 random affixes
+    const count = Math.random() < 0.3 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const affix = affixes[Math.floor(Math.random() * affixes.length)];
+      if (!this.affixes.find(a => a.id === affix.id)) {
+        this.affixes.push(affix);
+        affix.effect();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // UPDATE
   // ---------------------------------------------------------------------------
   update(dt) {
@@ -182,6 +252,11 @@ class Enemy {
       if (this.burnTimer <= 0) {
         this.burnTimer = 0;
       }
+    }
+
+    // Regeneration affix
+    if (this._regenRate && this._regenRate > 0) {
+      this.hp = Math.min(this.maxHp, this.hp + this._regenRate * dt);
     }
 
     // --- AI Behavior ---
@@ -274,9 +349,86 @@ class Enemy {
           if (this.y < targetY) {
             this.y += this.speed * dt;
           } else {
-            // Sway left-right around center
-            this.y = targetY;
-            this.x = targetX + Math.sin(this.moveTimer * 0.002) * 150;
+            // Complex boss movement patterns
+            this._bossMoveTimer = (this._bossMoveTimer || 0) + dt * 1000;
+            this._bossMovePattern = this._bossMovePattern || 0;
+            this._bossChargeTimer = this._bossChargeTimer || 0;
+            this._bossTeleportCooldown = this._bossTeleportCooldown || 0;
+            this._bossMinionTimer = (this._bossMinionTimer || 0) + dt * 1000;
+
+            // Change pattern every 3-5 seconds
+            if (this._bossMoveTimer > 3000 + Math.random() * 2000) {
+              this._bossMoveTimer = 0;
+              this._bossMovePattern = (this._bossMovePattern + 1) % 4;
+            }
+
+            // Teleport cooldown
+            this._bossTeleportCooldown -= dt * 1000;
+
+            // Spawn minions every 4-6 seconds
+            if (this._bossMinionTimer > 4000 + Math.random() * 2000) {
+              this._bossMinionTimer = 0;
+              this._spawnBossMinion(game, 'small');
+            }
+
+            switch (this._bossMovePattern) {
+              case 0: // Sine wave movement
+                this.y = targetY + Math.sin(this.moveTimer * 0.003) * 60;
+                this.x = targetX + Math.sin(this.moveTimer * 0.002) * 180;
+                break;
+
+              case 1: // Charge toward player
+                this._bossChargeTimer += dt * 1000;
+                if (this._bossChargeTimer < 1000) {
+                  // Windup - move to center
+                  this.x += (targetX - this.x) * 0.05;
+                  this.y += (targetY - this.y) * 0.05;
+                } else if (this._bossChargeTimer < 1500) {
+                  // Charge!
+                  if (game.player) {
+                    const dx = game.player.x - this.x;
+                    const dy = game.player.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 1) {
+                      this.x += (dx / dist) * this.speed * 3 * dt;
+                      this.y += (dy / dist) * this.speed * 3 * dt;
+                    }
+                  }
+                } else {
+                  this._bossChargeTimer = 0;
+                  // Return to position
+                  this.x += (targetX - this.x) * 0.02;
+                  this.y += (targetY - this.y) * 0.02;
+                }
+                break;
+
+              case 2: // Arc movement (figure 8)
+                const t = this.moveTimer * 0.002;
+                this.x = targetX + Math.sin(t) * 200;
+                this.y = targetY + Math.sin(t * 2) * 80;
+                break;
+
+              case 3: // Teleport
+                if (this._bossTeleportCooldown <= 0) {
+                  // Teleport to random position
+                  this.x = 50 + Math.random() * (cfg.CANVAS_WIDTH - 100);
+                  this.y = 50 + Math.random() * 150;
+                  this._bossTeleportCooldown = 2000 + Math.random() * 1000;
+                  // Flash effect
+                  if (window.ParticleSystem) {
+                    window.ParticleSystem.explosion(this.x, this.y, 'small');
+                  }
+                } else {
+                  // Slow drift toward center
+                  this.x += (targetX - this.x) * 0.01;
+                  this.y += (targetY - this.y) * 0.01;
+                }
+                break;
+            }
+
+            // Keep boss in bounds
+            this.x = Math.max(30, Math.min(cfg.CANVAS_WIDTH - 30, this.x));
+            this.y = Math.max(30, Math.min(cfg.CANVAS_HEIGHT * 0.4, this.y));
           }
         }
         break;
@@ -510,7 +662,107 @@ class Enemy {
           }
         }
         break;
+
+      case 'boss_phantom':
+        {
+          // Phantom boss: teleport + area denial
+          this._phantomTimer = (this._phantomTimer || 0) + dt * 1000;
+          this._phantomTeleportCooldown = (this._phantomTeleportCooldown || 3000) - dt * 1000;
+          this._phantomCloneTimer = (this._phantomCloneTimer || 0) + dt * 1000;
+
+          // Enter from top
+          const targetY = 100;
+          if (this.y < targetY) {
+            this.y += this.speed * dt;
+          } else {
+            // Teleport pattern
+            if (this._phantomTeleportCooldown <= 0) {
+              // Teleport to random position
+              this.x = 50 + Math.random() * (cfg.CANVAS_WIDTH - 100);
+              this.y = 50 + Math.random() * 150;
+              this._phantomTeleportCooldown = this.bossPhase >= 1 ? 1500 : 3000;
+              // Flash effect
+              if (window.ParticleSystem) {
+                window.ParticleSystem.explosion(this.x, this.y, 'small');
+              }
+              // Fire burst on teleport
+              this._fireBurst(game);
+            } else {
+              // Slow drift
+              const centerX = cfg.CANVAS_WIDTH / 2;
+              const centerY = 120;
+              this.x += (centerX + Math.sin(this.moveTimer * 0.002) * 150 - this.x) * 0.02;
+              this.y += (centerY + Math.cos(this.moveTimer * 0.003) * 50 - this.y) * 0.02;
+            }
+
+            // Phase 2+: Create phantom clones
+            if (this.bossPhase >= 1 && this._phantomCloneTimer >= 5000) {
+              this._phantomCloneTimer = 0;
+              this._spawnPhantomClone(game);
+            }
+          }
+        }
+        break;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHANTOM BOSS SPECIAL ATTACKS
+  // ---------------------------------------------------------------------------
+  _fireBurst(game) {
+    if (!game.player) return;
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i;
+      const speed = this.bulletConfig.speed;
+      if (window.BulletPatterns) {
+        window.BulletPatterns.normal(
+          this.x, this.y, angle, speed,
+          this.bulletConfig.damage, this.bulletConfig.color, this.bulletConfig.color
+        );
+      }
+    }
+  }
+
+  _spawnPhantomClone(game) {
+    // Spawn a weaker clone that explodes after a few seconds
+    const cloneTemplate = {
+      hp: this.maxHp * 0.1,
+      speed: 0,
+      damage: this.damage * 0.5,
+      score: 100,
+      xp: 50,
+      size: this.size * 0.7,
+      color: '#88ffff',
+      type: 'kamikaze',
+      ai: 'straight',
+      bulletSpeed: 0,
+      fireRate: 99999,
+      hitRadius: this.size * 0.7,
+      explodeRadius: 120,
+      explodeDamage: 30,
+    };
+
+    const clone = new Enemy({
+      x: this.x + (Math.random() - 0.5) * 100,
+      y: this.y + (Math.random() - 0.5) * 80,
+    }, cloneTemplate, game.difficulty);
+
+    // Clone explodes after 3 seconds
+    clone._cloneTimer = 3000;
+    clone._isClone = true;
+    const originalUpdate = clone.update.bind(clone);
+    clone.update = function(dt) {
+      this._cloneTimer -= dt * 1000;
+      if (this._cloneTimer <= 0) {
+        this.hp = 0;
+        this._onDeath();
+        return;
+      }
+      originalUpdate(dt);
+    };
+
+    game.addEntity(clone);
   }
 
   // ---------------------------------------------------------------------------
@@ -680,7 +932,7 @@ class Enemy {
         this.shieldDepleted = true;
         this.shieldRegenTimer = 0;
       }
-      if (amount <= 0) return; // All absorbed
+      if (amount <= 0) return true; // All absorbed by shield, enemy still alive
     }
 
     // Boss Guardian: damage goes to active shields first
@@ -692,7 +944,7 @@ class Enemy {
         const shieldDmg = Math.min(amount, shield.hp);
         shield.hp -= shieldDmg;
         amount -= shieldDmg;
-        if (amount <= 0) return; // All absorbed
+        if (amount <= 0) return true; // All absorbed by shield, enemy still alive
       }
     }
 
@@ -773,6 +1025,26 @@ class Enemy {
       }
     }
 
+    // Volatile affix: explode on death
+    if (this._volatile && this._volatileRadius > 0) {
+      if (game.player && game.player.active) {
+        const dx = game.player.x - this.x;
+        const dy = game.player.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < this._volatileRadius) {
+          const dmgScale = 1 - (dist / this._volatileRadius);
+          const dmg = Math.floor(this._volatileDamage * dmgScale);
+          if (game.player.takeDamage) {
+            game.player.takeDamage(dmg);
+          }
+        }
+      }
+      // Explosion visual
+      if (window.ParticleSystem) {
+        window.ParticleSystem.explosion(this.x, this.y, 'normal');
+      }
+    }
+
     // Item drop signal (items.js handles actual drops)
     if (window.onEnemyKilled) {
       window.onEnemyKilled(this);
@@ -830,6 +1102,7 @@ class Enemy {
       case 'boss_guardian': this._drawBattleshipGuardian(ctx, color); break;
       case 'boss_summoner': this._drawBattleshipSummoner(ctx, color); break;
       case 'boss_dragon':   this._drawBattleshipDragon(ctx, color); break;
+      case 'boss_phantom':  this._drawBattleshipPhantom(ctx, color); break;
       default:            this._drawFighter(ctx, color, false); break;
     }
 
@@ -868,7 +1141,43 @@ class Enemy {
       ctx.fill();
     }
 
+    // Elite affix visual indicators
+    if (this.affixes.length > 0) {
+      this._drawAffixIndicators(ctx);
+    }
+
     ctx.restore();
+  }
+
+  // ---------------------------------------------------------------------------
+  // ELITE AFFIX VISUAL INDICATORS
+  // ---------------------------------------------------------------------------
+  _drawAffixIndicators(ctx) {
+    const time = Date.now() * 0.003;
+    const radius = this.size * 1.3;
+
+    for (let i = 0; i < this.affixes.length; i++) {
+      const affix = this.affixes[i];
+      const angle = (Math.PI * 2 / this.affixes.length) * i + time;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+
+      // Draw affix icon
+      ctx.fillStyle = affix.color;
+      ctx.globalAlpha = 0.8 + Math.sin(time * 2) * 0.2;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw affix name (small text)
+      if (this.size > 15) {
+        ctx.fillStyle = affix.color;
+        ctx.font = '8px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(affix.name, x, y - 6);
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -2213,6 +2522,88 @@ class Enemy {
       ctx.stroke();
     }
   }
+
+  _drawBattleshipPhantom(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.005;
+
+    // Ghostly glow (cyan)
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 1.8);
+    glowGrad.addColorStop(0, 'rgba(136,255,255,0.5)');
+    glowGrad.addColorStop(0.5, 'rgba(136,255,255,0.1)');
+    glowGrad.addColorStop(1, 'rgba(136,255,255,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main body - ethereal shape
+    ctx.globalAlpha = 0.7 + Math.sin(time * 3) * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.9);
+    ctx.quadraticCurveTo(r * 0.8, -r * 0.5, r * 0.6, r * 0.2);
+    ctx.quadraticCurveTo(r * 0.3, r * 0.7, 0, r * 0.9);
+    ctx.quadraticCurveTo(-r * 0.3, r * 0.7, -r * 0.6, r * 0.2);
+    ctx.quadraticCurveTo(-r * 0.8, -r * 0.5, 0, -r * 0.9);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Ghostly tendrils
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI * 2 / 6) * i + time;
+      const tendrilLength = r * (0.8 + Math.sin(time * 2 + i) * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(
+        Math.cos(angle + 0.5) * r * 0.5,
+        Math.sin(angle + 0.5) * r * 0.5,
+        Math.cos(angle) * tendrilLength,
+        Math.sin(angle) * tendrilLength
+      );
+      ctx.strokeStyle = `rgba(136,255,255,${0.3 + Math.sin(time + i) * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 1;
+
+    // Core - pulsing eye
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.35);
+    coreGrad.addColorStop(0, '#ffffff');
+    coreGrad.addColorStop(0.3, '#88ffff');
+    coreGrad.addColorStop(0.7, 'rgba(136,255,255,0.3)');
+    coreGrad.addColorStop(1, 'rgba(136,255,255,0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Phase indicators
+    if (this.bossPhase >= 0) {
+      ctx.strokeStyle = 'rgba(136,255,255,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (this.bossPhase >= 1) {
+      // Clone indicator
+      ctx.strokeStyle = 'rgba(255,136,255,0.4)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const angle = time * 2 + (Math.PI * 2 / 3) * i;
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * r * 1.4, Math.sin(angle) * r * 1.4, r * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+
   _drawHpBar(ctx) {
     const barWidth = this.size * 2.2;
     const barHeight = 4;
@@ -2259,7 +2650,7 @@ class WaveSpawner {
     this.waveEnemiesSpawned = 0;
     this.waveEnemiesTotal = 0;
     this.waveBossSpawned = false;
-    this.waveBossTypes = ['boss', 'boss_guardian', 'boss_summoner', 'boss_dragon'];
+    this.waveBossTypes = ['boss', 'boss_guardian', 'boss_summoner', 'boss_dragon', 'boss_phantom'];
   }
 
   // ---------------------------------------------------------------------------
@@ -2373,13 +2764,98 @@ class WaveSpawner {
     // Wave notification
     if (game.addMessage) {
       if (this.waveNumber % 10 === 0) {
-        game.addMessage(`�?BOSS WAVE ${this.waveNumber} ⚠`, '#ff4444');
+        game.addMessage(`⚠️ BOSS WAVE ${this.waveNumber} ⚠`, '#ff4444');
       } else if (this.waveNumber % 5 === 0) {
-        game.addMessage(`�?Elite Wave ${this.waveNumber} ⚡`, '#ffaa00');
+        game.addMessage(`⚡ Elite Wave ${this.waveNumber} ⚡`, '#ffaa00');
       } else {
         game.addMessage(`Wave ${this.waveNumber}`, '#ffffff');
       }
     }
+
+    // Environment events every 5 waves (not boss waves)
+    if (this.waveNumber % 5 === 0 && this.waveNumber % 10 !== 0) {
+      this._triggerEnvironmentEvent(game);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ENVIRONMENT EVENTS
+  // ---------------------------------------------------------------------------
+  _triggerEnvironmentEvent(game) {
+    const events = [
+      { name: '陨石雨', color: '#ff8844', duration: 8000 },
+      { name: '电磁干扰', color: '#88ffff', duration: 10000 },
+      { name: '重力场', color: '#aa66ff', duration: 8000 },
+    ];
+    const event = events[Math.floor(Math.random() * events.length)];
+
+    if (game.addMessage) {
+      game.addMessage(`🌍 ${event.name}！`, event.color);
+    }
+
+    // Apply event effect
+    switch (event.name) {
+      case '陨石雨':
+        // Spawn meteors from top
+        this._spawnMeteorShower(game, event.duration);
+        break;
+      case '电磁干扰':
+        // Double skill cooldowns
+        if (game.player && game.player.skillManager) {
+          game.player.skillManager._cooldownMultiplier = 2.0;
+          setTimeout(() => {
+            if (game.player && game.player.skillManager) {
+              game.player.skillManager._cooldownMultiplier = 1.0;
+            }
+          }, event.duration);
+        }
+        break;
+      case '重力场':
+        // Slow all enemies and player
+        game.timeScale = 0.6;
+        setTimeout(() => {
+          game.timeScale = 1.0;
+        }, event.duration);
+        break;
+    }
+  }
+
+  _spawnMeteorShower(game, duration) {
+    const startTime = Date.now();
+    const spawnInterval = 200; // Spawn meteor every 200ms
+
+    const spawnMeteor = () => {
+      if (Date.now() - startTime >= duration) return;
+
+      const x = Math.random() * game.width;
+      const y = -20;
+      const speed = 200 + Math.random() * 150;
+      const size = 8 + Math.random() * 12;
+
+      // Create meteor enemy
+      const meteorTemplate = {
+        hp: 30,
+        speed: speed,
+        damage: 15,
+        score: 10,
+        xp: 5,
+        size: size,
+        color: '#ff6622',
+        type: 'meteor',
+        ai: 'straight',
+        bulletSpeed: 0,
+        fireRate: 99999,
+        hitRadius: size,
+      };
+
+      const meteor = new Enemy({ x, y }, meteorTemplate, game.difficulty);
+      meteor._isMeteor = true;
+      game.addEntity(meteor);
+
+      setTimeout(spawnMeteor, spawnInterval);
+    };
+
+    spawnMeteor();
   }
 
   // ---------------------------------------------------------------------------
@@ -2388,8 +2864,25 @@ class WaveSpawner {
   _completeWave(game) {
     this.waveState = 'pause';
     this.wavePauseTimer = 0;
-    if (game.addMessage) {
-      game.addMessage(`Wave ${this.waveNumber} cleared!`, '#44ff44');
+
+    // Boss wave cooldown: 10 seconds after boss is defeated
+    if (this.waveNumber % 10 === 0) {
+      this.wavePauseDuration = 10000; // 10 seconds cooldown
+      // Clear all remaining enemies (except those spawned by boss)
+      for (const enemy of game.enemies) {
+        if (enemy.active && !enemy.isBoss && !enemy._spawnedByBoss) {
+          enemy.hp = 0;
+          enemy._onDeath();
+        }
+      }
+      if (game.addMessage) {
+        game.addMessage('🎉 Boss 击败！10秒缓冲期...', '#ffdd00');
+      }
+    } else {
+      this.wavePauseDuration = 3000; // Normal 3 second pause
+      if (game.addMessage) {
+        game.addMessage(`Wave ${this.waveNumber} cleared!`, '#44ff44');
+      }
     }
   }
 
@@ -2463,6 +2956,32 @@ class WaveSpawner {
   // SPAWN WAVE BOSS
   // ---------------------------------------------------------------------------
   _spawnWaveBoss(game, difficulty) {
+    // Boss warning system
+    this._bossWarningTimer = (this._bossWarningTimer || 0);
+
+    // Show warning for 2 seconds before spawning
+    if (!this._bossWarningShown) {
+      this._bossWarningShown = true;
+      this._bossWarningTimer = 0;
+
+      // Play boss warning sound
+      if (window.audio) window.audio.playBossWarning();
+
+      // Show warning message
+      if (game.addMessage) {
+        game.addMessage('⚠️ BOSS 即将来袭！准备战斗！', '#ff4444');
+      }
+
+      // Screen flash effect
+      if (game.addShake) game.addShake(5);
+    }
+
+    this._bossWarningTimer += 16; // ~60fps
+
+    // Spawn boss after 2 second warning
+    if (this._bossWarningTimer < 2000) return;
+    this._bossWarningShown = false;
+
     // Cycle through boss types based on which wave number boss
     const bossIdx = (Math.floor(this.waveNumber / 10) - 1) % this.waveBossTypes.length;
     const bossType = this.waveBossTypes[bossIdx];
@@ -2472,16 +2991,18 @@ class WaveSpawner {
     // Scale boss HP by wave number
     const scaledTemplate = Object.assign({}, template);
     scaledTemplate.hp = Math.floor(template.hp * (1 + this.waveNumber * 0.12));
+    scaledTemplate.bossName = template.name;
 
     const opts = {
       x: GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2,
       y: -100,
     };
     const enemy = new Enemy(opts, scaledTemplate, difficulty);
+    enemy.bossName = template.name;
     game.addEntity(enemy);
 
     if (game.addMessage) {
-      game.addMessage(`�?${template.name} appears!`, '#ff4444');
+      game.addMessage(`👹 ${template.name} 出现了！`, '#ff4444');
     }
   }
 
