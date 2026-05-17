@@ -18,6 +18,13 @@ class SkillManager {
     // Learned skills (array of skill IDs)
     this.learnedSkills = [];
 
+    // Weapon levels: Map of weaponId → level (0 = not owned, 1-5 = owned)
+    this.weaponLevels = new Map();
+    this.currentWeaponId = 'normal';
+
+    // Reference to WeaponManager (set externally by main.js)
+    this.weaponManager = null;
+
     // Active skill cooldowns: Map of skillId → remaining ms
     this.activeCooldowns = new Map();
 
@@ -35,6 +42,12 @@ class SkillManager {
     this._pendingLevelUps = 0;
     this._isChoosing = false;
     this._nextTempId = 1;
+
+    // Fusion system state
+    this.fusedWeapons = new Set();   // Set of fused weapon IDs already created
+    this.fusedSkills = new Set();    // Set of fused skill IDs already created
+    this._pendingFusions = [];       // Array of available fusion recipes
+    this.onFusionAvailable = null;   // Callback: (fusions) => {} — called when new fusion becomes available
   }
 
   // ====================================================================
@@ -99,24 +112,47 @@ class SkillManager {
   // ====================================================================
 
   /**
-   * Get `count` random skill choices from the unlearned pool.
+   * Get `count` random skill/weapon choices from the combined pool.
    * Weighted by rarity and faction bias (3x weight for matching faction).
+   * Includes both skills (unlearned) and weapons (owned=upgrade, new=acquire).
    * @param {number} count - Number of choices (default 3)
-   * @returns {Array} Array of skill config objects
+   * @returns {Array} Array of skill/weapon config objects with _choiceType field
    */
   getSkillChoices(count) {
     count = count || 3;
 
-    // Build pool of unlearned skills
+    // Build pool of unlearned skills (exclude fused skills — they're created via fusion)
     var pool = [];
     for (var i = 0; i < GAME_CONFIG.SKILLS.length; i++) {
       var skill = GAME_CONFIG.SKILLS[i];
+      if (skill.fused) continue; // Fused skills don't appear in normal choices
       if (this.learnedSkills.indexOf(skill.id) === -1) {
-        pool.push(skill);
+        pool.push({ _choiceType: 'skill', _data: skill });
       }
     }
 
-    // Nothing left to learn
+    // Build pool of weapons (exclude fused weapons — they're created via fusion)
+    var weapons = GAME_CONFIG.WEAPONS;
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    for (var wid in weapons) {
+      if (!weapons.hasOwnProperty(wid)) continue;
+      var w = weapons[wid];
+      if (w.fused) continue; // Fused weapons don't appear in normal choices
+      var curLvl = this.weaponLevels.get(wid) || 0;
+      if (curLvl >= maxLvl) continue; // Already max level, skip
+      // Create a weapon choice entry
+      var wChoice = {
+        _choiceType: 'weapon',
+        _data: w,
+        _weaponId: wid,
+        _currentLevel: curLvl,
+        _nextLevel: curLvl + 1,
+      };
+      pool.push(wChoice);
+    }
+
+    // Nothing left to choose
     if (pool.length === 0) return [];
     // Clamp count to pool size
     if (count > pool.length) count = pool.length;
@@ -129,14 +165,19 @@ class SkillManager {
       var totalWeight = 0;
       var weightedList = [];
       for (var j = 0; j < pool.length; j++) {
-        var sk = pool[j];
-        var weight = GAME_CONFIG.RARITY_WEIGHTS[sk.rarity] || 1;
-        // Faction bias: 3x weight for matching faction skills
-        if (sk.faction === factionId) {
+        var item = pool[j];
+        var d = item._data;
+        var weight = GAME_CONFIG.RARITY_WEIGHTS[d.rarity] || 1;
+        // Faction bias: 3x weight for matching faction skills (only for skills)
+        if (item._choiceType === 'skill' && d.faction === factionId) {
           weight *= 3;
         }
+        // Weapon upgrade: slight weight boost for already-owned weapons (encourage upgrading)
+        if (item._choiceType === 'weapon' && item._currentLevel > 0) {
+          weight *= 1.5;
+        }
         totalWeight += weight;
-        weightedList.push({ skill: sk, weight: weight, cumulative: totalWeight });
+        weightedList.push({ item: item, weight: weight, cumulative: totalWeight });
       }
 
       // Weighted random pick
@@ -145,7 +186,7 @@ class SkillManager {
       var pickedIdx = -1;
       for (var k = 0; k < weightedList.length; k++) {
         if (roll < weightedList[k].cumulative) {
-          picked = weightedList[k].skill;
+          picked = weightedList[k].item;
           pickedIdx = k;
           break;
         }
@@ -197,6 +238,12 @@ class SkillManager {
         break;
     }
 
+    // Check for available fusions after learning a skill
+    var availableFusions = this.checkFusions();
+    if (availableFusions.length > 0 && this.onFusionAvailable) {
+      this.onFusionAvailable(availableFusions);
+    }
+
     this._pendingLevelUps--;
     if (this._pendingLevelUps > 0) {
       // More level-ups pending: show next set of choices
@@ -206,6 +253,247 @@ class SkillManager {
       this._isChoosing = false;
       window.game.resume();
     }
+  }
+
+  // ====================================================================
+  //  WEAPON SELECTION & UPGRADE
+  // ====================================================================
+
+  /**
+   * Select or upgrade a weapon by ID.
+   * If weapon is new: acquire at level 1 and switch to it.
+   * If weapon is already owned: upgrade its level (up to max).
+   * Applies upgrade stat modifiers to the weapon manager.
+   * @param {string} weaponId - key in GAME_CONFIG.WEAPONS
+   */
+  selectWeapon(weaponId) {
+    var wCfg = GAME_CONFIG.WEAPONS[weaponId];
+    if (!wCfg) return;
+
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var curLvl = this.weaponLevels.get(weaponId) || 0;
+
+    if (curLvl < maxLvl) {
+      curLvl++;
+      this.weaponLevels.set(weaponId, curLvl);
+    }
+
+    // Switch to this weapon
+    this.currentWeaponId = weaponId;
+    if (this.weaponManager) {
+      this.weaponManager.setWeapon(weaponId);
+      this._applyWeaponUpgrades(weaponId);
+    }
+
+    // Show toast notification
+    if (window.ui) {
+      var label = upgradeCfg && upgradeCfg.descriptions ? upgradeCfg.descriptions[curLvl] : ('Lv' + curLvl);
+      if (curLvl === 1) {
+        window.ui.showToast(wCfg.icon + ' 获得武器: ' + wCfg.name, 2000, wCfg.bulletColor || '#ffdd00');
+      } else {
+        window.ui.showToast(wCfg.icon + ' ' + wCfg.name + ' 升级至 ' + label, 2000, wCfg.bulletColor || '#ffdd00');
+      }
+    }
+
+    // Check for available fusions after weapon upgrade
+    var availableFusions = this.checkFusions();
+    if (availableFusions.length > 0 && this.onFusionAvailable) {
+      this.onFusionAvailable(availableFusions);
+    }
+
+    // Handle pending level-ups (same logic as learnSkill)
+    this._pendingLevelUps--;
+    if (this._pendingLevelUps > 0) {
+      this._isChoosing = false;
+      this._showLevelUpChoices();
+    } else {
+      this._isChoosing = false;
+      window.game.resume();
+    }
+  }
+
+  /**
+   * Apply weapon upgrade stat modifiers based on weapon level.
+   * Modifies the weapon's effective stats by adjusting player stat modifiers.
+   * @param {string} weaponId
+   */
+  _applyWeaponUpgrades(weaponId) {
+    // Weapon upgrades are applied dynamically during fire() in weapons.js
+    // via getWeaponDamageMult() and getWeaponFireRateMult() which read from here.
+    // No permanent stat modifiers needed — the WeaponManager reads these methods.
+  }
+
+  /**
+   * Get damage multiplier for a weapon based on its upgrade level.
+   * Called by WeaponManager.fire().
+   * @param {string} weaponId
+   * @returns {number} damage multiplier (1.0 at base)
+   */
+  getWeaponDamageMult(weaponId) {
+    var lvl = this.weaponLevels.get(weaponId) || 0;
+    if (lvl <= 0) return 1.0;
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    if (!upgradeCfg || !upgradeCfg.damageMult) return 1.0;
+    var idx = Math.min(lvl, upgradeCfg.damageMult.length - 1);
+    return upgradeCfg.damageMult[idx];
+  }
+
+  /**
+   * Get fire rate multiplier for a weapon based on its upgrade level.
+   * Called by WeaponManager.fire(). Lower = faster.
+   * @param {string} weaponId
+   * @returns {number} fire rate multiplier (1.0 at base)
+   */
+  getWeaponFireRateMult(weaponId) {
+    var lvl = this.weaponLevels.get(weaponId) || 0;
+    if (lvl <= 0) return 1.0;
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    if (!upgradeCfg || !upgradeCfg.fireRateMult) return 1.0;
+    var idx = Math.min(lvl, upgradeCfg.fireRateMult.length - 1);
+    return upgradeCfg.fireRateMult[idx];
+  }
+
+  /**
+   * Get special stat multiplier for a weapon based on its upgrade level.
+   * Used for weapon-specific stats (explosion radius, chain count, etc.).
+   * @param {string} weaponId
+   * @returns {number} special multiplier (1.0 at base)
+   */
+  getWeaponSpecialMult(weaponId) {
+    var lvl = this.weaponLevels.get(weaponId) || 0;
+    if (lvl <= 0) return 1.0;
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    if (!upgradeCfg || !upgradeCfg.specialMult) return 1.0;
+    var idx = Math.min(lvl, upgradeCfg.specialMult.length - 1);
+    return upgradeCfg.specialMult[idx];
+  }
+
+  // ====================================================================
+  //  FUSION SYSTEM
+  // ====================================================================
+
+  /**
+   * Check all fusion recipes and return those that are now available.
+   * A fusion is available when both ingredients are at the required level
+   * and the fusion hasn't been completed yet.
+   * @returns {Array} Array of available fusion recipe objects
+   */
+  checkFusions() {
+    var recipes = GAME_CONFIG.FUSION_RECIPES;
+    if (!recipes) return [];
+    var requiredLevel = recipes.requiredLevel || 5;
+    var available = [];
+
+    // Check weapon fusions
+    for (var i = 0; i < recipes.weapons.length; i++) {
+      var recipe = recipes.weapons[i];
+      if (this.fusedWeapons.has(recipe.id)) continue;
+      var lvlA = this.weaponLevels.get(recipe.ingredientA) || 0;
+      var lvlB = this.weaponLevels.get(recipe.ingredientB) || 0;
+      if (lvlA >= requiredLevel && lvlB >= requiredLevel) {
+        available.push({ type: 'weapon', recipe: recipe });
+      }
+    }
+
+    // Check skill fusions
+    for (var j = 0; j < recipes.skills.length; j++) {
+      var sRecipe = recipes.skills[j];
+      if (this.fusedSkills.has(sRecipe.id)) continue;
+      var hasA = this.learnedSkills.indexOf(sRecipe.ingredientA) !== -1;
+      var hasB = this.learnedSkills.indexOf(sRecipe.ingredientB) !== -1;
+      // For skills, both must be learned (they don't have levels like weapons)
+      // We check if the skill IDs exist in learnedSkills
+      if (hasA && hasB) {
+        available.push({ type: 'skill', recipe: sRecipe });
+      }
+    }
+
+    return available;
+  }
+
+  /**
+   * Execute a weapon fusion: consume both ingredient weapons, create the fused weapon.
+   * @param {object} recipe - Fusion recipe from FUSION_RECIPES.weapons
+   */
+  executeWeaponFusion(recipe) {
+    if (this.fusedWeapons.has(recipe.id)) return false;
+
+    // Mark as fused
+    this.fusedWeapons.add(recipe.id);
+
+    // Remove ingredient weapons from weaponLevels (they're consumed)
+    this.weaponLevels.delete(recipe.ingredientA);
+    this.weaponLevels.delete(recipe.ingredientB);
+
+    // Add the fused weapon at max level
+    var fusedWeaponId = recipe.result;
+    this.weaponLevels.set(fusedWeaponId, GAME_CONFIG.WEAPON_UPGRADE.maxLevel || 5);
+
+    // Switch to the fused weapon
+    this.currentWeaponId = fusedWeaponId;
+    if (this.weaponManager) {
+      this.weaponManager.setWeapon(fusedWeaponId);
+    }
+
+    // Show toast
+    if (window.ui) {
+      window.ui.showToast('🔮 融合成功: ' + recipe.name + '!', 3000, '#ff44ff');
+    }
+
+    return true;
+  }
+
+  /**
+   * Execute a skill fusion: mark both ingredients as fused, learn the fused skill.
+   * @param {object} recipe - Fusion recipe from FUSION_RECIPES.skills
+   */
+  executeSkillFusion(recipe) {
+    if (this.fusedSkills.has(recipe.id)) return false;
+
+    // Mark as fused
+    this.fusedSkills.add(recipe.id);
+
+    // Remove ingredient skills from learnedSkills (they're consumed)
+    var idxA = this.learnedSkills.indexOf(recipe.ingredientA);
+    if (idxA !== -1) this.learnedSkills.splice(idxA, 1);
+    var idxB = this.learnedSkills.indexOf(recipe.ingredientB);
+    if (idxB !== -1) this.learnedSkills.splice(idxB, 1);
+
+    // Add the fused skill
+    this.learnedSkills.push(recipe.result);
+
+    // Apply the fused skill's effects
+    var fusedSkill = this._findSkill(recipe.result);
+    if (fusedSkill) {
+      if (fusedSkill.type === 'active' && fusedSkill.cooldown) {
+        this.activeCooldowns.set(recipe.result, 0);
+      }
+    }
+
+    // Show toast
+    if (window.ui) {
+      window.ui.showToast('✨ 融合成功: ' + recipe.name + '!', 3000, '#44ffff');
+    }
+
+    return true;
+  }
+
+  /**
+   * Get all fusion recipes (for UI display / codex).
+   * @returns {object} { weapons: [...], skills: [...] }
+   */
+  getAllFusionRecipes() {
+    return GAME_CONFIG.FUSION_RECIPES || { weapons: [], skills: [] };
+  }
+
+  /**
+   * Check if a specific fusion has been completed.
+   * @param {string} fusionId
+   * @returns {boolean}
+   */
+  isFusionComplete(fusionId) {
+    return this.fusedWeapons.has(fusionId) || this.fusedSkills.has(fusionId);
   }
 
   // ====================================================================
@@ -503,6 +791,15 @@ class SkillManager {
           break;
         case 'counterStrike':
           this._doCounterStrike(x, y, fx.damage, fx.radius);
+          break;
+        case 'plagueBlizzard':
+          this._doPlagueBlizzard(x, y, fx.damage, fx.duration, fx.radius, fx.poisonDamage, fx.poisonDuration, fx.slowAmount);
+          break;
+        case 'stormFire':
+          this._doStormFire(x, y, fx.damage, fx.chainCount, fx.chainRange, fx.burnDamage, fx.burnDuration);
+          break;
+        case 'vampiricShield':
+          this._doVampiricShield(fx.shieldAmount, fx.duration, fx.lifestealOnHit, fx.reflectDamage);
           break;
       }
     }
@@ -1256,6 +1553,300 @@ class SkillManager {
     damage = damage || 30;
     radius = radius || 120;
     this._doShockwave(x, y, damage, radius);
+  }
+
+  // ====================================================================
+  //  FUSION SKILL EFFECTS
+  // ====================================================================
+
+  /**
+   * Plague Blizzard: Slow + DoT area effect. Combines blizzard slow with poison damage.
+   * Green-blue expanding zone that slows and poisons enemies inside.
+   */
+  _doPlagueBlizzard(x, y, damage, duration, radius, poisonDamage, poisonDuration, slowAmount) {
+    damage = damage || 8;
+    duration = duration || 6000;
+    radius = radius || 380;
+    poisonDamage = poisonDamage || 10;
+    poisonDuration = poisonDuration || 4000;
+    slowAmount = slowAmount || 0.5;
+
+    var game = window.game;
+    var self = this;
+    var elapsed = 0;
+    var tickInterval = 500;
+    var tickTimer = 0;
+    var _slowedEnemies = {};
+
+    var entity = {
+      x: x, y: y,
+      radius: radius,
+      active: true,
+      category: 'particle',
+      drawLayer: 3,
+      duration: duration / 1000,
+      _elapsed: 0,
+      _tickTimer: 0,
+      _slowedEnemies: {},
+
+      update: function(dt) {
+        this._elapsed += dt;
+        if (this._elapsed >= this.duration) {
+          // Remove slow from all tracked enemies
+          var enemies = game.enemies;
+          for (var id in this._slowedEnemies) {
+            if (this._slowedEnemies.hasOwnProperty(id)) {
+              for (var j = 0; j < enemies.length; j++) {
+                if (enemies[j].active && enemies[j]._uid == id) {
+                  enemies[j]._slowMult = 1;
+                }
+              }
+            }
+          }
+          game.removeEntity(this);
+          return;
+        }
+
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickInterval) {
+          this._tickTimer -= tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x;
+            var dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              // Apply damage
+              e.hp -= damage;
+              // Apply poison
+              e._poisonTimer = poisonDuration;
+              e._poisonDamage = poisonDamage;
+              e._poisonTick = 1000;
+              e._poisonTickTimer = 0;
+              // Apply slow
+              e._slowMult = 1 - slowAmount;
+              this._slowedEnemies[e._uid || (e._uid = Math.random())] = true;
+            }
+          }
+        }
+      },
+
+      draw: function(ctx) {
+        var alpha = 0.4 * (1 - this._elapsed / this.duration);
+        ctx.save();
+        // Green-blue gradient circle
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(100, 220, 180, ' + (alpha * 0.5) + ')');
+        grad.addColorStop(0.5, 'rgba(80, 180, 220, ' + (alpha * 0.3) + ')');
+        grad.addColorStop(1, 'rgba(60, 140, 200, ' + (alpha * 0.1) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        // Border ring
+        ctx.strokeStyle = 'rgba(100, 255, 200, ' + (alpha * 0.8) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * (0.5 + 0.5 * Math.sin(this._elapsed * 3)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+
+    game.addEntity(entity);
+  }
+
+  /**
+   * Storm Fire: Chain lightning that also applies burn. Combines chain lightning + burn.
+   * Strikes enemies and chains to nearby targets, applying burn DoT to each.
+   */
+  _doStormFire(x, y, damage, chainCount, chainRange, burnDamage, burnDuration) {
+    damage = damage || 15;
+    chainCount = chainCount || 4;
+    chainRange = chainRange || 160;
+    burnDamage = burnDamage || 12;
+    burnDuration = burnDuration || 3000;
+
+    var game = window.game;
+    var enemies = game.enemies;
+    var player = this.player;
+    var originX = player.x;
+    var originY = player.y;
+
+    // Find nearest enemy to start chain
+    var nearest = null;
+    var nearestDist = Infinity;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - originX;
+      var dy = e.y - originY;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = e;
+      }
+    }
+
+    if (!nearest) return;
+
+    // Chain lightning with burn
+    var alreadyHit = {};
+    var current = nearest;
+    var chainDmg = damage;
+    var chainRangeSq = chainRange * chainRange;
+
+    for (var c = 0; c < chainCount && current; c++) {
+      var cid = current._uid || (current._uid = Math.random());
+      if (alreadyHit[cid]) break;
+      alreadyHit[cid] = true;
+
+      // Damage and burn
+      current.hp -= chainDmg;
+      current._burnTimer = burnDuration;
+      current._burnDamage = burnDamage;
+      current._burnTick = 500;
+      current._burnTickTimer = 0;
+
+      // Spawn lightning visual
+      this._spawnStormFireVisual(originX, originY, current.x, current.y);
+
+      // Find next chain target
+      originX = current.x;
+      originY = current.y;
+      var next = null;
+      var nextDist = Infinity;
+      for (var j = 0; j < enemies.length; j++) {
+        var ej = enemies[j];
+        if (!ej.active) continue;
+        var ejid = ej._uid || (ej._uid = Math.random());
+        if (alreadyHit[ejid]) continue;
+        var ddx = ej.x - originX;
+        var ddy = ej.y - originY;
+        var dd = ddx * ddx + ddy * ddy;
+        if (dd < chainRangeSq && dd < nextDist) {
+          nextDist = dd;
+          next = ej;
+        }
+      }
+      current = next;
+      chainDmg *= 0.8; // Damage falloff
+    }
+  }
+
+  /**
+   * Spawn storm fire visual (red-yellow lightning bolt between two points).
+   */
+  _spawnStormFireVisual(x1, y1, x2, y2) {
+    var game = window.game;
+    var segments = 6;
+    var points = [{ x: x1, y: y1 }];
+    for (var i = 1; i < segments; i++) {
+      var t = i / segments;
+      var mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 30;
+      var my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 30;
+      points.push({ x: mx, y: my });
+    }
+    points.push({ x: x2, y: y2 });
+
+    game.addEntity({
+      points: points,
+      active: true,
+      category: 'particle',
+      drawLayer: 6,
+      life: 0.3,
+      maxLife: 0.3,
+
+      update: function(dt) {
+        this.life -= dt;
+        if (this.life <= 0) {
+          this.active = false;
+          game.removeEntity(this);
+        }
+      },
+
+      draw: function(ctx) {
+        var alpha = this.life / this.maxLife;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 180, 50, ' + alpha + ')';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff6600';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (var i = 1; i < this.points.length; i++) {
+          ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  /**
+   * Vampiric Shield: Shield that heals on hit. Combines shield + lifesteal.
+   * Grants a shield and adds lifesteal + reflect for a duration.
+   */
+  _doVampiricShield(shieldAmount, duration, lifestealOnHit, reflectDamage) {
+    shieldAmount = shieldAmount || 60;
+    duration = duration || 10000;
+    lifestealOnHit = lifestealOnHit || 0.15;
+    reflectDamage = reflectDamage || 0.4;
+
+    var player = this.player;
+
+    // Grant shield
+    player.maxShield = (player.maxShield || 0) + shieldAmount;
+    player.shield = Math.min(
+      (player.shield || 0) + shieldAmount,
+      player.maxShield
+    );
+
+    // Apply temporary lifesteal and reflect
+    this._applyTempStatMod({ stat: 'lifesteal', op: 'add', value: lifestealOnHit }, duration);
+    this._applyTempStatMod({ stat: 'shieldReflect', op: 'add', value: reflectDamage }, duration);
+
+    // Visual: purple-red shield aura
+    var game = window.game;
+    game.addEntity({
+      x: player.x, y: player.y,
+      active: true,
+      category: 'particle',
+      drawLayer: 5,
+      life: duration / 1000,
+      maxLife: duration / 1000,
+
+      update: function(dt) {
+        this.life -= dt;
+        if (this.life <= 0) {
+          this.active = false;
+          game.removeEntity(this);
+          return;
+        }
+        // Follow player
+        if (game.player && game.player.active) {
+          this.x = game.player.x;
+          this.y = game.player.y;
+        }
+      },
+
+      draw: function(ctx) {
+        var alpha = 0.3 + 0.2 * Math.sin(this.life * 6);
+        var r = 25 + 5 * Math.sin(this.life * 4);
+        ctx.save();
+        // Purple-red glow
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r);
+        grad.addColorStop(0, 'rgba(200, 50, 100, ' + (alpha * 0.4) + ')');
+        grad.addColorStop(0.7, 'rgba(150, 30, 80, ' + (alpha * 0.2) + ')');
+        grad.addColorStop(1, 'rgba(100, 20, 60, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    });
   }
 
   // ====================================================================
