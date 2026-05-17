@@ -1054,6 +1054,109 @@ var BulletPatterns = {
       pierceCount: 10
     });
     return [bullet];
+  },
+
+  // ============================================================
+  //  FUSION WEAPON PATTERNS
+  // ============================================================
+
+  // ----------------------------------------------------------
+  //  F1. plasmaGun — Fast piercing plasma bolts
+  // ----------------------------------------------------------
+  plasmaGun: function(x, y, angle, speed, damage, pierceCount, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 2.5,
+      pierceCount: pierceCount || 2
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F2. smartSpread — Homing fan bullets
+  // ----------------------------------------------------------
+  smartSpread: function(x, y, count, spreadAngle, speed, damage, color, trailColor, homingStrength, homingRange) {
+    var bullets = [];
+    if (count <= 0) return bullets;
+    var startAngle = -spreadAngle / 2;
+    var step = count > 1 ? spreadAngle / (count - 1) : 0;
+
+    for (var i = 0; i < count; i++) {
+      var angle = startAngle + step * i;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 3.5,
+        hitRadius: 2.8,
+        lifetime: 3,
+        homingStrength: homingStrength || 0.04,
+        homingRange: homingRange || 350
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F3. phantomBlade — Piercing boomerang
+  // ----------------------------------------------------------
+  phantomBlade: function(x, y, angle, speed, range, damage, pierceCount, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 4,
+      originX: x,
+      originY: y,
+      range: range || 380,
+      pierceCount: pierceCount || 4
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F4. shockwaveWep — Wave + explosion
+  // ----------------------------------------------------------
+  shockwaveWep: function(x, y, angle, speed, damage, waveAmplitude, waveFrequency, explosionRadius, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 3,
+      amplitude: waveAmplitude || 4,
+      frequency: waveFrequency || 0.05,
+      explosionRadius: explosionRadius || 55
+    });
+    return [bullet];
   }
 
 };

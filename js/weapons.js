@@ -40,7 +40,7 @@ class WeaponManager {
     if (!cfg) return;
 
     // Teardown previous weapon state
-    if (this.currentWeapon === 'orbital') {
+    if (this.currentWeapon === 'orbital' || this.currentWeapon === 'teslaOrbital') {
       this._cleanupOrbitals();
     }
 
@@ -48,7 +48,7 @@ class WeaponManager {
     this.fireTimer = 0;
 
     // Setup new weapon state
-    if (weaponId === 'orbital') {
+    if (weaponId === 'orbital' || weaponId === 'teslaOrbital') {
       this._initOrbitals();
     }
   }
@@ -71,13 +71,18 @@ class WeaponManager {
     var dtMs = dt * 1000;
 
     // Orbital drones fire independently (their own timers)
-    if (this.currentWeapon === 'orbital') {
+    if (this.currentWeapon === 'orbital' || this.currentWeapon === 'teslaOrbital') {
       this._updateOrbitals(dt, stats);
       return;
     }
 
     // Standard weapons: accumulate timer and fire when ready
     var effectiveFireRate = cfg.fireRate * (stats.attackSpeed || 1);
+    // Apply weapon upgrade fire rate multiplier (lower = faster)
+    var skillMgr = this._getSkillManager();
+    if (skillMgr) {
+      effectiveFireRate *= skillMgr.getWeaponFireRateMult(this.currentWeapon);
+    }
     // Clamp to minimum 30ms to avoid degenerate fire loops
     if (effectiveFireRate < 30) effectiveFireRate = 30;
 
@@ -106,6 +111,11 @@ class WeaponManager {
 
     // Stat-modified values
     var dmg = (cfg.damage || 1) * (stats.attack || 1);
+    // Apply weapon upgrade damage multiplier
+    var skillMgr = this._getSkillManager();
+    if (skillMgr) {
+      dmg *= skillMgr.getWeaponDamageMult(this.currentWeapon);
+    }
     var spd = (cfg.bulletSpeed || 400) * (stats.bulletSpeed || 1);
     var size = (cfg.bulletSize || 3) * (stats.bulletSize || 1);
     var color = cfg.bulletColor || '#ffffff';
@@ -198,6 +208,27 @@ class WeaponManager {
       case 'photonBeam':
         if (B) B.photonBeam(x, y, angleUp, spd, dmg, cfg.beamWidth || 8, color, trail);
         break;
+
+      // ---- Fusion Weapon Patterns ----
+      case 'plasmaGun':
+        if (B) B.plasmaGun(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, color, trail);
+        break;
+
+      case 'smartSpread':
+        if (B) B.smartSpread(x, y, cfg.bulletCount || 5, cfg.spreadAngle || 30, spd, dmg, color, trail, cfg.homingStrength || 0.04, cfg.homingRange || 350);
+        break;
+
+      case 'teslaOrbital':
+        // Tesla orbital drones fire on their own — handled in _updateOrbitals with chain logic
+        break;
+
+      case 'phantomBlade':
+        if (B) B.phantomBlade(x, y, angleUp, spd, cfg.range || 380, dmg, cfg.pierceCount || 4, color, trail);
+        break;
+
+      case 'shockwaveWep':
+        if (B) B.shockwaveWep(x, y, angleUp, spd, dmg, cfg.waveAmplitude || 4, cfg.waveFrequency || 0.05, cfg.explosionRadius || 55, color, trail);
+        break;
     }
 
     // Extra bullets from stats (dual-wield style spread)
@@ -220,6 +251,15 @@ class WeaponManager {
       return this.player.stats;
     }
     return {};
+  }
+
+  /**
+   * Get SkillManager reference (for weapon upgrade multipliers).
+   * @returns {object|null}
+   */
+  _getSkillManager() {
+    // SkillManager is accessible via game global
+    return window._skillManagerRef || null;
   }
 
   /**
@@ -310,6 +350,11 @@ class WeaponManager {
       // Independent fire timer
       drone.fireTimer += dtMs;
       var droneFireRate = drone.cfg.fireRate * (stats.attackSpeed || 1);
+      // Apply weapon upgrade fire rate multiplier
+      var skillMgr = this._getSkillManager();
+      if (skillMgr) {
+        droneFireRate *= skillMgr.getWeaponFireRateMult('orbital');
+      }
       if (droneFireRate < 50) droneFireRate = 50;
 
       while (drone.fireTimer >= droneFireRate) {
@@ -486,7 +531,13 @@ OrbitalDrone.prototype = {
     var B = window.BulletPatterns;
     if (!B) return;
 
+    var weaponId = this.wm.currentWeapon;
     var dmg = (this.cfg.damage || 5) * (stats.attack || 1);
+    // Apply weapon upgrade damage multiplier
+    var skillMgr = window._skillManagerRef;
+    if (skillMgr) {
+      dmg *= skillMgr.getWeaponDamageMult(weaponId);
+    }
     var spd = (this.cfg.bulletSpeed || 500) * (stats.bulletSpeed || 1);
     var color = this.cfg.bulletColor || '#88ddff';
     var trail = this.cfg.trailColor || color;
@@ -514,7 +565,12 @@ OrbitalDrone.prototype = {
 
     if (nearest) {
       var angle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
-      B.normal(this.x, this.y, angle, spd, dmg, color, trail);
+      if (weaponId === 'teslaOrbital') {
+        // Tesla orbital fires chain lightning bullets
+        B.lightningBolt(this.x, this.y, angle, spd, dmg, this.cfg.chainCount || 2, this.cfg.chainRange || 120, color, trail);
+      } else {
+        B.normal(this.x, this.y, angle, spd, dmg, color, trail);
+      }
     } else {
       B.normal(this.x, this.y, -Math.PI / 2, spd, dmg, color, trail);
     }
