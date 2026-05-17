@@ -881,6 +881,37 @@ class Player {
     this._recalculateStats();
   }
 
+  /**
+   * Apply permanent upgrades from UpgradeManager.
+   * Only applies stat-based upgrades (attackPower, maxHp, moveSpeed).
+   * @param {Object} upgradeLevels - { upgradeId: level, ... }
+   */
+  applyPermanentUpgrades(upgradeLevels) {
+    if (!upgradeLevels) return;
+
+    var upgrades = GAME_CONFIG.UPGRADES;
+    var mods = [];
+
+    // Attack Power: +10% per level
+    if (upgradeLevels.attackPower > 0 && upgrades.attackPower.statMod) {
+      mods.push(upgrades.attackPower.statMod(upgradeLevels.attackPower));
+    }
+
+    // Max HP: +15 per level
+    if (upgradeLevels.maxHp > 0 && upgrades.maxHp.statMod) {
+      mods.push(upgrades.maxHp.statMod(upgradeLevels.maxHp));
+    }
+
+    // Move Speed: +5% per level
+    if (upgradeLevels.moveSpeed > 0 && upgrades.moveSpeed.statMod) {
+      mods.push(upgrades.moveSpeed.statMod(upgradeLevels.moveSpeed));
+    }
+
+    if (mods.length > 0) {
+      this.applyStatModifiers(mods);
+    }
+  }
+
   // ====================================================================
   //  Skill stat modifiers
   //  mods: array of { stat, op: 'multiply'|'add', value }

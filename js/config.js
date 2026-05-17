@@ -635,110 +635,228 @@ const GAME_CONFIG = {
       cooldown: 18000, effects: [{ action: 'frozenComet', damage: 130, radius: 120, freezeDuration: 2500, impactDamage: 60, splashRadius: 80 }] },
     { id: 'whirlwind', name: '旋风斩', faction: 'any', type: 'active', rarity: 'common',
       cooldown: 9000, effects: [{ action: 'whirlwind', damage: 20, duration: 2000, radius: 120, tickRate: 200 }] },
+
+    // ---- Fused Skills (created via fusion system) ----
+    { id: 'fusion_plagueBlizzard', name: '瘟疫冰暴', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 20000,
+      effects: [{ action: 'plagueBlizzard', damage: 8, duration: 6000, radius: 380, poisonDamage: 10, poisonDuration: 4000, slowAmount: 0.5 }] },
+    { id: 'fusion_stormFire', name: '风暴烈焰', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 18000,
+      effects: [{ action: 'stormFire', damage: 15, chainCount: 4, chainRange: 160, burnDamage: 12, burnDuration: 3000 }] },
+    { id: 'fusion_vampiricShield', name: '吸血护盾', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 25000,
+      effects: [{ action: 'vampiricShield', shieldAmount: 60, duration: 10000, lifestealOnHit: 0.15, reflectDamage: 0.4 }] },
   ],
 
-  // ============ WEAPONS (10) ============
+  // ============ WEAPONS (20) ============
+  // rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
   WEAPONS: {
     normal: {
-      id: 'normal', name: '标准弹', icon: '🔫',
+      id: 'normal', name: '标准弹', icon: '🔫', rarity: 'common',
+      description: '标准直射弹幕',
       pattern: 'normal', fireRate: 350, damage: 8, bulletSpeed: 550, bulletSize: 3,
       bulletColor: '#ffff00', trailColor: '#ffaa00',
     },
     homing: {
-      id: 'homing', name: '追踪弹', icon: '🎯',
+      id: 'homing', name: '追踪弹', icon: '🎯', rarity: 'uncommon',
+      description: '自动追踪最近敌人',
       pattern: 'homing', fireRate: 550, damage: 14, bulletSpeed: 380, bulletSize: 4,
       homingStrength: 0.05, homingRange: 300, bulletColor: '#ff44ff', trailColor: '#cc22cc',
     },
     laser: {
-      id: 'laser', name: '激光炮', icon: '⚡',
+      id: 'laser', name: '激光炮', icon: '⚡', rarity: 'uncommon',
+      description: '超高射速直线光束',
       pattern: 'laser', fireRate: 80, damage: 3, bulletSpeed: 1200, bulletSize: 2,
       beamWidth: 3, beamLength: 600, bulletColor: '#00ffff', trailColor: '#0088ff',
     },
     spread: {
-      id: 'spread', name: '散射弹', icon: '💫',
+      id: 'spread', name: '散射弹', icon: '💫', rarity: 'common',
+      description: '扇形散射多发弹幕',
       pattern: 'spread', fireRate: 600, damage: 7, bulletSpeed: 450, bulletSize: 3,
       bulletCount: 5, spreadAngle: 25, bulletColor: '#ff8844', trailColor: '#ff4400',
     },
     orbital: {
-      id: 'orbital', name: '浮游炮', icon: '🛰️',
+      id: 'orbital', name: '浮游炮', icon: '🛰️', rarity: 'rare',
+      description: '环绕浮游炮自动射击',
       pattern: 'orbital', fireRate: 450, damage: 5, bulletSpeed: 500, bulletSize: 2,
       orbitRadius: 70, orbitSpeed: 2.5, orbitCount: 4, bulletColor: '#88ddff', trailColor: '#4488cc',
     },
     arc: {
-      id: 'arc', name: '电弧链', icon: '⚡',
+      id: 'arc', name: '电弧链', icon: '⚡', rarity: 'rare',
+      description: '雷电链式传导伤害',
       pattern: 'arc', fireRate: 700, damage: 18, chainCount: 3, chainRange: 180,
       chainDamageFalloff: 0.3, bulletColor: '#88ffff', trailColor: '#44aaff',
     },
     boomerang: {
-      id: 'boomerang', name: '回旋镖', icon: '🪃',
+      id: 'boomerang', name: '回旋镖', icon: '🪃', rarity: 'uncommon',
+      description: '飞出后回旋造成双段伤害',
       pattern: 'boomerang', fireRate: 650, damage: 22, bulletSpeed: 350, bulletSize: 5,
       returnSpeed: 500, range: 350, bulletColor: '#ff9944', trailColor: '#ff6600',
     },
     pierce: {
-      id: 'pierce', name: '穿甲弹', icon: '🗡️',
+      id: 'pierce', name: '穿甲弹', icon: '🗡️', rarity: 'uncommon',
+      description: '穿透多个敌人',
       pattern: 'pierce', fireRate: 550, damage: 28, bulletSpeed: 650, bulletSize: 4,
       pierceCount: 3, bulletColor: '#ffffff', trailColor: '#cccccc',
     },
     explosive: {
-      id: 'explosive', name: '爆破弹', icon: '💣',
+      id: 'explosive', name: '爆破弹', icon: '💣', rarity: 'rare',
+      description: '命中爆炸范围伤害',
       pattern: 'explosive', fireRate: 900, damage: 35, bulletSpeed: 400, bulletSize: 6,
       explosionRadius: 70, bulletColor: '#ff4444', trailColor: '#ff0000',
     },
     wave: {
-      id: 'wave', name: '波动炮', icon: '〰️',
+      id: 'wave', name: '波动炮', icon: '〰️', rarity: 'uncommon',
+      description: '波浪形弹道覆盖更广',
       pattern: 'wave', fireRate: 500, damage: 10, bulletSpeed: 450, bulletSize: 3,
       waveAmplitude: 3, waveFrequency: 0.06, bulletsPerWave: 3, bulletColor: '#44ff88', trailColor: '#22aa44',
     },
     missile: {
-      id: 'missile', name: '导弹群', icon: '🚀',
+      id: 'missile', name: '导弹群', icon: '🚀', rarity: 'epic',
+      description: '多发追踪导弹爆炸范围伤害',
       pattern: 'missile', fireRate: 750, damage: 40, bulletSpeed: 300, bulletSize: 7,
       homingStrength: 0.04, homingRange: 350, explosionRadius: 80, missileCount: 3, bulletColor: '#ff6622', trailColor: '#ff4400',
     },
     needle: {
-      id: 'needle', name: '针弹', icon: '📌',
+      id: 'needle', name: '针弹', icon: '📌', rarity: 'uncommon',
+      description: '极速连射穿透针弹',
       pattern: 'needle', fireRate: 120, damage: 4, bulletSpeed: 900, bulletSize: 1.5,
       bulletCount: 2, pierceCount: 2, bulletColor: '#aaffff', trailColor: '#66cccc',
     },
     gravityWell: {
-      id: 'gravityWell', name: '重力井', icon: '🌀',
+      id: 'gravityWell', name: '重力井', icon: '🌀', rarity: 'rare',
+      description: '发射引力井吸引并伤害敌人',
       pattern: 'gravityWell', fireRate: 600, damage: 12, bulletSpeed: 350, bulletSize: 5,
       wellRadius: 100, wellDuration: 3000, pullForce: 80, wellDamage: 8, bulletColor: '#9966cc', trailColor: '#6633aa',
     },
     flame: {
-      id: 'flame', name: '火焰喷射', icon: '🔥',
+      id: 'flame', name: '火焰喷射', icon: '🔥', rarity: 'uncommon',
+      description: '近距离火焰持续灼烧',
       pattern: 'flame', fireRate: 50, damage: 4, bulletSpeed: 350, bulletSize: 8,
       flameLength: 180, flameAngle: 40, burnDamage: 6, burnDuration: 2000, bulletColor: '#ff6600', trailColor: '#ff3300',
     },
     shuriken: {
-      id: 'shuriken', name: '手里剑', icon: '🪃',
+      id: 'shuriken', name: '手里剑', icon: '🪃', rarity: 'rare',
+      description: '旋转飞镖穿透多次',
       pattern: 'shuriken', fireRate: 500, damage: 18, bulletSpeed: 400, bulletSize: 5,
       spinSpeed: 8, pierceCount: 5, orbitRadius: 60, bulletColor: '#aaaacc', trailColor: '#8888aa',
     },
     voidRift: {
-      id: 'voidRift', name: '虚空裂隙', icon: '🕳️',
+      id: 'voidRift', name: '虚空裂隙', icon: '🕳️', rarity: 'epic',
+      description: '召唤虚空裂隙持续伤害并斩杀低血量敌人',
       pattern: 'voidRift', fireRate: 800, damage: 8, bulletSpeed: 250, bulletSize: 6,
       riftDuration: 4000, riftDamage: 12, riftRadius: 70, executeThreshold: 0.1, bulletColor: '#440088', trailColor: '#220044',
     },
     lightningBolt: {
-      id: 'lightningBolt', name: '雷电', icon: '⚡',
+      id: 'lightningBolt', name: '雷电', icon: '⚡', rarity: 'epic',
+      description: '闪电链式弹射多个敌人',
       pattern: 'lightningBolt', fireRate: 600, damage: 22, bulletSpeed: 1200, bulletSize: 2,
       chainCount: 4, chainRange: 150, chainDamageFalloff: 0.25, boltWidth: 2, bulletColor: '#ffff44', trailColor: '#ffaa00',
     },
     iceShard: {
-      id: 'iceShard', name: '冰晶', icon: '❄️',
+      id: 'iceShard', name: '冰晶', icon: '❄️', rarity: 'rare',
+      description: '冰冻减速敌人，击杀碎裂范围伤害',
       pattern: 'iceShard', fireRate: 450, damage: 10, bulletSpeed: 500, bulletSize: 3,
       slowAmount: 0.4, slowDuration: 2000, shatterDamage: 30, shatterRadius: 80, bulletColor: '#88ddff', trailColor: '#4499cc',
     },
     rocketBarrage: {
-      id: 'rocketBarrage', name: '火箭弹幕', icon: '💥',
+      id: 'rocketBarrage', name: '火箭弹幕', icon: '💥', rarity: 'legendary',
+      description: '扇形火箭弹幕覆盖大范围',
       pattern: 'rocketBarrage', fireRate: 1000, damage: 50, bulletSpeed: 220, bulletSize: 9,
       rocketCount: 5, explosionRadius: 90, spreadAngle: 30, bulletColor: '#ff4444', trailColor: '#cc0000',
     },
     photonBeam: {
-      id: 'photonBeam', name: '光子束', icon: '💡',
+      id: 'photonBeam', name: '光子束', icon: '💡', rarity: 'legendary',
+      description: '持续光子光束扫射',
       pattern: 'photonBeam', fireRate: 40, damage: 5, bulletSpeed: 1500, bulletSize: 3,
       beamWidth: 8, beamLength: 600, tickRate: 50, bulletColor: '#ffffff', trailColor: '#aaaaff',
     },
+
+    // ---- Fused Weapons (created via fusion system) ----
+    plasmaGun: {
+      id: 'plasmaGun', name: '等离子机枪', icon: '🔮', rarity: 'legendary', fused: true,
+      description: '高射速穿透等离子弹',
+      pattern: 'plasmaGun', fireRate: 100, damage: 6, bulletSpeed: 900, bulletSize: 3,
+      pierceCount: 2, bulletColor: '#cc44ff', trailColor: '#8844ff',
+    },
+    smartSpread: {
+      id: 'smartSpread', name: '智能散射', icon: '🌟', rarity: 'legendary', fused: true,
+      description: '自动追踪扇形弹幕',
+      pattern: 'smartSpread', fireRate: 500, damage: 9, bulletSpeed: 420, bulletSize: 3.5,
+      bulletCount: 5, spreadAngle: 30, homingStrength: 0.04, homingRange: 350,
+      bulletColor: '#ff88ff', trailColor: '#cc44cc',
+    },
+    teslaOrbital: {
+      id: 'teslaOrbital', name: '特斯拉浮游炮', icon: '⚡', rarity: 'legendary', fused: true,
+      description: '链式闪电环绕浮游炮',
+      pattern: 'teslaOrbital', fireRate: 400, damage: 8, bulletSpeed: 600, bulletSize: 2.5,
+      orbitRadius: 75, orbitSpeed: 2.8, orbitCount: 4, chainCount: 2, chainRange: 120,
+      bulletColor: '#88ffff', trailColor: '#44ddff',
+    },
+    phantomBlade: {
+      id: 'phantomBlade', name: '幻影之刃', icon: '👻', rarity: 'legendary', fused: true,
+      description: '穿透回旋幻影飞刃',
+      pattern: 'phantomBlade', fireRate: 550, damage: 30, bulletSpeed: 400, bulletSize: 5,
+      pierceCount: 4, returnSpeed: 550, range: 380, bulletColor: '#aaccff', trailColor: '#6688cc',
+    },
+    shockwave: {
+      id: 'shockwave', name: '震荡波', icon: '🌊', rarity: 'legendary', fused: true,
+      description: '范围爆炸波动冲击',
+      pattern: 'shockwaveWep', fireRate: 700, damage: 25, bulletSpeed: 380, bulletSize: 5,
+      waveAmplitude: 4, waveFrequency: 0.05, bulletsPerWave: 4, explosionRadius: 55,
+      bulletColor: '#44ffaa', trailColor: '#22cc66',
+    },
+  },
+
+  // ============ WEAPON UPGRADES ============
+  // Per-level multipliers for weapon stats (level 1 = base, level 2-5 = upgrades)
+  // damageMult: multiplier applied to base damage per level
+  // fireRateMult: multiplier applied to base fire rate (lower = faster)
+  // specialMult: multiplier for weapon-specific stats (explosion radius, chain count, etc.)
+  WEAPON_UPGRADE: {
+    maxLevel: 5,
+    damageMult:  [1.0, 1.25, 1.55, 1.9, 2.3],
+    fireRateMult:[1.0, 0.92, 0.85, 0.78, 0.72],
+    specialMult: [1.0, 1.15, 1.3, 1.5, 1.7],
+    descriptions: [
+      '', '基础', '改良', '精良', '卓越', '传说'
+    ],
+  },
+
+  // ============ FUSION RECIPES ============
+  // Weapon fusions: two max-level weapons → one fused weapon
+  // Skill fusions: two max-level skills → one fused skill
+  FUSION_RECIPES: {
+    weapons: [
+      { id: 'w_plasma', ingredientA: 'laser', ingredientB: 'normal', result: 'plasmaGun',
+        name: '等离子机枪', icon: '🔮', description: '攻速流 + 激光炮 = 高射速穿透等离子弹',
+        colorA: '#00ffff', colorB: '#ffff00' },
+      { id: 'w_smart', ingredientA: 'spread', ingredientB: 'homing', result: 'smartSpread',
+        name: '智能散射', icon: '🌟', description: '散射弹 + 追踪弹 = 自动追踪扇形弹幕',
+        colorA: '#ff8844', colorB: '#ff44ff' },
+      { id: 'w_tesla', ingredientA: 'orbital', ingredientB: 'arc', result: 'teslaOrbital',
+        name: '特斯拉浮游炮', icon: '⚡', description: '浮游炮 + 电弧链 = 链式闪电环绕浮游炮',
+        colorA: '#88ddff', colorB: '#88ffff' },
+      { id: 'w_phantom', ingredientA: 'boomerang', ingredientB: 'pierce', result: 'phantomBlade',
+        name: '幻影之刃', icon: '👻', description: '回旋镖 + 穿甲弹 = 穿透回旋幻影飞刃',
+        colorA: '#ff9944', colorB: '#ffffff' },
+      { id: 'w_shockwave', ingredientA: 'explosive', ingredientB: 'wave', result: 'shockwave',
+        name: '震荡波', icon: '🌊', description: '爆破弹 + 波动炮 = 范围爆炸波动冲击',
+        colorA: '#ff4444', colorB: '#44ff88' },
+    ],
+    skills: [
+      { id: 's_plagueBlizzard', ingredientA: 'ps_venom', ingredientB: 'ic_blizzard', result: 'fusion_plagueBlizzard',
+        name: '瘟疫冰暴', icon: '🧊', description: '剧毒 + 暴风雪 = 减速+持续伤害区域',
+        colorA: '#55cc44', colorB: '#66ddff' },
+      { id: 's_stormFire', ingredientA: 'el_burn', ingredientB: 'th_thunderStorm', result: 'fusion_stormFire',
+        name: '风暴烈焰', icon: '🌋', description: '灼烧 + 雷暴 = 连锁灼烧闪电',
+        colorA: '#ff6600', colorB: '#ffff00' },
+      { id: 's_vampiricShield', ingredientA: 'sh_bigger', ingredientB: 'ls_vampire', result: 'fusion_vampiricShield',
+        name: '吸血护盾', icon: '🛡️', description: '护盾强化 + 吸血鬼 = 命中回血护盾',
+        colorA: '#4488ff', colorB: '#ff3366' },
+    ],
+    // Both ingredients must reach this level to fuse
+    requiredLevel: 5,
   },
 
   // ============ ITEMS (20) ============
@@ -1010,6 +1128,18 @@ const GAME_CONFIG = {
         { hpThreshold: 0.3, bulletCount: 20, spreadAngle: 90, fireRate: 300, bulletSpeed: 320 },
       ],
     },
+    boss_phantom: {
+      type: 'boss_phantom', name: '幽灵领主',
+      hp: 8000, speed: 50, damage: 35, score: 12000, xp: 900,
+      size: 45, color: '#88ffff',
+      ai: 'boss_phantom', fireRate: 400, bulletSpeed: 280, bulletDamage: 20, bulletColor: '#88ffff',
+      bulletCount: 8, spreadAngle: 360,
+      dropRate: 1.0,
+      phases: [
+        { hpThreshold: 0.7, bulletCount: 12, fireRate: 300, bulletSpeed: 320 },
+        { hpThreshold: 0.4, bulletCount: 16, fireRate: 200, bulletSpeed: 360, teleportCooldown: 1500 },
+      ],
+    },
   },
 
   // ============ WAVE DEFINITIONS ============
@@ -1102,6 +1232,64 @@ const GAME_CONFIG = {
     rarityRare: '#4488ff',
     rarityEpic: '#aa44ff',
     rarityLegendary: '#ffaa00',
+  },
+
+  // ============ UPGRADES (Permanent Progression) ============
+  UPGRADES: {
+    attackPower: {
+      id: 'attackPower',
+      name: '攻击强化',
+      icon: '⚔️',
+      description: '永久提升攻击力',
+      effectDesc: function(level) { return '攻击力 +' + (level * 10) + '%'; },
+      maxLevel: 10,
+      statMod: function(level) { return { stat: 'attack', op: 'multiply', value: level * 0.10 }; }
+    },
+    maxHp: {
+      id: 'maxHp',
+      name: '生命强化',
+      icon: '❤️',
+      description: '永久提升最大生命值',
+      effectDesc: function(level) { return '最大HP +' + (level * 15); },
+      maxLevel: 10,
+      statMod: function(level) { return { stat: 'hp', op: 'add', value: level * 15 }; }
+    },
+    moveSpeed: {
+      id: 'moveSpeed',
+      name: '移速强化',
+      icon: '💨',
+      description: '永久提升移动速度',
+      effectDesc: function(level) { return '移速 +' + (level * 5) + '%'; },
+      maxLevel: 10,
+      statMod: function(level) { return { stat: 'speed', op: 'multiply', value: level * 0.05 }; }
+    },
+    initialWeapon: {
+      id: 'initialWeapon',
+      name: '初始武器等级',
+      icon: '🔫',
+      description: '提升游戏开始时的武器等级',
+      effectDesc: function(level) { return '初始武器 Lv.' + level; },
+      maxLevel: 3
+    },
+    xpMultiplier: {
+      id: 'xpMultiplier',
+      name: '经验加成',
+      icon: '📈',
+      description: '永久提升获得的经验值',
+      effectDesc: function(level) { return '经验获取 +' + (level * 10) + '%'; },
+      maxLevel: 10
+    },
+    dropRate: {
+      id: 'dropRate',
+      name: '掉落加成',
+      icon: '💎',
+      description: '永久提升道具掉落率',
+      effectDesc: function(level) { return '掉落率 +' + (level * 5) + '%'; },
+      maxLevel: 10
+    },
+    costFormula: function(level) {
+      return 100 * Math.pow(2, level);
+    },
   },
 };
 

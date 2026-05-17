@@ -285,8 +285,164 @@ var LeaderboardManager = {
 };
 
 // ====================================================================
+//  UpgradeManager — star coins & permanent upgrades
+// ====================================================================
+
+var UpgradeManager = {
+  _KEY: 'stg_upgrades',
+  _VERSION: 1,
+
+  _checksum: function (data) {
+    var hash = 0;
+    if (typeof data.starCoins === 'number') hash ^= data.starCoins;
+    if (data.upgrades) {
+      for (var key in data.upgrades) {
+        if (data.upgrades.hasOwnProperty(key)) {
+          hash ^= data.upgrades[key] * 7;
+        }
+      }
+    }
+    return hash >>> 0;
+  },
+
+  /**
+   * Load upgrade data from localStorage.
+   * @returns {Object} { starCoins: number, upgrades: { attackPower: level, ... } }
+   */
+  load: function () {
+    try {
+      var raw = localStorage.getItem(this._KEY);
+      if (!raw) return { starCoins: 0, upgrades: {} };
+
+      var payload = JSON.parse(raw);
+      if (!payload || payload.v !== this._VERSION || typeof payload.c !== 'number' || typeof payload.d !== 'string') {
+        return { starCoins: 0, upgrades: {} };
+      }
+
+      var jsonStr = decodeURIComponent(escape(atob(payload.d)));
+      var data = JSON.parse(jsonStr);
+
+      if (this._checksum(data) !== payload.c) {
+        console.warn('UpgradeManager: checksum mismatch');
+        return { starCoins: 0, upgrades: {} };
+      }
+
+      return data;
+    } catch (e) {
+      console.warn('UpgradeManager.load failed:', e);
+      return { starCoins: 0, upgrades: {} };
+    }
+  },
+
+  /**
+   * Save upgrade data to localStorage.
+   * @param {Object} data — { starCoins, upgrades }
+   */
+  _save: function (data) {
+    try {
+      var jsonStr = JSON.stringify(data);
+      var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      var checksum = this._checksum(data);
+      var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
+      localStorage.setItem(this._KEY, payload);
+      return true;
+    } catch (e) {
+      console.warn('UpgradeManager._save failed:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Get current star coin balance.
+   * @returns {number}
+   */
+  getStarCoins: function () {
+    return this.load().starCoins || 0;
+  },
+
+  /**
+   * Add star coins (e.g. after a game run).
+   * @param {number} amount
+   * @returns {number} new total
+   */
+  addStarCoins: function (amount) {
+    var data = this.load();
+    data.starCoins = (data.starCoins || 0) + Math.max(0, amount);
+    this._save(data);
+    return data.starCoins;
+  },
+
+  /**
+   * Get the current level of a specific upgrade.
+   * @param {string} upgradeId
+   * @returns {number} level (0 if not purchased)
+   */
+  getUpgradeLevel: function (upgradeId) {
+    var data = this.load();
+    return (data.upgrades && data.upgrades[upgradeId]) || 0;
+  },
+
+  /**
+   * Get all upgrade levels.
+   * @returns {Object} { upgradeId: level, ... }
+   */
+  getAllUpgradeLevels: function () {
+    var data = this.load();
+    return data.upgrades || {};
+  },
+
+  /**
+   * Attempt to purchase an upgrade.
+   * @param {string} upgradeId
+   * @returns {Object} { success: boolean, message: string, newLevel: number }
+   */
+  purchaseUpgrade: function (upgradeId) {
+    var cfg = window.GAME_CONFIG;
+    var upgradeDef = cfg && cfg.UPGRADES && cfg.UPGRADES[upgradeId];
+    if (!upgradeDef) return { success: false, message: '未知升级', newLevel: 0 };
+
+    var data = this.load();
+    var currentLevel = (data.upgrades && data.upgrades[upgradeId]) || 0;
+
+    if (currentLevel >= upgradeDef.maxLevel) {
+      return { success: false, message: '已满级', newLevel: currentLevel };
+    }
+
+    var cost = cfg.UPGRADES.costFormula(currentLevel);
+    if (data.starCoins < cost) {
+      return { success: false, message: '星币不足', newLevel: currentLevel };
+    }
+
+    // Deduct and upgrade
+    data.starCoins -= cost;
+    if (!data.upgrades) data.upgrades = {};
+    data.upgrades[upgradeId] = currentLevel + 1;
+    this._save(data);
+
+    return { success: true, message: '升级成功', newLevel: currentLevel + 1 };
+  },
+
+  /**
+   * Get the cost to upgrade a specific upgrade to next level.
+   * @param {string} upgradeId
+   * @returns {number} cost, or -1 if max level
+   */
+  getUpgradeCost: function (upgradeId) {
+    var cfg = window.GAME_CONFIG;
+    var upgradeDef = cfg && cfg.UPGRADES && cfg.UPGRADES[upgradeId];
+    if (!upgradeDef) return -1;
+
+    var currentLevel = this.getUpgradeLevel(upgradeId);
+    if (currentLevel >= upgradeDef.maxLevel) return -1;
+
+    return cfg.UPGRADES.costFormula(currentLevel);
+  }
+};
+
+// ====================================================================
 //  Export to window
 // ====================================================================
 
 window.StorageManager = StorageManager;
 window.LeaderboardManager = LeaderboardManager;
+window.UpgradeManager = UpgradeManager;
