@@ -100,6 +100,50 @@
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(0, 0, game.width, game.height);
     }
+
+    // Boss health bar (full screen width at top)
+    if (game.scene === cfg.SCENES.GAMEPLAY) {
+      const boss = game.enemies.find(e => e.isBoss && e.active);
+      if (boss) {
+        drawBossHealthBar(ctx, boss);
+      }
+    }
+  }
+
+  function drawBossHealthBar(ctx, boss) {
+    const barX = 20;
+    const barY = 8;
+    const barWidth = game.width - 40;
+    const barHeight = 16;
+    const hpPercent = Math.max(0, boss.hp / boss.maxHp);
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+
+    // Border
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+
+    // HP fill
+    const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth * hpPercent, barY);
+    gradient.addColorStop(0, '#ff0000');
+    gradient.addColorStop(0.5, '#ff4444');
+    gradient.addColorStop(1, '#ff8888');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(barX, barY, barWidth * hpPercent, barHeight);
+
+    // Boss name
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(boss.bossName || 'BOSS', game.width / 2, barY + 12);
+
+    // HP percentage
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.floor(hpPercent * 100) + '%', barX + barWidth - 5, barY + 12);
+    ctx.textAlign = 'left';
   }
 
   // ============ UI HANDLERS ============
@@ -122,6 +166,80 @@
     document.getElementById('btn-back-from-lb').addEventListener('click', () => {
       ui.hideAllScreens();
       document.getElementById('menu-screen').style.display = 'flex';
+    });
+
+    // Pause menu buttons
+    document.getElementById('btn-resume').addEventListener('click', () => {
+      game.resume();
+      document.getElementById('pause-overlay').style.display = 'none';
+    });
+    document.getElementById('btn-pause-shop').addEventListener('click', () => {
+      showInRunShop();
+    });
+    document.getElementById('btn-pause-restart').addEventListener('click', () => {
+      document.getElementById('pause-overlay').style.display = 'none';
+      startNewGame();
+    });
+    document.getElementById('btn-pause-menu').addEventListener('click', () => {
+      document.getElementById('pause-overlay').style.display = 'none';
+      backToMenu();
+    });
+
+    // In-run shop close button
+    document.getElementById('btn-close-shop').addEventListener('click', () => {
+      hideInRunShop();
+    });
+  }
+
+  // ============ IN-RUN SHOP UI ============
+  function showInRunShop() {
+    document.getElementById('pause-overlay').style.display = 'none';
+    document.getElementById('in-run-shop').style.display = 'flex';
+    renderInRunShopItems();
+  }
+
+  function hideInRunShop() {
+    document.getElementById('in-run-shop').style.display = 'none';
+    document.getElementById('pause-overlay').style.display = 'flex';
+  }
+
+  function renderInRunShopItems() {
+    const container = document.getElementById('shop-items');
+    container.innerHTML = '';
+    document.getElementById('shop-gold-display').textContent = inRunGold;
+
+    IN_RUN_SHOP_ITEMS.forEach(item => {
+      const level = inRunUpgrades[item.id] || 0;
+      const cost = getInRunUpgradeCost(item.id);
+      const isMaxLevel = level >= item.maxLevel;
+      const canAfford = inRunGold >= cost;
+
+      const div = document.createElement('div');
+      div.className = 'shop-item';
+      div.innerHTML = `
+        <div class="shop-item-icon">${item.icon}</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-level">等级: ${level}/${item.maxLevel}</div>
+          <div class="shop-item-desc">${item.desc}</div>
+        </div>
+        <button class="shop-item-btn ${isMaxLevel ? 'max-level' : ''}" 
+                data-item-id="${item.id}"
+                ${isMaxLevel || !canAfford ? 'disabled' : ''}>
+          ${isMaxLevel ? '已满级' : '💰 ' + cost}
+        </button>
+      `;
+
+      if (!isMaxLevel && canAfford) {
+        div.querySelector('.shop-item-btn').addEventListener('click', () => {
+          if (purchaseInRunUpgrade(item.id)) {
+            renderInRunShopItems(); // Refresh UI
+            if (window.audio) window.audio.playPickup();
+          }
+        });
+      }
+
+      container.appendChild(div);
     });
   }
 
@@ -150,6 +268,57 @@
     document.getElementById('char-select-screen').style.display = 'flex';
   }
 
+  // ============ IN-RUN SHOP SYSTEM ============
+  let inRunGold = 0;
+  let inRunUpgrades = {
+    attackPower: 0,
+    maxHp: 0,
+    moveSpeed: 0,
+    fireRate: 0,
+    critChance: 0,
+    pickupRange: 0,
+  };
+
+  const IN_RUN_SHOP_ITEMS = [
+    { id: 'attackPower', name: '攻击强化', icon: '⚔️', desc: '+15% 攻击力', cost: 50, maxLevel: 10, effect: (level) => ({ stat: 'attack', op: 'multiply', value: level * 0.15 }) },
+    { id: 'maxHp', name: '生命强化', icon: '❤️', desc: '+20 最大生命', cost: 40, maxLevel: 10, effect: (level) => ({ stat: 'hp', op: 'add', value: level * 20 }) },
+    { id: 'moveSpeed', name: '速度强化', icon: '👟', desc: '+10% 移动速度', cost: 45, maxLevel: 8, effect: (level) => ({ stat: 'speed', op: 'multiply', value: level * 0.10 }) },
+    { id: 'fireRate', name: '射速强化', icon: '🔫', desc: '-12% 射击间隔', cost: 60, maxLevel: 8, effect: (level) => ({ stat: 'attackSpeed', op: 'multiply', value: -level * 0.12 }) },
+    { id: 'critChance', name: '暴击强化', icon: '💥', desc: '+5% 暴击率', cost: 70, maxLevel: 6, effect: (level) => ({ stat: 'critRate', op: 'add', value: level * 0.05 }) },
+    { id: 'pickupRange', name: '拾取范围', icon: '🧲', desc: '+30 拾取半径', cost: 35, maxLevel: 5, effect: (level) => ({ stat: 'pickupRange', op: 'add', value: level * 30 }) },
+  ];
+
+  function getInRunUpgradeCost(itemId) {
+    const item = IN_RUN_SHOP_ITEMS.find(i => i.id === itemId);
+    if (!item) return 999999;
+    const level = inRunUpgrades[itemId] || 0;
+    return Math.floor(item.cost * Math.pow(1.5, level));
+  }
+
+  function purchaseInRunUpgrade(itemId) {
+    const item = IN_RUN_SHOP_ITEMS.find(i => i.id === itemId);
+    if (!item) return false;
+    const level = inRunUpgrades[itemId] || 0;
+    if (level >= item.maxLevel) return false;
+    const cost = getInRunUpgradeCost(itemId);
+    if (inRunGold < cost) return false;
+
+    inRunGold -= cost;
+    inRunUpgrades[itemId] = level + 1;
+
+    // Apply upgrade effect
+    if (playerEntity) {
+      const effect = item.effect(level + 1);
+      playerEntity.applyStatModifiers([effect]);
+    }
+
+    return true;
+  }
+
+  function addInRunGold(amount) {
+    inRunGold += Math.floor(amount);
+  }
+
   // ============ GAME START ============
   function startNewGame() {
     if (!selectedFaction) {
@@ -168,6 +337,17 @@
     gameOverShown = false;
     lastBossScore = 0;
 
+    // Reset in-run shop
+    inRunGold = 0;
+    inRunUpgrades = {
+      attackPower: 0,
+      maxHp: 0,
+      moveSpeed: 0,
+      fireRate: 0,
+      critChance: 0,
+      pickupRange: 0,
+    };
+
     // Clear all entities
     game.clearAllEntities();
     game.entities.length = 0;
@@ -175,6 +355,7 @@
     // Create player
     playerEntity = new window.Player(game.width / 2, game.height * 0.8);
     playerEntity.applyFaction(selectedFaction);
+
     game.addEntity(playerEntity);
     game.player = playerEntity;
 
@@ -184,21 +365,85 @@
     skillManager._isChoosing = false;
     weaponManager = new window.WeaponManager(playerEntity);
     weaponManager.setWeapon('normal');
+
     itemSpawner = new window.ItemSpawner();
     buffManager = new window.BuffManager(playerEntity);
     playerEntity.buffManager = buffManager;
     waveSpawner = new window.WaveSpawner();
     waveSpawner.reset(0);
 
-    // Connect skill level-up to UI
-    skillManager.onLevelUp = function(skills) {
+    // Connect skill manager to weapon manager for weapon upgrades
+    skillManager.weaponManager = weaponManager;
+    // Expose skillManager globally so weapons.js can access upgrade multipliers
+    window._skillManagerRef = skillManager;
+
+    // Connect skill level-up to UI (with fusion integration)
+    skillManager.onLevelUp = function(choices) {
       game.pause();
-      ui.showLevelUp(skills, function(skillId) {
-        skillManager.learnSkill(skillId);
+
+      // Check for available fusions and add fusion cards to choices
+      var availableFusions = skillManager.checkFusions();
+      if (availableFusions.length > 0) {
+        ui.showFusionNotification(availableFusions);
+      }
+
+      ui.showLevelUp(choices, function(selectedItem) {
+        // Handle fusion cards (they have _choiceType === 'fusion')
+        if (selectedItem._choiceType === 'fusion') {
+          // Fusion cards are handled by the separate addFusionCards callback
+          // This should not be reached, but handle gracefully
+          return;
+        }
+
+        // Handle normal skills and weapons
+        if (selectedItem._choiceType === 'weapon') {
+          skillManager.selectWeapon(selectedItem._weaponId);
+        } else {
+          skillManager.learnSkill(selectedItem._data.id);
+        }
         ui.hideLevelUp();
-        // game.resume() handled by learnSkill in skills.js
+        // game.resume() handled by learnSkill/selectWeapon in skills.js
       });
+
+      // Add fusion cards to the level-up UI if fusions are available
+      if (availableFusions.length > 0) {
+        var container = document.getElementById('skill-choices');
+        ui.addFusionCards(availableFusions, container, function(selectedItem) {
+          // This is called when a fusion card is clicked
+          if (selectedItem._fusionType === 'weapon') {
+            skillManager.executeWeaponFusion(selectedItem._recipe);
+          } else {
+            skillManager.executeSkillFusion(selectedItem._recipe);
+          }
+          ui.hideLevelUp();
+          skillManager._pendingLevelUps--;
+          if (skillManager._pendingLevelUps > 0) {
+            skillManager._isChoosing = false;
+            skillManager._showLevelUpChoices();
+          } else {
+            skillManager._isChoosing = false;
+            game.resume();
+          }
+        });
+      }
     };
+
+    // Connect fusion availability callback
+    skillManager.onFusionAvailable = function(fusions) {
+      ui.showFusionNotification(fusions);
+    };
+
+    // Connect fusion notification click
+    var fusionNotifEl = document.getElementById('fusion-notification');
+    if (fusionNotifEl) {
+      fusionNotifEl.addEventListener('click', function() {
+        ui.hideFusionNotification();
+        // If in gameplay and not paused, trigger level-up to show fusion options
+        if (skillManager && !skillManager._isChoosing) {
+          skillManager._showLevelUpChoices();
+        }
+      });
+    }
 
     // Connect event triggers
     playerEntity.onKill = function() {
@@ -268,6 +513,7 @@
         time: game.gameTime,
         maxCombo: game.maxCombo,
         faction: cfg.FACTIONS[selectedFaction] ? cfg.FACTIONS[selectedFaction].name : 'Unknown',
+        goldEarned: inRunGold,
       };
 
       ui.showGameOver(stats, function() {
@@ -289,6 +535,10 @@
     itemSpawner = null;
     buffManager = null;
     waveSpawner = null;
+    window._skillManagerRef = null;
+
+    // Hide fusion notification
+    if (ui) ui.hideFusionNotification();
 
     if (window.audio) window.audio.stopBGM();
 
@@ -571,6 +821,11 @@
     }
     if (skillManager) skillManager.addXp(xpGain);
 
+    // Gold (in-run currency)
+    let goldGain = Math.floor(enemy.score * 0.3) + 1;
+    if (enemy.isBoss) goldGain *= 5; // Boss gives 5x gold
+    addInRunGold(goldGain);
+
     // Lifesteal
     if (playerEntity.stats.lifesteal) {
       const healAmt = Math.floor(damage * playerEntity.stats.lifesteal);
@@ -586,8 +841,26 @@
     }
 
     // Item drop
-    if (itemSpawner && Math.random() < cfg.BALANCE.ITEM_DROP_CHANCE * (playerEntity.stats.dropRate || 1)) {
+    var dropChanceMult = playerEntity.stats.dropRate || 1;
+    if (itemSpawner && Math.random() < cfg.BALANCE.ITEM_DROP_CHANCE * dropChanceMult) {
       itemSpawner.spawnAt(enemy.x, enemy.y);
+    }
+
+    // Boss drops: guaranteed rare items
+    if (enemy.isBoss && itemSpawner) {
+      // Drop 3-5 items around boss position
+      const dropCount = 3 + Math.floor(Math.random() * 3);
+      const rareItems = ['power_up_big', 'health_large', 'shield_item', 'invincible', 'xp_boost_item', 'score_boost'];
+      for (let i = 0; i < dropCount; i++) {
+        const angle = (Math.PI * 2 / dropCount) * i;
+        const dist = 30 + Math.random() * 40;
+        const dx = enemy.x + Math.cos(angle) * dist;
+        const dy = enemy.y + Math.sin(angle) * dist;
+        const itemId = rareItems[Math.floor(Math.random() * rareItems.length)];
+        itemSpawner.spawnById(itemId, dx, dy);
+      }
+      // Show boss defeat message
+      ui.showToast('🎉 Boss 击败！稀有道具掉落！', 3000);
     }
 
     // Check for boss trigger
@@ -762,6 +1035,9 @@
     const sec = totalSec % 60;
     document.getElementById('time-text').textContent = 
       String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+
+    // Gold display
+    document.getElementById('gold-text').textContent = inRunGold;
 
     // Combo display
     const comboEl = document.getElementById('combo-text');
