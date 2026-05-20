@@ -1202,6 +1202,38 @@ const GAME_CONFIG = {
       ],
     },
     bossTriggers: [5000, 25000, 50000, 80000, 120000, 170000, 230000, 300000],
+
+    // ============ ENEMY POOL (Random Spawn System) ============
+    // Each enemy has: weight (higher = more likely), minWave (earliest wave it can appear)
+    // The system randomly selects enemies from the pool based on weights
+    enemyPool: {
+      // Basic enemies (available from wave 1)
+      small:      { weight: 40, minWave: 1 },
+      fastSmall:  { weight: 25, minWave: 1 },
+      // Medium enemies (wave 3+)
+      medium:     { weight: 20, minWave: 3 },
+      obstacle:   { weight: 10, minWave: 2 },
+      // Advanced enemies (wave 5+)
+      splitter:   { weight: 15, minWave: 5 },
+      shielder:   { weight: 12, minWave: 5 },
+      charger:    { weight: 12, minWave: 5 },
+      weaver:     { weight: 10, minWave: 6 },
+      teleporter: { weight: 8, minWave: 7 },
+      // Elite enemies (wave 8+)
+      elite:      { weight: 10, minWave: 8 },
+      sniper:     { weight: 10, minWave: 8 },
+      // Heavy enemies (wave 12+)
+      tank:       { weight: 8, minWave: 12 },
+      sniperElite:{ weight: 6, minWave: 12 },
+      spawner:    { weight: 5, minWave: 12 },
+      // Extreme enemies (wave 15+)
+      kamikaze:   { weight: 8, minWave: 15 },
+    },
+
+    // Spawn count per wave: base + wave * multiplier, with random variance
+    spawnCountBase: 5,
+    spawnCountPerWave: 1.5,
+    spawnCountVariance: 0.3, // ±30% random variance
   },
 
   // ============ PARTICLES ============
