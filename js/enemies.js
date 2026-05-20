@@ -868,38 +868,31 @@ class Enemy {
     const player = game.player;
     const cfg = this.bulletConfig;
 
+    // Available bullet patterns for random selection
+    const PATTERN_POOL = ['aimed', 'circle', 'spiralOut', 'spread', 'burst'];
+
     // Determine fire pattern based on AI type
     let pattern;
-    switch (this.ai) {
-      case 'aimed':
-      case 'sniperElite':
-        pattern = 'aimed';
-        break;
-      case 'boss':
-      case 'boss_guardian':
-      case 'boss_summoner':
-        pattern = this.bossPhase >= 0 ? 'circle' : 'aimed';
-        break;
-      case 'boss_dragon':
-        pattern = this.bossPhase >= 0 ? 'spiralOut' : 'aimed';
-        break;
-      default:
-        pattern = 'aimed';
-        break;
-    }
-
-    // For boss: alternate patterns based on phase
-    if (this.isBoss && this.bossPhase >= 0) {
-      const phaseIdx = this.bossPhase % 3;
-      if (this.ai === 'boss_dragon') {
-        pattern = phaseIdx === 0 ? 'spiralOut' : (phaseIdx === 1 ? 'circle' : 'aimed');
-      } else if (this.ai === 'boss_summoner') {
-        pattern = phaseIdx === 0 ? 'circle' : (phaseIdx === 1 ? 'aimed' : 'spiralOut');
-      } else {
-        if (phaseIdx === 0) pattern = 'circle';
-        else if (phaseIdx === 1) pattern = 'spiralOut';
-        else pattern = 'aimed';
-      }
+    if (this.isBoss) {
+      // Boss: cycle through patterns based on phase
+      const phaseIdx = this.bossPhase >= 0 ? this.bossPhase % 3 : 0;
+      const bossPatterns = {
+        'boss_dragon': ['spiralOut', 'circle', 'aimed'],
+        'boss_summoner': ['circle', 'aimed', 'spiralOut'],
+        'boss_guardian': ['circle', 'spiralOut', 'aimed'],
+        'boss_phantom': ['aimed', 'burst', 'circle'],
+      };
+      const patterns = bossPatterns[this.ai] || ['circle', 'spiralOut', 'aimed'];
+      pattern = patterns[phaseIdx] || 'aimed';
+    } else {
+      // Regular enemies: random pattern selection (weighted)
+      // aimed: 40%, circle: 20%, spiralOut: 15%, spread: 15%, burst: 10%
+      const roll = Math.random();
+      if (roll < 0.40) pattern = 'aimed';
+      else if (roll < 0.60) pattern = 'circle';
+      else if (roll < 0.75) pattern = 'spiralOut';
+      else if (roll < 0.90) pattern = 'spread';
+      else pattern = 'burst';
     }
 
     const px = player ? player.x : GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2;
@@ -907,12 +900,26 @@ class Enemy {
     const baseX = this.x;
     const baseY = this.y + this.size;
 
+    // Fire based on pattern
     if (pattern === 'circle' && BulletPatterns.circle) {
       BulletPatterns.circle(baseX, baseY, cfg.count || 12, cfg.speed, cfg.damage, cfg.color);
     } else if (pattern === 'aimed' && BulletPatterns.aimed) {
       BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0);
     } else if (pattern === 'spiralOut' && BulletPatterns.spiralOut) {
       BulletPatterns.spiralOut(baseX, baseY, cfg.count || 8, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 30);
+    } else if (pattern === 'spread' && BulletPatterns.spread) {
+      // Spread pattern: fan of bullets toward player
+      const count = cfg.count || 5;
+      const angle = Math.atan2(py - baseY, px - baseX);
+      BulletPatterns.spread(baseX, baseY, count, cfg.spreadAngle || 45, cfg.speed, cfg.damage, cfg.color, angle);
+    } else if (pattern === 'burst' && BulletPatterns.circle) {
+      // Burst: rapid fire circle
+      BulletPatterns.circle(baseX, baseY, (cfg.count || 8) + 4, cfg.speed * 1.2, cfg.damage * 0.7, cfg.color);
+    } else {
+      // Fallback to aimed
+      if (BulletPatterns.aimed) {
+        BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0);
+      }
     }
   }
 
@@ -2887,16 +2894,65 @@ class WaveSpawner {
   }
 
   // ---------------------------------------------------------------------------
-  // SPAWN WAVE GROUP (normal)
+  // SPAWN WAVE GROUP (Random Pool System)
   // ---------------------------------------------------------------------------
   _spawnWaveGroup(game, difficulty, spawnRules) {
-    // Existing logic but track spawned count
     let activeEnemies = 0;
     for (let i = 0; i < game.enemies.length; i++) {
       if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
     }
     if (activeEnemies >= spawnRules.maxEnemiesOnScreen) return;
 
+    // Use enemy pool for random selection
+    const pool = GAME_CONFIG.WAVES.enemyPool;
+    if (!pool) {
+      // Fallback to old system if pool not defined
+      this._spawnWaveGroupLegacy(game, difficulty, spawnRules);
+      return;
+    }
+
+    // Build list of available enemies for this wave
+    const available = [];
+    let totalWeight = 0;
+    for (const [enemyId, config] of Object.entries(pool)) {
+      if (this.waveNumber >= config.minWave) {
+        available.push({ id: enemyId, weight: config.weight });
+        totalWeight += config.weight;
+      }
+    }
+
+    if (available.length === 0) return;
+
+    // Randomly select an enemy type
+    let roll = Math.random() * totalWeight;
+    let selected = available[0];
+    for (const entry of available) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        selected = entry;
+        break;
+      }
+    }
+
+    // Determine spawn count with random variance
+    const baseCount = Math.ceil(GAME_CONFIG.WAVES.spawnCountBase + this.waveNumber * GAME_CONFIG.WAVES.spawnCountPerWave);
+    const variance = GAME_CONFIG.WAVES.spawnCountVariance || 0.3;
+    const count = Math.max(1, Math.floor(baseCount * (1 + (Math.random() * 2 - 1) * variance)));
+
+    // Create spawn template
+    const template = {
+      enemy: selected.id,
+      count: Math.min(count, 5), // Cap at 5 per group
+      spacing: 60 + Math.random() * 40, // Random spacing 60-100
+      pattern: ['line', 'v', 'circle', 'random'][Math.floor(Math.random() * 4)], // Random pattern
+    };
+
+    const spawned = this._spawnGroup(game, template, difficulty);
+    this.waveEnemiesSpawned += spawned;
+  }
+
+  // Legacy spawn system (fallback)
+  _spawnWaveGroupLegacy(game, difficulty, spawnRules) {
     const applicableGroups = [];
     for (const group of spawnRules.groups) {
       if (difficulty >= group.minDifficulty) {
