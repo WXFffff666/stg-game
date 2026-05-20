@@ -405,6 +405,57 @@ canvas {
   border-color: #44dd44; color: #44dd44; background: rgba(68,221,68,0.1);
   cursor: default;
 }
+
+/* Codex (图鉴) Styles */
+.codex-tabs {
+  display: flex; gap: 10px; margin: 15px 0;
+}
+.codex-tab {
+  padding: 8px 20px; border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+  background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; transition: all 0.2s;
+}
+.codex-tab:hover { border-color: #ffdd00; }
+.codex-tab.active { border-color: #ffdd00; background: rgba(255,221,0,0.2); color: #ffdd00; }
+.codex-content {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px; max-width: 500px; max-height: 400px; overflow-y: auto; padding: 10px;
+}
+.codex-card {
+  padding: 10px; border: 2px solid rgba(255,255,255,0.2); border-radius: 8px;
+  background: rgba(255,255,255,0.05); text-align: center; transition: all 0.2s;
+}
+.codex-card:hover { border-color: #ffdd00; transform: scale(1.05); }
+.codex-card-icon { font-size: 24px; margin-bottom: 5px; }
+.codex-card-name { font-size: 12px; font-weight: bold; color: #fff; }
+.codex-card-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
+.codex-card-fusion { font-size: 9px; color: #ffdd00; margin-top: 3px; }
+
+/* Settings Styles */
+.settings-content {
+  max-width: 300px; width: 100%;
+}
+.setting-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.setting-item label { font-size: 14px; color: #fff; }
+.setting-item input[type="range"] {
+  width: 120px; accent-color: #ffdd00;
+}
+.toggle {
+  position: relative; display: inline-block; width: 50px; height: 24px;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255,255,255,0.2); transition: 0.3s; border-radius: 24px;
+}
+.toggle-slider:before {
+  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+  background-color: white; transition: 0.3s; border-radius: 50%;
+}
+.toggle input:checked + .toggle-slider { background-color: #44dd44; }
+.toggle input:checked + .toggle-slider:before { transform: translateX(26px); }
 </style>
 </head>
 <body>
@@ -465,6 +516,8 @@ canvas {
     <h1>星域战机</h1>
     <div class="subtitle">STAR DOMAIN STG</div>
     <button class="menu-btn highlight" id="btn-start">开始游戏</button>
+    <button class="menu-btn" id="btn-codex">📖 图鉴</button>
+    <button class="menu-btn" id="btn-settings">⚙️ 设置</button>
     <button class="menu-btn" id="btn-leaderboard">排行榜</button>
     <button class="menu-btn" id="btn-howto">操作说明</button>
   </div>
@@ -521,6 +574,45 @@ canvas {
       👑 BOSS每20000分出现
     </div>
     <button class="menu-btn" id="btn-back-from-howto">返回</button>
+  </div>
+
+  <!-- Codex (图鉴) -->
+  <div class="menu-screen" id="codex-screen" style="display:none">
+    <h1 style="font-size:28px">📖 图鉴</h1>
+    <div class="codex-tabs">
+      <button class="codex-tab active" data-tab="weapons">武器</button>
+      <button class="codex-tab" data-tab="skills">技能</button>
+      <button class="codex-tab" data-tab="factions">流派</button>
+    </div>
+    <div class="codex-content" id="codex-content"></div>
+    <button class="menu-btn" id="btn-back-from-codex">返回</button>
+  </div>
+
+  <!-- Settings (设置) -->
+  <div class="menu-screen" id="settings-screen" style="display:none">
+    <h1 style="font-size:28px">⚙️ 设置</h1>
+    <div class="settings-content">
+      <div class="setting-item">
+        <label>🔊 总音量</label>
+        <input type="range" id="master-volume" min="0" max="100" value="50">
+      </div>
+      <div class="setting-item">
+        <label>🔫 音效音量</label>
+        <input type="range" id="sfx-volume" min="0" max="100" value="70">
+      </div>
+      <div class="setting-item">
+        <label>🎵 音乐音量</label>
+        <input type="range" id="music-volume" min="0" max="100" value="30">
+      </div>
+      <div class="setting-item">
+        <label>📳 屏幕震动</label>
+        <label class="toggle">
+          <input type="checkbox" id="screen-shake" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <button class="menu-btn" id="btn-back-from-settings">返回</button>
   </div>
 
 </div>

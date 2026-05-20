@@ -128,6 +128,22 @@ class UIManager {
       });
     }
 
+    // Codex button
+    const btnCodex = document.getElementById('btn-codex');
+    if (btnCodex) {
+      btnCodex.addEventListener('click', () => {
+        this.showCodex();
+      });
+    }
+
+    // Settings button
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) {
+      btnSettings.addEventListener('click', () => {
+        this.showScreen('settings-screen');
+      });
+    }
+
     // Back buttons (multiple may share same ID convention)
     const backButtons = document.querySelectorAll('#btn-back-menu');
     for (let i = 0; i < backButtons.length; i++) {
@@ -147,6 +163,52 @@ class UIManager {
         this.showScreen('menu-screen');
       });
     }
+
+    // Codex back button
+    const btnBackFromCodex = document.getElementById('btn-back-from-codex');
+    if (btnBackFromCodex) {
+      btnBackFromCodex.addEventListener('click', () => {
+        this.showScreen('menu-screen');
+      });
+    }
+
+    // Settings back button
+    const btnBackFromSettings = document.getElementById('btn-back-from-settings');
+    if (btnBackFromSettings) {
+      btnBackFromSettings.addEventListener('click', () => {
+        this.showScreen('menu-screen');
+      });
+    }
+
+    // Codex tabs
+    const codexTabs = document.querySelectorAll('.codex-tab');
+    for (const tab of codexTabs) {
+      tab.addEventListener('click', () => {
+        // Remove active from all tabs
+        for (const t of codexTabs) t.classList.remove('active');
+        tab.classList.add('active');
+        this._renderCodexContent(tab.dataset.tab);
+      });
+    }
+
+    // Settings sliders
+    const masterVol = document.getElementById('master-volume');
+    const sfxVol = document.getElementById('sfx-volume');
+    const musicVol = document.getElementById('music-volume');
+    const screenShake = document.getElementById('screen-shake');
+
+    if (masterVol) masterVol.addEventListener('input', () => {
+      if (window.audio) window.audio.masterVolume = masterVol.value / 100;
+    });
+    if (sfxVol) sfxVol.addEventListener('input', () => {
+      if (window.audio) window.audio.sfxVolume = sfxVol.value / 100;
+    });
+    if (musicVol) musicVol.addEventListener('input', () => {
+      if (window.audio) window.audio.bgmVolume = musicVol.value / 100;
+    });
+    if (screenShake) screenShake.addEventListener('change', () => {
+      if (window.game) window.game.screenShakeEnabled = screenShake.checked;
+    });
 
     // Game Over buttons
     if (this.elBtnRestart) {
@@ -759,6 +821,67 @@ class UIManager {
 
   hidePause() {
     if (this.elPauseOverlay) this.elPauseOverlay.style.display = 'none';
+  }
+
+  // ====================================================================
+  //  Codex (图鉴)
+  // ====================================================================
+
+  showCodex() {
+    this.showScreen('codex-screen');
+    // Default to weapons tab
+    const tabs = document.querySelectorAll('.codex-tab');
+    for (const t of tabs) t.classList.remove('active');
+    if (tabs[0]) tabs[0].classList.add('active');
+    this._renderCodexContent('weapons');
+  }
+
+  _renderCodexContent(tab) {
+    const container = document.getElementById('codex-content');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const cfg = GAME_CONFIG;
+
+    if (tab === 'weapons') {
+      // Render weapons
+      for (const [id, w] of Object.entries(cfg.WEAPONS)) {
+        const card = document.createElement('div');
+        card.className = 'codex-card';
+        card.innerHTML = `
+          <div class="codex-card-icon">${w.icon || '🔫'}</div>
+          <div class="codex-card-name">${w.name || id}</div>
+          <div class="codex-card-desc">${w.description || w.pattern || ''}</div>
+          ${w.fusionRecipe ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}
+        `;
+        container.appendChild(card);
+      }
+    } else if (tab === 'skills') {
+      // Render skills
+      for (const skill of cfg.SKILLS) {
+        const card = document.createElement('div');
+        card.className = 'codex-card';
+        card.innerHTML = `
+          <div class="codex-card-icon">${skill.icon || '✨'}</div>
+          <div class="codex-card-name">${skill.name || skill.id}</div>
+          <div class="codex-card-desc">${skill.description || ''}</div>
+          ${skill.fusionRecipe ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}
+        `;
+        container.appendChild(card);
+      }
+    } else if (tab === 'factions') {
+      // Render factions
+      for (const [id, f] of Object.entries(cfg.FACTIONS)) {
+        const card = document.createElement('div');
+        card.className = 'codex-card';
+        card.innerHTML = `
+          <div class="codex-card-icon">${f.icon || '🎯'}</div>
+          <div class="codex-card-name" style="color:${f.color}">${f.name || id}</div>
+          <div class="codex-card-desc">${f.description || ''}</div>
+        `;
+        container.appendChild(card);
+      }
+    }
   }
 }
 
