@@ -100,6 +100,7 @@ class WeaponManager {
 
   /**
    * Read current weapon config, apply stat modifiers, dispatch to pattern.
+   * Includes random elements for variety.
    */
   fire() {
     var cfg = GAME_CONFIG.WEAPONS[this.currentWeapon];
@@ -121,6 +122,32 @@ class WeaponManager {
     var color = cfg.bulletColor || '#ffffff';
     var trail = cfg.trailColor || color;
 
+    // === RANDOM ELEMENTS ===
+    // 1. Critical hit chance (10% base, can be boosted by skills)
+    var critChance = (stats.critRate || 0) + 0.10;
+    var isCrit = Math.random() < critChance;
+    if (isCrit) {
+      dmg *= (stats.critMult || 2.0);
+      size *= 1.5;
+      color = '#ffff00'; // Yellow for crits
+      trail = '#ffaa00';
+    }
+
+    // 2. Random bullet count variance for spread weapons
+    var bulletCount = cfg.bulletCount || 5;
+    if (cfg.pattern === 'spread') {
+      // ±2 bullets random variance
+      bulletCount = Math.max(3, bulletCount + Math.floor(Math.random() * 5) - 2);
+    }
+
+    // 3. Super homing chance for homing weapons (5% chance)
+    var homingStrength = cfg.homingStrength || 0.05;
+    if (cfg.pattern === 'homing' && Math.random() < 0.05) {
+      homingStrength *= 2; // Double homing strength
+      color = '#ff44ff'; // Purple for super homing
+      trail = '#cc22cc';
+    }
+
     var B = window.BulletPatterns;
     var angleUp = -Math.PI / 2; // -90 degrees = straight up
 
@@ -131,13 +158,13 @@ class WeaponManager {
         break;
 
       case 'spread':
-        if (B) B.spread(x, y, cfg.bulletCount || 5, cfg.spreadAngle || 25, spd, dmg, color, trail);
+        if (B) B.spread(x, y, bulletCount, cfg.spreadAngle || 25, spd, dmg, color, trail);
         break;
 
       case 'homing':
         if (B) {
           var nearest = this._findNearestEnemy(x, y, cfg.homingRange || 300);
-          B.homing(x, y, spd, dmg, color, trail, nearest, cfg.homingStrength || 0.05);
+          B.homing(x, y, spd, dmg, color, trail, nearest, homingStrength);
         }
         break;
 
