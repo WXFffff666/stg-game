@@ -7,6 +7,9 @@
  */
 
 const GAME_CONFIG = {
+  // ============ META ============
+  VERSION: '1.0.0',
+
   // ============ BALANCE ============
   BALANCE: {
     CANVAS_WIDTH: 600,
@@ -843,6 +846,36 @@ const GAME_CONFIG = {
       { id: 'w_shockwave', ingredientA: 'explosive', ingredientB: 'wave', result: 'shockwave',
         name: '震荡波', icon: '🌊', description: '爆破弹 + 波动炮 = 范围爆炸波动冲击',
         colorA: '#ff4444', colorB: '#44ff88' },
+      { id: 'w_plagueFlame', ingredientA: 'flame', ingredientB: 'needle', result: 'plagueFlame',
+        name: '瘟疫火焰', icon: '☣️', description: '火焰喷射 + 针弹 = 持续灼烧穿透火焰',
+        colorA: '#ff6600', colorB: '#aaffff' },
+      { id: 'w_thunderIce', ingredientA: 'iceShard', ingredientB: 'lightningBolt', result: 'thunderIce',
+        name: '雷暴冰暴', icon: '🌨️', description: '冰晶 + 雷电 = 冰冻连锁闪电',
+        colorA: '#88ddff', colorB: '#ffff44' },
+      { id: 'w_deathStorm', ingredientA: 'shuriken', ingredientB: 'missile', result: 'deathStorm',
+        name: '死亡风暴', icon: '💀', description: '手里剑 + 导弹群 = 旋转追踪飞刃群',
+        colorA: '#aaaacc', colorB: '#ff6622' },
+      { id: 'w_singularityBeam', ingredientA: 'voidRift', ingredientB: 'photonBeam', result: 'singularityBeam',
+        name: '奇点投射', icon: '🕳️', description: '虚空裂隙 + 光子束 = 黑洞光束',
+        colorA: '#440088', colorB: '#ffffff' },
+      { id: 'w_clusterBomb', ingredientA: 'gravityWell', ingredientB: 'rocketBarrage', result: 'clusterBomb',
+        name: '集束炸弹', icon: '💣', description: '重力井 + 火箭弹幕 = 引力聚爆火箭',
+        colorA: '#9966cc', colorB: '#ff4444' },
+      { id: 'w_elementCannon', ingredientA: 'flame', ingredientB: 'iceShard', result: 'elementCannon',
+        name: '元素炮', icon: '🌈', description: '火焰喷射 + 冰晶 = 冰火交替元素弹',
+        colorA: '#ff6600', colorB: '#88ddff' },
+      { id: 'w_thunderMissile', ingredientA: 'lightningBolt', ingredientB: 'missile', result: 'thunderMissile',
+        name: '雷鸣导弹', icon: '⚡', description: '雷电 + 导弹群 = 闪电连锁追踪导弹',
+        colorA: '#ffff44', colorB: '#ff6622' },
+      { id: 'w_gravityBlade', ingredientA: 'shuriken', ingredientB: 'gravityWell', result: 'gravityBlade',
+        name: '重力飞刃', icon: '🌀', description: '手里剑 + 重力井 = 引力回旋飞刃',
+        colorA: '#aaaacc', colorB: '#9966cc' },
+      { id: 'w_voidRocket', ingredientA: 'voidRift', ingredientB: 'rocketBarrage', result: 'voidRocket',
+        name: '虚空火箭', icon: '🚀', description: '虚空裂隙 + 火箭弹幕 = 虚空爆炸火箭',
+        colorA: '#440088', colorB: '#ff4444' },
+      { id: 'w_photonNeedle', ingredientA: 'photonBeam', ingredientB: 'needle', result: 'photonNeedle',
+        name: '光子针', icon: '💡', description: '光子束 + 针弹 = 超高速光子穿透针',
+        colorA: '#ffffff', colorB: '#aaffff' },
     ],
     skills: [
       { id: 's_plagueBlizzard', ingredientA: 'ps_venom', ingredientB: 'ic_blizzard', result: 'fusion_plagueBlizzard',
@@ -854,9 +887,476 @@ const GAME_CONFIG = {
       { id: 's_vampiricShield', ingredientA: 'sh_bigger', ingredientB: 'ls_vampire', result: 'fusion_vampiricShield',
         name: '吸血护盾', icon: '🛡️', description: '护盾强化 + 吸血鬼 = 命中回血护盾',
         colorA: '#4488ff', colorB: '#ff3366' },
+      { id: 's_voidGravity', ingredientA: 'gv_singularity', ingredientB: 'vd_voidRift', result: 'fusion_voidGravity',
+        name: '虚空引力', icon: '🕳️', description: '奇点 + 虚空裂隙 = 引力吞噬黑洞',
+        colorA: '#9966cc', colorB: '#440088' },
     ],
     // Both ingredients must reach this level to fuse
     requiredLevel: 5,
+  },
+
+  // ============ TALENTS ============
+  // 5 branches: attack/defense/utility/element/ultimate
+  // Each branch has 5 layers, 2-3 options per layer
+  TALENTS: {
+    branches: {
+      attack: {
+        id: 'attack', name: '攻击', icon: '⚔️', color: '#ff4444',
+        layers: [
+          { layer: 1, options: [
+            { id: 't_atk_1a', name: '锋利 I', icon: '🗡️', description: '攻击力 +5%', effects: [{ stat: 'attack', op: 'multiply', value: 0.05 }] },
+            { id: 't_atk_1b', name: '精准 I', icon: '🎯', description: '暴击率 +3%', effects: [{ stat: 'critRate', op: 'add', value: 0.03 }] },
+            { id: 't_atk_1c', name: '连击 I', icon: '⚡', description: '射速 +4%', effects: [{ stat: 'attackSpeed', op: 'multiply', value: -0.04 }] },
+            { id: 't_atk_1d', name: '弹药扩充 I', icon: '🔫', description: '子弹大小 +10%', effects: [{ stat: 'bulletSize', op: 'multiply', value: 0.10 }] },
+          ]},
+          { layer: 2, options: [
+            { id: 't_atk_2a', name: '锋利 II', icon: '🗡️', description: '攻击力 +10%', effects: [{ stat: 'attack', op: 'multiply', value: 0.10 }] },
+            { id: 't_atk_2b', name: '致命打击', icon: '💀', description: '暴击伤害 +25%', effects: [{ stat: 'critMult', op: 'add', value: 0.25 }] },
+            { id: 't_atk_2c', name: '连射', icon: '🏹', description: '射速 +8%', effects: [{ stat: 'attackSpeed', op: 'multiply', value: -0.08 }] },
+            { id: 't_atk_2d', name: '弹道加速', icon: '🚀', description: '子弹速度 +15%，攻击力 +3%', effects: [{ stat: 'bulletSpeed', op: 'multiply', value: 0.15 }, { stat: 'attack', op: 'multiply', value: 0.03 }] },
+          ]},
+          { layer: 3, options: [
+            { id: 't_atk_3a', name: '狂战之力', icon: '🔴', description: '攻击力 +15%，最大生命 -10%', effects: [{ stat: 'attack', op: 'multiply', value: 0.15 }, { stat: 'hp', op: 'multiply', value: -0.10 }] },
+            { id: 't_atk_3b', name: '弹幕强化', icon: '🌊', description: '额外子弹 +1', effects: [{ stat: 'bulletCount', op: 'add', value: 1 }] },
+            { id: 't_atk_3c', name: '精准 II', icon: '🎯', description: '暴击率 +6%', effects: [{ stat: 'critRate', op: 'add', value: 0.06 }] },
+            { id: 't_atk_3d', name: '破甲弹', icon: '🔩', description: '穿透 +1，攻击力 +5%', effects: [{ stat: 'pierceCount', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+          ]},
+          { layer: 4, options: [
+            { id: 't_atk_4a', name: '毁灭打击', icon: '💥', description: '攻击力 +20%', effects: [{ stat: 'attack', op: 'multiply', value: 0.20 }] },
+            { id: 't_atk_4b', name: '穿透弹', icon: '🔩', description: '穿透 +2', effects: [{ stat: 'pierceCount', op: 'add', value: 2 }] },
+            { id: 't_atk_4c', name: '爆裂弹', icon: '💣', description: '暴击率 +8%，暴击伤害 +30%', effects: [{ stat: 'critRate', op: 'add', value: 0.08 }, { stat: 'critMult', op: 'add', value: 0.30 }] },
+          ]},
+          { layer: 5, options: [
+            { id: 't_atk_5a', name: '战争主宰', icon: '👑', description: '攻击力 +25%，暴击率 +8%，暴击伤害 +40%', effects: [{ stat: 'attack', op: 'multiply', value: 0.25 }, { stat: 'critRate', op: 'add', value: 0.08 }, { stat: 'critMult', op: 'add', value: 0.40 }] },
+            { id: 't_atk_5b', name: '弹幕风暴', icon: '🌪️', description: '额外子弹 +2，射速 +15%', effects: [{ stat: 'bulletCount', op: 'add', value: 2 }, { stat: 'attackSpeed', op: 'multiply', value: -0.15 }] },
+            { id: 't_atk_5c', name: '杀戮本能', icon: '🩸', description: '攻击力 +18%，穿透 +2，吸血 +5%', effects: [{ stat: 'attack', op: 'multiply', value: 0.18 }, { stat: 'pierceCount', op: 'add', value: 2 }, { stat: 'lifesteal', op: 'add', value: 0.05 }] },
+          ]},
+        ],
+      },
+      defense: {
+        id: 'defense', name: '防御', icon: '🛡️', color: '#4488ff',
+        layers: [
+          { layer: 1, options: [
+            { id: 't_def_1a', name: '铁壁 I', icon: '🛡️', description: '最大生命 +15', effects: [{ stat: 'hp', op: 'add', value: 15 }] },
+            { id: 't_def_1b', name: '韧性 I', icon: '💪', description: '减伤 5%', effects: [{ stat: 'defense', op: 'add', value: 0.05 }] },
+            { id: 't_def_1c', name: '疾步 I', icon: '👟', description: '移速 +5%', effects: [{ stat: 'speed', op: 'multiply', value: 0.05 }] },
+            { id: 't_def_1d', name: '回复 I', icon: '💚', description: '每秒回复 1 HP', effects: [{ stat: 'hpRegen', op: 'add', value: 1 }] },
+          ]},
+          { layer: 2, options: [
+            { id: 't_def_2a', name: '铁壁 II', icon: '🛡️', description: '最大生命 +30', effects: [{ stat: 'hp', op: 'add', value: 30 }] },
+            { id: 't_def_2b', name: '护盾生成', icon: '🔮', description: '护盾 +20', effects: [{ stat: 'shieldAmount', op: 'add', value: 20 }] },
+            { id: 't_def_2c', name: '格挡', icon: '🤚', description: '减伤 6%', effects: [{ stat: 'defense', op: 'add', value: 0.06 }] },
+            { id: 't_def_2d', name: '回复 II', icon: '💚', description: '每秒回复 2 HP，最大生命 +15', effects: [{ stat: 'hpRegen', op: 'add', value: 2 }, { stat: 'hp', op: 'add', value: 15 }] },
+          ]},
+          { layer: 3, options: [
+            { id: 't_def_3a', name: '生命汲取', icon: '❤️', description: '吸血 +5%', effects: [{ stat: 'lifesteal', op: 'add', value: 0.05 }] },
+            { id: 't_def_3b', name: '反射之盾', icon: '🪞', description: '反伤 +15%', effects: [{ stat: 'reflectDamage', op: 'add', value: 0.15 }] },
+            { id: 't_def_3c', name: '韧性 II', icon: '💪', description: '减伤 8%', effects: [{ stat: 'defense', op: 'add', value: 0.08 }] },
+            { id: 't_def_3d', name: '铁甲', icon: '🔰', description: '最大生命 +25，减伤 4%', effects: [{ stat: 'hp', op: 'add', value: 25 }, { stat: 'defense', op: 'add', value: 0.04 }] },
+          ]},
+          { layer: 4, options: [
+            { id: 't_def_4a', name: '钢铁意志', icon: '🏔️', description: '最大生命 +50，减伤 10%', effects: [{ stat: 'hp', op: 'add', value: 50 }, { stat: 'defense', op: 'add', value: 0.10 }] },
+            { id: 't_def_4b', name: '护盾强化', icon: '🔵', description: '护盾 +40，护盾回复 +2/s', effects: [{ stat: 'shieldAmount', op: 'add', value: 40 }, { stat: 'shieldRegen', op: 'add', value: 2 }] },
+            { id: 't_def_4c', name: '闪避步伐', icon: '👟', description: '闪避 +8%，移速 +6%', effects: [{ stat: 'dodgeChance', op: 'add', value: 0.08 }, { stat: 'speed', op: 'multiply', value: 0.06 }] },
+          ]},
+          { layer: 5, options: [
+            { id: 't_def_5a', name: '不朽之躯', icon: '🏛️', description: '最大生命 +80，减伤 15%，每秒回复 3 HP', effects: [{ stat: 'hp', op: 'add', value: 80 }, { stat: 'defense', op: 'add', value: 0.15 }, { stat: 'hpRegen', op: 'add', value: 3 }] },
+            { id: 't_def_5b', name: '绝对防御', icon: '🔰', description: '护盾 +60，反伤 +30%，闪避 +10%', effects: [{ stat: 'shieldAmount', op: 'add', value: 60 }, { stat: 'reflectDamage', op: 'add', value: 0.30 }, { stat: 'dodgeChance', op: 'add', value: 0.10 }] },
+            { id: 't_def_5c', name: '生命之泉', icon: '💚', description: '最大生命 +60，吸血 +8%，每秒回复 4 HP', effects: [{ stat: 'hp', op: 'add', value: 60 }, { stat: 'lifesteal', op: 'add', value: 0.08 }, { stat: 'hpRegen', op: 'add', value: 4 }] },
+          ]},
+        ],
+      },
+      utility: {
+        id: 'utility', name: '辅助', icon: '🔧', color: '#44ff88',
+        layers: [
+          { layer: 1, options: [
+            { id: 't_uti_1a', name: '拾取范围 I', icon: '🧲', description: '拾取范围 +30', effects: [{ stat: 'pickupRange', op: 'add', value: 30 }] },
+            { id: 't_uti_1b', name: '经验加成 I', icon: '📈', description: '经验获取 +10%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.10 }] },
+            { id: 't_uti_1c', name: '幸运 I', icon: '🍀', description: '掉落率 +5%', effects: [{ stat: 'dropRate', op: 'add', value: 0.05 }] },
+            { id: 't_uti_1d', name: '分数加成 I', icon: '📊', description: '分数获取 +8%', effects: [{ stat: 'scoreMultiplier', op: 'multiply', value: 0.08 }] },
+          ]},
+          { layer: 2, options: [
+            { id: 't_uti_2a', name: '磁力场', icon: '🧲', description: '拾取范围 +60', effects: [{ stat: 'pickupRange', op: 'add', value: 60 }] },
+            { id: 't_uti_2b', name: '冷却缩减 I', icon: '⏱️', description: '技能冷却 -10%', effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.10 }] },
+            { id: 't_uti_2c', name: '金币磁铁', icon: '💰', description: '拾取范围 +40，经验 +8%', effects: [{ stat: 'pickupRange', op: 'add', value: 40 }, { stat: 'xpMultiplier', op: 'multiply', value: 0.08 }] },
+            { id: 't_uti_2d', name: '分数猎手', icon: '📊', description: '分数 +12%，掉落率 +4%', effects: [{ stat: 'scoreMultiplier', op: 'multiply', value: 0.12 }, { stat: 'dropRate', op: 'add', value: 0.04 }] },
+          ]},
+          { layer: 3, options: [
+            { id: 't_uti_3a', name: '经验加成 II', icon: '📈', description: '经验获取 +20%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.20 }] },
+            { id: 't_uti_3b', name: '幸运 II', icon: '🍀', description: '掉落率 +10%', effects: [{ stat: 'dropRate', op: 'add', value: 0.10 }] },
+            { id: 't_uti_3c', name: '冷却缩减 II', icon: '⏱️', description: '技能冷却 -15%', effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.15 }] },
+            { id: 't_uti_3d', name: '双重收获', icon: '🎁', description: '经验 +12%，掉落率 +6%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.12 }, { stat: 'dropRate', op: 'add', value: 0.06 }] },
+          ]},
+          { layer: 4, options: [
+            { id: 't_uti_4a', name: '寻宝猎人', icon: '💰', description: '掉落率 +15%，分数 +20%', effects: [{ stat: 'dropRate', op: 'add', value: 0.15 }, { stat: 'scoreMultiplier', op: 'multiply', value: 0.20 }] },
+            { id: 't_uti_4b', name: '时间扭曲', icon: '⏳', description: '冷却缩减 +20%，射速 +10%', effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.20 }, { stat: 'attackSpeed', op: 'multiply', value: -0.10 }] },
+            { id: 't_uti_4c', name: '效率大师', icon: '📊', description: '经验 +15%，掉落率 +8%，冷却 -10%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.15 }, { stat: 'dropRate', op: 'add', value: 0.08 }, { stat: 'cooldownReduction', op: 'add', value: 0.10 }] },
+          ]},
+          { layer: 5, options: [
+            { id: 't_uti_5a', name: '财富之神', icon: '👑', description: '经验 +30%，掉落率 +20%，分数 +30%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.30 }, { stat: 'dropRate', op: 'add', value: 0.20 }, { stat: 'scoreMultiplier', op: 'multiply', value: 0.30 }] },
+            { id: 't_uti_5b', name: '时空掌控', icon: '🌀', description: '冷却缩减 +25%，拾取范围 +120，移速 +15%', effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.25 }, { stat: 'pickupRange', op: 'add', value: 120 }, { stat: 'speed', op: 'multiply', value: 0.15 }] },
+            { id: 't_uti_5c', name: '全能收割', icon: '🌾', description: '经验 +25%，掉落率 +15%，拾取范围 +80，冷却 -15%', effects: [{ stat: 'xpMultiplier', op: 'multiply', value: 0.25 }, { stat: 'dropRate', op: 'add', value: 0.15 }, { stat: 'pickupRange', op: 'add', value: 80 }, { stat: 'cooldownReduction', op: 'add', value: 0.15 }] },
+          ]},
+        ],
+      },
+      element: {
+        id: 'element', name: '元素', icon: '🔥', color: '#ff8800',
+        layers: [
+          { layer: 1, options: [
+            { id: 't_ele_1a', name: '灼烧 I', icon: '🔥', description: '灼烧伤害 +3', effects: [{ stat: 'burnDamage', op: 'add', value: 3 }] },
+            { id: 't_ele_1b', name: '冰冻 I', icon: '❄️', description: '减速概率 +8%', effects: [{ stat: 'slowChance', op: 'add', value: 0.08 }] },
+            { id: 't_ele_1c', name: '毒素 I', icon: '☠️', description: '毒素伤害 +4', effects: [{ stat: 'poisonDamage', op: 'add', value: 4 }] },
+            { id: 't_ele_1d', name: '元素亲和 I', icon: '🌈', description: '元素伤害加成 +5%', effects: [{ stat: 'elementalBonus', op: 'add', value: 0.05 }] },
+          ]},
+          { layer: 2, options: [
+            { id: 't_ele_2a', name: '灼烧 II', icon: '🔥', description: '灼烧伤害 +6，灼烧时间 +500ms', effects: [{ stat: 'burnDamage', op: 'add', value: 6 }, { stat: 'burnDuration', op: 'add', value: 500 }] },
+            { id: 't_ele_2b', name: '雷电链', icon: '⚡', description: '连锁闪电概率 +10%', effects: [{ stat: 'chainLightningChance', op: 'add', value: 0.10 }] },
+            { id: 't_ele_2c', name: '冰霜之触', icon: '❄️', description: '减速量 +10%，减速时间 +300ms', effects: [{ stat: 'slowAmount', op: 'add', value: 0.10 }, { stat: 'slowDuration', op: 'add', value: 300 }] },
+            { id: 't_ele_2d', name: '毒雾弥漫', icon: '☣️', description: '毒素持续时间 +600ms，扩散率 +6%', effects: [{ stat: 'poisonDuration', op: 'add', value: 600 }, { stat: 'poisonSpread', op: 'add', value: 0.06 }] },
+          ]},
+          { layer: 3, options: [
+            { id: 't_ele_3a', name: '元素增幅', icon: '🌈', description: '元素伤害加成 +15%', effects: [{ stat: 'elementalBonus', op: 'add', value: 0.15 }] },
+            { id: 't_ele_3b', name: '冰冻 II', icon: '❄️', description: '减速概率 +12%，冰冻概率 +5%', effects: [{ stat: 'slowChance', op: 'add', value: 0.12 }, { stat: 'freezeChance', op: 'add', value: 0.05 }] },
+            { id: 't_ele_3c', name: '毒素 II', icon: '☠️', description: '毒素伤害 +8，扩散率 +10%', effects: [{ stat: 'poisonDamage', op: 'add', value: 8 }, { stat: 'poisonSpread', op: 'add', value: 0.10 }] },
+            { id: 't_ele_3d', name: '雷电强化', icon: '⚡', description: '连锁数量 +1，连锁伤害 +15%', effects: [{ stat: 'chainCount', op: 'add', value: 1 }, { stat: 'chainDamage', op: 'multiply', value: 0.15 }] },
+          ]},
+          { layer: 4, options: [
+            { id: 't_ele_4a', name: '烈焰风暴', icon: '🌋', description: '灼烧伤害 +12，灼烧时间 +1000ms，元素加成 +20%', effects: [{ stat: 'burnDamage', op: 'add', value: 12 }, { stat: 'burnDuration', op: 'add', value: 1000 }, { stat: 'elementalBonus', op: 'add', value: 0.20 }] },
+            { id: 't_ele_4b', name: '雷电之主', icon: '🌩️', description: '连锁概率 +20%，连锁数量 +2，连锁伤害 +25%', effects: [{ stat: 'chainLightningChance', op: 'add', value: 0.20 }, { stat: 'chainCount', op: 'add', value: 2 }, { stat: 'chainDamage', op: 'multiply', value: 0.25 }] },
+            { id: 't_ele_4c', name: '瘟疫传播', icon: '☣️', description: '毒素伤害 +12，扩散率 +15%，持续时间 +800ms', effects: [{ stat: 'poisonDamage', op: 'add', value: 12 }, { stat: 'poisonSpread', op: 'add', value: 0.15 }, { stat: 'poisonDuration', op: 'add', value: 800 }] },
+          ]},
+          { layer: 5, options: [
+            { id: 't_ele_5a', name: '元素君王', icon: '👑', description: '所有元素伤害 +25%，元素加成 +30%，减速概率 +20%', effects: [{ stat: 'elementalBonus', op: 'add', value: 0.30 }, { stat: 'slowChance', op: 'add', value: 0.20 }, { stat: 'burnDamage', op: 'add', value: 15 }, { stat: 'poisonDamage', op: 'add', value: 15 }] },
+            { id: 't_ele_5b', name: '冰封领域', icon: '🏔️', description: '冰冻概率 +15%，减速量 +20%，减速时间 +1000ms', effects: [{ stat: 'freezeChance', op: 'add', value: 0.15 }, { stat: 'slowAmount', op: 'add', value: 0.20 }, { stat: 'slowDuration', op: 'add', value: 1000 }] },
+            { id: 't_ele_5c', name: '天罚雷霆', icon: '⚡', description: '连锁概率 +25%，连锁数量 +3，连锁伤害 +40%', effects: [{ stat: 'chainLightningChance', op: 'add', value: 0.25 }, { stat: 'chainCount', op: 'add', value: 3 }, { stat: 'chainDamage', op: 'multiply', value: 0.40 }] },
+          ]},
+        ],
+      },
+      ultimate: {
+        id: 'ultimate', name: '终极', icon: '✨', color: '#ffaa00',
+        layers: [
+          { layer: 1, options: [
+            { id: 't_ult_1a', name: '觉醒 I', icon: '✨', description: '全属性 +3%', effects: [{ stat: 'attack', op: 'multiply', value: 0.03 }, { stat: 'hp', op: 'multiply', value: 0.03 }, { stat: 'speed', op: 'multiply', value: 0.03 }] },
+            { id: 't_ult_1b', name: '潜能 I', icon: '💎', description: '攻击力 +4%，移速 +4%', effects: [{ stat: 'attack', op: 'multiply', value: 0.04 }, { stat: 'speed', op: 'multiply', value: 0.04 }] },
+            { id: 't_ult_1c', name: '韧性觉醒', icon: '💪', description: '最大生命 +5%，减伤 3%', effects: [{ stat: 'hp', op: 'multiply', value: 0.05 }, { stat: 'defense', op: 'add', value: 0.03 }] },
+          ]},
+          { layer: 2, options: [
+            { id: 't_ult_2a', name: '觉醒 II', icon: '✨', description: '全属性 +6%', effects: [{ stat: 'attack', op: 'multiply', value: 0.06 }, { stat: 'hp', op: 'multiply', value: 0.06 }, { stat: 'speed', op: 'multiply', value: 0.06 }] },
+            { id: 't_ult_2b', name: '战意', icon: '🔥', description: '攻击力 +8%，暴击率 +4%', effects: [{ stat: 'attack', op: 'multiply', value: 0.08 }, { stat: 'critRate', op: 'add', value: 0.04 }] },
+            { id: 't_ult_2c', name: '生存本能', icon: '💚', description: '最大生命 +10%，吸血 +3%', effects: [{ stat: 'hp', op: 'multiply', value: 0.10 }, { stat: 'lifesteal', op: 'add', value: 0.03 }] },
+          ]},
+          { layer: 3, options: [
+            { id: 't_ult_3a', name: '超载', icon: '⚡', description: '攻击力 +12%，射速 +10%，暴击伤害 +20%', effects: [{ stat: 'attack', op: 'multiply', value: 0.12 }, { stat: 'attackSpeed', op: 'multiply', value: -0.10 }, { stat: 'critMult', op: 'add', value: 0.20 }] },
+            { id: 't_ult_3b', name: '不死之身', icon: '💀', description: '最大生命 +15%，减伤 10%，回复 +2/s', effects: [{ stat: 'hp', op: 'multiply', value: 0.15 }, { stat: 'defense', op: 'add', value: 0.10 }, { stat: 'hpRegen', op: 'add', value: 2 }] },
+            { id: 't_ult_3c', name: '风行者', icon: '🍃', description: '移速 +12%，闪避 +6%，暴击率 +3%', effects: [{ stat: 'speed', op: 'multiply', value: 0.12 }, { stat: 'dodgeChance', op: 'add', value: 0.06 }, { stat: 'critRate', op: 'add', value: 0.03 }] },
+          ]},
+          { layer: 4, options: [
+            { id: 't_ult_4a', name: '毁灭者', icon: '☄️', description: '攻击力 +18%，暴击率 +8%，穿透 +1', effects: [{ stat: 'attack', op: 'multiply', value: 0.18 }, { stat: 'critRate', op: 'add', value: 0.08 }, { stat: 'pierceCount', op: 'add', value: 1 }] },
+            { id: 't_ult_4b', name: '全能战士', icon: '🌟', description: '全属性 +10%，额外子弹 +1', effects: [{ stat: 'attack', op: 'multiply', value: 0.10 }, { stat: 'hp', op: 'multiply', value: 0.10 }, { stat: 'speed', op: 'multiply', value: 0.10 }, { stat: 'bulletCount', op: 'add', value: 1 }] },
+            { id: 't_ult_4c', name: '暗影步', icon: '🌑', description: '闪避 +12%，移速 +15%，暴击率 +5%', effects: [{ stat: 'dodgeChance', op: 'add', value: 0.12 }, { stat: 'speed', op: 'multiply', value: 0.15 }, { stat: 'critRate', op: 'add', value: 0.05 }] },
+          ]},
+          { layer: 5, options: [
+            { id: 't_ult_5a', name: '天神下凡', icon: '👼', description: '攻击力 +30%，暴击率 +12%，暴击伤害 +50%，额外子弹 +2', effects: [{ stat: 'attack', op: 'multiply', value: 0.30 }, { stat: 'critRate', op: 'add', value: 0.12 }, { stat: 'critMult', op: 'add', value: 0.50 }, { stat: 'bulletCount', op: 'add', value: 2 }] },
+            { id: 't_ult_5b', name: '永恒守护', icon: '🛡️', description: '最大生命 +25%，减伤 20%，吸血 +10%，每秒回复 5 HP', effects: [{ stat: 'hp', op: 'multiply', value: 0.25 }, { stat: 'defense', op: 'add', value: 0.20 }, { stat: 'lifesteal', op: 'add', value: 0.10 }, { stat: 'hpRegen', op: 'add', value: 5 }] },
+            { id: 't_ult_5c', name: '混沌之主', icon: '🌀', description: '全属性 +15%，暴击率 +8%，暴击伤害 +30%，吸血 +5%', effects: [{ stat: 'attack', op: 'multiply', value: 0.15 }, { stat: 'hp', op: 'multiply', value: 0.15 }, { stat: 'speed', op: 'multiply', value: 0.15 }, { stat: 'critRate', op: 'add', value: 0.08 }, { stat: 'critMult', op: 'add', value: 0.30 }, { stat: 'lifesteal', op: 'add', value: 0.05 }] },
+          ]},
+        ],
+      },
+    },
+  },
+
+  // ============ ACHIEVEMENTS (20) ============
+  ACHIEVEMENTS: [
+    { id: 'ach_first_blood', name: '初见血', icon: '🩸', description: '击杀第1个敌人', condition: { type: 'killCount', value: 1 } },
+    { id: 'ach_100_kills', name: '百人斩', icon: '⚔️', description: '累计击杀100个敌人', condition: { type: 'killCount', value: 100 } },
+    { id: 'ach_1000_kills', name: '千人斩', icon: '💀', description: '累计击杀1000个敌人', condition: { type: 'killCount', value: 1000 } },
+    { id: 'ach_first_boss', name: '弑王者', icon: '👑', description: '击败第1个Boss', condition: { type: 'bossKill', value: 1 } },
+    { id: 'ach_5_bosses', name: 'Boss猎手', icon: '🎯', description: '累计击败5个Boss', condition: { type: 'bossKill', value: 5 } },
+    { id: 'ach_survive_5min', name: '生存者', icon: '⏱️', description: '单局存活5分钟', condition: { type: 'surviveTime', value: 300000 } },
+    { id: 'ach_survive_15min', name: '老兵', icon: '🎖️', description: '单局存活15分钟', condition: { type: 'surviveTime', value: 900000 } },
+    { id: 'ach_score_10k', name: '万分选手', icon: '📊', description: '单局得分达到10000', condition: { type: 'score', value: 10000 } },
+    { id: 'ach_score_50k', name: '得分王', icon: '🏆', description: '单局得分达到50000', condition: { type: 'score', value: 50000 } },
+    { id: 'ach_level_10', name: '十级达人', icon: '📈', description: '单局达到10级', condition: { type: 'level', value: 10 } },
+    { id: 'ach_level_25', name: '资深战士', icon: '⭐', description: '单局达到25级', condition: { type: 'level', value: 25 } },
+    { id: 'ach_combo_20', name: '连击大师', icon: '🔥', description: '达成20连击', condition: { type: 'combo', value: 20 } },
+    { id: 'ach_combo_50', name: '连击之神', icon: '🌟', description: '达成50连击', condition: { type: 'combo', value: 50 } },
+    { id: 'ach_no_hit_60s', name: '无伤一分钟', icon: '🛡️', description: '连续60秒不受伤', condition: { type: 'noHitTime', value: 60000 } },
+    { id: 'ach_kill_elite', name: '精英猎人', icon: '🎯', description: '击杀10个精英敌人', condition: { type: 'eliteKill', value: 10 } },
+    { id: 'ach_all_factions', name: '全流派大师', icon: '🌈', description: '使用所有10个流派各通关1次', condition: { type: 'factionWin', value: 10 } },
+    { id: 'ach_fusion_first', name: '初次融合', icon: '🔮', description: '第1次触发武器融合', condition: { type: 'fusion', value: 1 } },
+    { id: 'ach_fusion_5', name: '融合大师', icon: '💎', description: '累计触发5次武器融合', condition: { type: 'fusion', value: 5 } },
+    { id: 'ach_max_weapon', name: '武器巅峰', icon: '🔫', description: '将任意武器升到满级', condition: { type: 'weaponMaxLevel', value: 1 } },
+    { id: 'ach_speed_run', name: '速通达人', icon: '⚡', description: '在3分钟内击败3个Boss', condition: { type: 'speedRun', value: 180000 } },
+  ],
+
+  // ============ CHARACTERS (3) ============
+  // Each character has different base stat modifiers
+  CHARACTERS: {
+    vanguard: {
+      id: 'vanguard', name: '先锋', icon: '⚔️', color: '#ff4444',
+      description: '进攻型角色，攻击力 +15%',
+      statModifiers: { attack: 1.15, hp: 1.0, speed: 1.0, critRate: 0.0, defense: 0.0 },
+    },
+    ironWall: {
+      id: 'ironWall', name: '铁壁', icon: '🛡️', color: '#4488ff',
+      description: '防御型角色，最大生命 +30%',
+      statModifiers: { attack: 1.0, hp: 1.3, speed: 1.0, critRate: 0.0, defense: 0.1 },
+    },
+    agile: {
+      id: 'agile', name: '灵动', icon: '💨', color: '#44ff88',
+      description: '速度型角色，移速 +20%，闪避 +5%',
+      statModifiers: { attack: 1.0, hp: 0.9, speed: 1.2, critRate: 0.05, dodgeChance: 0.05 },
+    },
+  },
+
+  // ============ DIFFICULTY MODES (3) ============
+  DIFFICULTY_MODES: {
+    normal: {
+      id: 'normal', name: '普通', icon: '🟢', color: '#44ff44',
+      description: '标准难度，适合新手',
+      multipliers: { enemyHp: 1.0, enemyDamage: 1.0, dropRate: 1.0, xpGain: 1.0, spawnRate: 1.0, bossHp: 1.0 },
+    },
+    hard: {
+      id: 'hard', name: '困难', icon: '🟡', color: '#ffaa00',
+      description: '敌人强化50%，掉落提升20%',
+      multipliers: { enemyHp: 1.5, enemyDamage: 1.5, dropRate: 1.2, xpGain: 1.3, spawnRate: 1.3, bossHp: 1.8 },
+    },
+    hell: {
+      id: 'hell', name: '地狱', icon: '🔴', color: '#ff0000',
+      description: '敌人强化150%，Boss强化200%，掉落翻倍',
+      multipliers: { enemyHp: 2.5, enemyDamage: 2.5, dropRate: 2.0, xpGain: 2.0, spawnRate: 1.8, bossHp: 3.0 },
+    },
+  },
+
+  // ============ ELITE_AFFIXES (15) ============
+  // Elite enemies randomly gain 1-3 affixes
+  ELITE_AFFIXES: {
+    berserk: {
+      id: 'berserk', name: '狂暴', icon: '😡', color: '#ff0000',
+      description: '攻速 +50%，移速 +30%，攻击力 +20%',
+      effects: { attackSpeed: 0.5, speed: 0.3, attack: 0.2 },
+    },
+    splitter: {
+      id: 'splitter', name: '分裂', icon: '✂️', color: '#ff88aa',
+      description: '死亡时分裂为2个小型敌人',
+      effects: { splitOnDeath: true, splitCount: 2 },
+    },
+    shield: {
+      id: 'shield', name: '护盾', icon: '🔵', color: '#4488ff',
+      description: '获得80点护盾，护盾每5秒回复30点',
+      effects: { shieldHp: 80, shieldRegen: 30, shieldRegenDelay: 5000 },
+    },
+    teleport: {
+      id: 'teleport', name: '瞬移', icon: '💫', color: '#cc44ff',
+      description: '每3秒瞬移一次，瞬移距离200',
+      effects: { teleportInterval: 3000, teleportDistance: 200 },
+    },
+    lifesteal: {
+      id: 'lifesteal', name: '吸血', icon: '🧛', color: '#ff3366',
+      description: '攻击回复15%伤害为生命',
+      effects: { lifesteal: 0.15 },
+    },
+    plague: {
+      id: 'plague', name: '瘟疫', icon: '☠️', color: '#55cc44',
+      description: '周围200范围造成每秒8点毒素伤害',
+      effects: { plagueRadius: 200, plagueDamage: 8 },
+    },
+    reflect: {
+      id: 'reflect', name: '反伤', icon: '🪞', color: '#ff6644',
+      description: '反弹25%受到的伤害给玩家',
+      effects: { reflectDamage: 0.25 },
+    },
+    giant: {
+      id: 'giant', name: '巨大化', icon: '🏔️', color: '#884422',
+      description: '体型增大80%，生命 +100%，伤害 +30%',
+      effects: { sizeMultiplier: 1.8, hpMultiplier: 2.0, attackMultiplier: 1.3 },
+    },
+    haste: {
+      id: 'haste', name: '急速', icon: '💨', color: '#44ddff',
+      description: '移速 +60%，射速 +40%',
+      effects: { speed: 0.6, attackSpeed: 0.4 },
+    },
+    lava: {
+      id: 'lava', name: '熔岩', icon: '🌋', color: '#ff6600',
+      description: '死亡时产生半径120的爆炸，造成50伤害',
+      effects: { deathExplosion: true, explosionRadius: 120, explosionDamage: 50 },
+    },
+    frostAura: {
+      id: 'frostAura', name: '冰冻光环', icon: '❄️', color: '#66ddff',
+      description: '周围180范围减速玩家40%',
+      effects: { auraRadius: 180, auraSlowAmount: 0.4 },
+    },
+    thunderBody: {
+      id: 'thunderBody', name: '雷电护体', icon: '⚡', color: '#ffff00',
+      description: '受击时释放闪电链，连锁3个目标，每个造成15伤害',
+      effects: { thunderOnHit: true, chainCount: 3, chainDamage: 15 },
+    },
+    multiShot: {
+      id: 'multiShot', name: '多重射击', icon: '🔱', color: '#ffcc00',
+      description: '同时发射3倍子弹',
+      effects: { bulletCountMultiplier: 3 },
+    },
+    hardened: {
+      id: 'hardened', name: '硬化', icon: '🪨', color: '#888888',
+      description: '受到伤害减少40%，但移速降低20%',
+      effects: { damageReduction: 0.4, speed: -0.2 },
+    },
+    regen: {
+      id: 'regen', name: '再生', icon: '💚', color: '#44ff44',
+      description: '每秒回复最大生命2%',
+      effects: { hpRegenPercent: 0.02 },
+    },
+  },
+
+  // ============ BOSSES (5) ============
+  // Named bosses with unique phases and attack patterns
+  BOSSES: {
+    ironSentinel: {
+      id: 'ironSentinel', name: '铁壁哨兵', icon: '🤖', color: '#888888',
+      description: '装甲型Boss，拥有能量护盾',
+      baseHp: 6000, baseDamage: 30, size: 55, score: 8000, xp: 700,
+      phases: [
+        { hpThreshold: 0.7, name: '护盾阶段', attackPattern: 'shieldBarrage', bulletCount: 12, spreadAngle: 360, fireRate: 800, bulletSpeed: 220, shieldHp: 300 },
+        { hpThreshold: 0.4, name: '狂暴阶段', attackPattern: 'spiralBurst', bulletCount: 18, spreadAngle: 360, fireRate: 500, bulletSpeed: 280, moveSpeed: 60 },
+        { hpThreshold: 0.15, name: '自毁阶段', attackPattern: 'kamikazeMode', bulletCount: 24, spreadAngle: 360, fireRate: 300, bulletSpeed: 350, explodeOnDeath: true, explodeRadius: 200 },
+      ],
+    },
+    plagueDoctor: {
+      id: 'plagueDoctor', name: '瘟疫医生', icon: '☠️', color: '#55cc44',
+      description: '毒素型Boss，释放瘟疫区域',
+      baseHp: 5000, baseDamage: 25, size: 48, score: 7500, xp: 650,
+      phases: [
+        { hpThreshold: 0.7, name: '毒雾阶段', attackPattern: 'poisonCloud', bulletCount: 8, spreadAngle: 360, fireRate: 600, bulletSpeed: 180, poisonRadius: 150, poisonDamage: 12 },
+        { hpThreshold: 0.4, name: '瘟疫扩散', attackPattern: 'plagueSpread', bulletCount: 12, spreadAngle: 360, fireRate: 400, bulletSpeed: 220, poisonRadius: 200, poisonDamage: 18, spawnMinions: true },
+        { hpThreshold: 0.1, name: '剧毒爆发', attackPattern: 'toxicBurst', bulletCount: 20, spreadAngle: 360, fireRate: 250, bulletSpeed: 300, poisonRadius: 250, poisonDamage: 25 },
+      ],
+    },
+    crimsonQueen: {
+      id: 'crimsonQueen', name: '绯红女王', icon: '🧛', color: '#ff3366',
+      description: '吸血型Boss，越战越强',
+      baseHp: 7000, baseDamage: 35, size: 50, score: 9000, xp: 750,
+      phases: [
+        { hpThreshold: 0.7, name: '吸血阶段', attackPattern: 'bloodDrain', bulletCount: 6, spreadAngle: 60, fireRate: 500, bulletSpeed: 300, lifesteal: 0.3 },
+        { hpThreshold: 0.4, name: '血怒阶段', attackPattern: 'bloodRage', bulletCount: 10, spreadAngle: 90, fireRate: 350, bulletSpeed: 350, lifesteal: 0.5, attackBoost: 0.5 },
+        { hpThreshold: 0.15, name: '鲜血风暴', attackPattern: 'bloodStorm', bulletCount: 16, spreadAngle: 360, fireRate: 200, bulletSpeed: 400, lifesteal: 0.8, attackBoost: 1.0 },
+      ],
+    },
+    voidWeaver: {
+      id: 'voidWeaver', name: '虚空编织者', icon: '🕳️', color: '#220044',
+      description: '空间型Boss，扭曲战场',
+      baseHp: 8000, baseDamage: 28, size: 52, score: 10000, xp: 800,
+      phases: [
+        { hpThreshold: 0.65, name: '虚空裂隙', attackPattern: 'voidRifts', bulletCount: 8, spreadAngle: 360, fireRate: 700, bulletSpeed: 200, createRifts: true, riftCount: 2 },
+        { hpThreshold: 0.35, name: '空间折叠', attackPattern: 'spaceFold', bulletCount: 14, spreadAngle: 360, fireRate: 400, bulletSpeed: 280, teleport: true, teleportInterval: 2500 },
+        { hpThreshold: 0.1, name: '虚空吞噬', attackPattern: 'voidDevour', bulletCount: 20, spreadAngle: 360, fireRate: 250, bulletSpeed: 340, gravityPull: true, gravityRadius: 300 },
+      ],
+    },
+    dragonEmperor: {
+      id: 'dragonEmperor', name: '龙皇帝', icon: '🐲', color: '#ff6600',
+      description: '终极Boss，多重元素攻击',
+      baseHp: 12000, baseDamage: 40, size: 65, score: 15000, xp: 1000,
+      phases: [
+        { hpThreshold: 0.75, name: '火焰吐息', attackPattern: 'fireBreath', bulletCount: 10, spreadAngle: 45, fireRate: 400, bulletSpeed: 300, burnDamage: 10, burnDuration: 2000 },
+        { hpThreshold: 0.5, name: '雷电风暴', attackPattern: 'thunderStorm', bulletCount: 15, spreadAngle: 360, fireRate: 350, bulletSpeed: 280, chainLightning: true, chainCount: 4 },
+        { hpThreshold: 0.25, name: '冰霜领域', attackPattern: 'frostDomain', bulletCount: 18, spreadAngle: 360, fireRate: 300, bulletSpeed: 260, freezeChance: 0.3, slowAmount: 0.5 },
+        { hpThreshold: 0.1, name: '末日审判', attackPattern: 'doomsday', bulletCount: 30, spreadAngle: 360, fireRate: 150, bulletSpeed: 400, allElements: true },
+      ],
+    },
+  },
+
+  // ============ PERMANENT_UPGRADES (5) ============
+  // Upgrades persist across runs, cost increases per level
+  PERMANENT_UPGRADES: {
+    damageBoost: {
+      id: 'damageBoost', name: '永久攻击强化', icon: '⚔️',
+      description: '每级提升攻击力',
+      effectPerLevel: { stat: 'attack', op: 'multiply', value: 0.05 },
+      maxLevel: 20,
+      costs: [100, 200, 400, 700, 1100, 1600, 2200, 3000, 4000, 5200, 6600, 8200, 10000, 12000, 14200, 16600, 19200, 22000, 25000, 28200],
+    },
+    hpBoost: {
+      id: 'hpBoost', name: '永久生命强化', icon: '❤️',
+      description: '每级提升最大生命值',
+      effectPerLevel: { stat: 'hp', op: 'add', value: 10 },
+      maxLevel: 20,
+      costs: [100, 200, 400, 700, 1100, 1600, 2200, 3000, 4000, 5200, 6600, 8200, 10000, 12000, 14200, 16600, 19200, 22000, 25000, 28200],
+    },
+    speedBoost: {
+      id: 'speedBoost', name: '永久移速强化', icon: '💨',
+      description: '每级提升移动速度',
+      effectPerLevel: { stat: 'speed', op: 'multiply', value: 0.03 },
+      maxLevel: 15,
+      costs: [150, 350, 600, 1000, 1500, 2200, 3000, 4000, 5200, 6600, 8200, 10000, 12000, 14200, 16600],
+    },
+    luckBoost: {
+      id: 'luckBoost', name: '永久幸运强化', icon: '🍀',
+      description: '每级提升掉落率和暴击率',
+      effectPerLevel: { stats: [{ stat: 'dropRate', op: 'add', value: 0.02 }, { stat: 'critRate', op: 'add', value: 0.01 }] },
+      maxLevel: 15,
+      costs: [200, 450, 800, 1300, 2000, 2900, 4000, 5300, 6800, 8500, 10400, 12500, 14800, 17300, 20000],
+    },
+    xpBoost: {
+      id: 'xpBoost', name: '永久经验强化', icon: '📈',
+      description: '每级提升经验获取量',
+      effectPerLevel: { stat: 'xpMultiplier', op: 'multiply', value: 0.08 },
+      maxLevel: 15,
+      costs: [120, 280, 500, 800, 1200, 1700, 2400, 3200, 4200, 5400, 6800, 8400, 10200, 12200, 14400],
+    },
+  },
+
+  // ============ SHOP_ITEMS ============
+  // Items available in the between-run shop
+  SHOP_ITEMS: {
+    reviveToken: {
+      id: 'reviveToken', name: '复活币', icon: '💎',
+      description: '游戏结束时可原地复活1次，保留50%生命',
+      price: 500, consumable: true, category: 'consumable',
+    },
+    luckyCharm: {
+      id: 'luckyCharm', name: '幸运符', icon: '🍀',
+      description: '下一局掉落率 +25%，持续整局',
+      price: 300, consumable: true, category: 'consumable',
+    },
+    xpPotion: {
+      id: 'xpPotion', name: '经验药水', icon: '🧪',
+      description: '下一局经验获取 +50%，持续整局',
+      price: 400, consumable: true, category: 'consumable',
+    },
+    damageScroll: {
+      id: 'damageScroll', name: '力量卷轴', icon: '📜',
+      description: '下一局攻击力 +20%，持续整局',
+      price: 350, consumable: true, category: 'consumable',
+    },
+    shieldCrystal: {
+      id: 'shieldCrystal', name: '护盾水晶', icon: '🔮',
+      description: '开局获得100点护盾',
+      price: 250, consumable: true, category: 'consumable',
+    },
+    factionTicket: {
+      id: 'factionTicket', name: '流派选择券', icon: '🎫',
+      description: '下次游戏可自由选择流派，无视随机',
+      price: 600, consumable: true, category: 'consumable',
+    },
+    goldMagnet: {
+      id: 'goldMagnet', name: '黄金磁铁', icon: '🧲',
+      description: '永久解锁：拾取范围 +20',
+      price: 1000, consumable: false, category: 'permanent',
+    },
+    critRing: {
+      id: 'critRing', name: '暴击戒指', icon: '💍',
+      description: '永久解锁：暴击率 +3%',
+      price: 1500, consumable: false, category: 'permanent',
+    },
+    speedBoots: {
+      id: 'speedBoots', name: '疾风之靴', icon: '👟',
+      description: '永久解锁：移速 +8%',
+      price: 1200, consumable: false, category: 'permanent',
+    },
+    armorPlate: {
+      id: 'armorPlate', name: '强化装甲', icon: '🛡️',
+      description: '永久解锁：减伤 5%',
+      price: 1800, consumable: false, category: 'permanent',
+    },
   },
 
   // ============ ITEMS (20) ============
