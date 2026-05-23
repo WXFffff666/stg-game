@@ -121,13 +121,7 @@
       ctx.fillRect(0, 0, game.width, game.height);
     }
 
-    // Boss health bar (full screen width at top)
-    if (game.scene === cfg.SCENES.GAMEPLAY) {
-      const boss = game.enemies.find(e => e.isBoss && e.active);
-      if (boss) {
-        drawBossHealthBar(ctx, boss);
-      }
-    }
+    // Boss health bar is now rendered via DOM (#boss-bar), not canvas
   }
 
   function drawBossHealthBar(ctx, boss) {
@@ -1119,7 +1113,7 @@
       _appliedElements.push('ice');
     }
     // Thunder: chain lightning on hit + mark shocked element
-    if (playerEntity.stats.chainChance && Math.random() < playerEntity.stats.chainChance) {
+    if (playerEntity.stats.chainLightningChance && Math.random() < playerEntity.stats.chainLightningChance) {
       enemy._shockedTimer = 1500;
       _appliedElements.push('lightning');
       chainDamage(enemy, damage * (playerEntity.stats.chainDamage || 0.5), 0);
@@ -1256,6 +1250,11 @@
       if (auraHeal > 0) playerEntity.heal(auraHeal);
     }
 
+    // healOnKill: flat HP heal on each kill (from skills/talents)
+    if (playerEntity.stats.healOnKill) {
+      playerEntity.heal(playerEntity.stats.healOnKill);
+    }
+
     // On-kill effects
     if (playerEntity.onKill) playerEntity.onKill();
 
@@ -1299,6 +1298,9 @@
     // Check for boss trigger
     checkBossSpawn();
   }
+
+  // Expose for DOT kill handling in enemies.js
+  window.handleEnemyKilled = handleEnemyKilled;
 
   function checkBossSpawn() {
     // Enforce max 1 boss at a time
@@ -1482,6 +1484,31 @@
       comboEl.className = 'combo-text active';
     } else {
       comboEl.className = 'combo-text';
+    }
+
+    // Boss HP bar (DOM-based)
+    var boss = null;
+    if (game.enemies) {
+      for (var bi = 0; bi < game.enemies.length; bi++) {
+        if (game.enemies[bi].active && game.enemies[bi].isBoss) {
+          boss = game.enemies[bi];
+          break;
+        }
+      }
+    }
+    if (boss) {
+      ui.updateBossHP(boss.bossName || 'BOSS', boss.hp, boss.maxHp, true);
+    } else {
+      ui.updateBossHP('', 0, 0, false);
+    }
+
+    // Wave announcement
+    if (waveSpawner) {
+      var currentWave = waveSpawner.waveNumber || 0;
+      if (currentWave > 0 && currentWave !== ui._lastWaveNumber) {
+        ui._lastWaveNumber = currentWave;
+        ui.showWaveAnnouncement(currentWave);
+      }
     }
   }
 

@@ -261,19 +261,51 @@ class Enemy {
 
     // Poison DoT
     if (this.poisonTimer > 0) {
-      this.takeDamage(this.poisonDamage * dt);
+      var poisonDmg = this.poisonDamage * dt;
+      var alive = this.takeDamage(poisonDmg);
       this.poisonTimer -= dt * 1000;
       if (this.poisonTimer <= 0) {
         this.poisonTimer = 0;
+      }
+      // Show DOT damage number periodically (every 0.5s)
+      this._dotPoisonAccum = (this._dotPoisonAccum || 0) + poisonDmg;
+      this._dotPoisonDisplayTimer = (this._dotPoisonDisplayTimer || 0) + dt;
+      if (this._dotPoisonDisplayTimer >= 0.5) {
+        if (window.ParticleSystem && this._dotPoisonAccum >= 1) {
+          window.ParticleSystem.damageNumber(this.x, this.y - this.size, Math.round(this._dotPoisonAccum), '#55cc44');
+        }
+        this._dotPoisonAccum = 0;
+        this._dotPoisonDisplayTimer = 0;
+      }
+      if (!alive) {
+        // Enemy died from poison DOT - trigger kill handler
+        if (window.handleEnemyKilled) window.handleEnemyKilled(this, false, 0);
+        return;
       }
     }
 
     // Burn DoT
     if (this.burnTimer > 0) {
-      this.takeDamage(this.burnDamage * dt);
+      var burnDmg = this.burnDamage * dt;
+      var alive2 = this.takeDamage(burnDmg);
       this.burnTimer -= dt * 1000;
       if (this.burnTimer <= 0) {
         this.burnTimer = 0;
+      }
+      // Show DOT damage number periodically (every 0.5s)
+      this._dotBurnAccum = (this._dotBurnAccum || 0) + burnDmg;
+      this._dotBurnDisplayTimer = (this._dotBurnDisplayTimer || 0) + dt;
+      if (this._dotBurnDisplayTimer >= 0.5) {
+        if (window.ParticleSystem && this._dotBurnAccum >= 1) {
+          window.ParticleSystem.damageNumber(this.x + 8, this.y - this.size, Math.round(this._dotBurnAccum), '#ff6600');
+        }
+        this._dotBurnAccum = 0;
+        this._dotBurnDisplayTimer = 0;
+      }
+      if (!alive2) {
+        // Enemy died from burn DOT - trigger kill handler
+        if (window.handleEnemyKilled) window.handleEnemyKilled(this, false, 0);
+        return;
       }
     }
 

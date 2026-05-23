@@ -1619,20 +1619,19 @@ class SkillManager {
       duration: duration,
       _elapsed: 0,
       _tickTimer: 0,
-      _slowedEnemies: {},
+      _slowedEnemies: [],
 
       update: function(dt) {
         this._elapsed += dt * 1000;
         if (this._elapsed >= this.duration) {
-          // Remove slow from all enemies
-          for (var id in this._slowedEnemies) {
-            if (this._slowedEnemies.hasOwnProperty(id)) {
-              var e = this._slowedEnemies[id];
-              if (e && e.active) {
-                e.speed = e._origSpeed || e.speed;
-              }
+          // Remove slow from all tracked enemies
+          for (var si = 0; si < this._slowedEnemies.length; si++) {
+            var entry = this._slowedEnemies[si];
+            if (entry.enemy && entry.enemy.active) {
+              entry.enemy.speed = entry.origSpeed;
             }
           }
+          this._slowedEnemies = [];
           window.game.removeEntity(this);
           return;
         }
@@ -1645,12 +1644,18 @@ class SkillManager {
           var dx = e.x - this.x;
           var dy = e.y - this.y;
           var inside = Math.sqrt(dx * dx + dy * dy) < this.radius;
-          if (inside && !this._slowedEnemies[e._id]) {
-            this._slowedEnemies[e._id] = e;
-            e._origSpeed = e.speed;
-            e.speed *= 0.35;
-            // Apply freeze effect to enemies in blizzard radius
-            e.frozenTimer = Math.max(e.frozenTimer || 0, 1000);
+          if (inside) {
+            // Check if already tracked
+            var alreadyTracked = false;
+            for (var si = 0; si < this._slowedEnemies.length; si++) {
+              if (this._slowedEnemies[si].enemy === e) { alreadyTracked = true; break; }
+            }
+            if (!alreadyTracked) {
+              this._slowedEnemies.push({ enemy: e, origSpeed: e.speed });
+              e.speed *= 0.35;
+              // Apply freeze effect to enemies in blizzard radius
+              e.frozenTimer = Math.max(e.frozenTimer || 0, 1000);
+            }
           }
         }
 
@@ -1723,10 +1728,8 @@ class SkillManager {
       var dx = e.x - x;
       var dy = e.y - y;
       if (Math.sqrt(dx * dx + dy * dy) < radius) {
-        e._poisonTimer = duration;
-        e._poisonDamage = damage;
-        e._poisonTick = 1000; // 1 second per tick
-        e._poisonTickTimer = 0;
+        e.poisonTimer = Math.max(e.poisonTimer || 0, duration);
+        e.poisonDamage = Math.max(e.poisonDamage || 0, damage);
       }
     }
 
@@ -2039,9 +2042,7 @@ class SkillManager {
       var e = enemies[i];
       if (!e.active) continue;
       if (Math.random() < chance) {
-        e._frozenTimer = duration;
-        if (e._origSpeed === undefined) e._origSpeed = e.speed;
-        e.speed = 0;
+        e.frozenTimer = Math.max(e.frozenTimer || 0, duration);
       }
     }
   }
@@ -2113,7 +2114,6 @@ class SkillManager {
     var elapsed = 0;
     var tickInterval = 500;
     var tickTimer = 0;
-    var _slowedEnemies = {};
 
     var entity = {
       x: x, y: y,
@@ -2124,22 +2124,12 @@ class SkillManager {
       duration: duration / 1000,
       _elapsed: 0,
       _tickTimer: 0,
-      _slowedEnemies: {},
+      _trackedEnemies: [],
 
       update: function(dt) {
         this._elapsed += dt;
         if (this._elapsed >= this.duration) {
-          // Remove slow from all tracked enemies
-          var enemies = game.enemies;
-          for (var id in this._slowedEnemies) {
-            if (this._slowedEnemies.hasOwnProperty(id)) {
-              for (var j = 0; j < enemies.length; j++) {
-                if (enemies[j].active && enemies[j]._uid == id) {
-                  enemies[j]._slowMult = 1;
-                }
-              }
-            }
-          }
+          this._trackedEnemies = [];
           game.removeEntity(this);
           return;
         }
@@ -2154,16 +2144,14 @@ class SkillManager {
             var dx = e.x - this.x;
             var dy = e.y - this.y;
             if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
-              // Apply damage
-              e.hp -= damage;
-              // Apply poison
-              e._poisonTimer = poisonDuration;
-              e._poisonDamage = poisonDamage;
-              e._poisonTick = 1000;
-              e._poisonTickTimer = 0;
-              // Apply slow
-              e._slowMult = 1 - slowAmount;
-              this._slowedEnemies[e._uid || (e._uid = Math.random())] = true;
+              // Apply damage via takeDamage for proper death handling
+              e.takeDamage(damage);
+              // Apply poison using standard enemy properties
+              e.poisonTimer = Math.max(e.poisonTimer || 0, poisonDuration);
+              e.poisonDamage = Math.max(e.poisonDamage || 0, poisonDamage);
+              // Apply slow using standard mechanism
+              e.slowTimer = Math.max(e.slowTimer || 0, tickInterval + 100);
+              e.slowAmount = Math.max(e.slowAmount || 0, slowAmount);
             }
           }
         }
@@ -2239,12 +2227,10 @@ class SkillManager {
       if (alreadyHit[cid]) break;
       alreadyHit[cid] = true;
 
-      // Damage and burn
-      current.hp -= chainDmg;
-      current._burnTimer = burnDuration;
-      current._burnDamage = burnDamage;
-      current._burnTick = 500;
-      current._burnTickTimer = 0;
+      // Damage and burn (use takeDamage for proper death handling)
+      current.takeDamage(chainDmg);
+      current.burnTimer = Math.max(current.burnTimer || 0, burnDuration);
+      current.burnDamage = Math.max(current.burnDamage || 0, burnDamage);
 
       // Spawn lightning visual
       this._spawnStormFireVisual(originX, originY, current.x, current.y);
