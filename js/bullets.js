@@ -203,7 +203,7 @@ class Bullet {
   }
 
   // ============================================================
-  //  DRAW
+  //  DRAW — unique visuals per weapon type
   // ============================================================
   draw(ctx) {
     if (!this.active) return;
@@ -215,7 +215,123 @@ class Bullet {
       ctx.globalCompositeOperation = 'lighter';
     }
 
-    // Outer glow (additive blending handles the glow effect)
+    // --- Shuriken: spinning star ---
+    if (this.rotationSpeed) {
+      this._drawShuriken(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Flame: flickering fireball ---
+    if (this.pierceCount >= 1 && this.size >= 7 && this.lifetime <= 0.6) {
+      this._drawFlame(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Ice shard: crystal shape ---
+    if (this.slowAmount) {
+      this._drawIceShard(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Lightning bolt: electric arc ---
+    if (this.chainCount && this.chainRange) {
+      this._drawLightningBolt(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Photon beam: wide glowing beam ---
+    if (this.hitRadius >= 7 && this.pierceCount >= 10) {
+      this._drawPhotonBeam(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Void rift: dark swirling vortex ---
+    if (this.executeThreshold) {
+      this._drawVoidRift(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Gravity well: gravitational rings ---
+    if (this.wellRadius && this.pullForce) {
+      this._drawGravityWell(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Explosive: pulsing bomb ---
+    if (this.explosionRadius > 0 && !this.homingStrength) {
+      this._drawExplosive(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Homing missile: tracking with smoke ---
+    if (this.homingStrength > 0 && this.explosionRadius > 0) {
+      this._drawMissile(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Homing bullet: glowing tracker ---
+    if (this.homingStrength > 0) {
+      this._drawHoming(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Boomerang: spinning return ---
+    if (this.range > 0) {
+      this._drawBoomerang(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Laser: thin fast beam ---
+    if (this.speed >= 1000 && this.size <= 2.5) {
+      this._drawLaser(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Needle: tiny piercing dart ---
+    if (this.pierceCount > 0 && this.size <= 2) {
+      this._drawNeedle(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Pierce / plasma: piercing bolt ---
+    if (this.pierceCount > 0) {
+      this._drawPierce(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Wave: sinusoidal glow ---
+    if (this.amplitude > 0 && this.frequency > 0) {
+      this._drawWave(ctx);
+      ctx.restore();
+      return;
+    }
+
+    // --- Default: standard circle bullet ---
+    this._drawDefault(ctx);
+
+    ctx.restore();
+  }
+
+  // ============================================================
+  //  DRAW HELPERS — unique weapon visuals
+  // ============================================================
+
+  _drawDefault(ctx) {
+    // Outer glow
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     ctx.fillStyle = this.color;
@@ -226,8 +342,320 @@ class Bullet {
     ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
+  }
 
-    ctx.restore();
+  _drawShuriken(ctx) {
+    var r = this.size;
+    var points = 4;
+    var inner = r * 0.4;
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this._age || 0) * (this.rotationSpeed || 8));
+    ctx.beginPath();
+    for (var i = 0; i < points * 2; i++) {
+      var radius = i % 2 === 0 ? r : inner;
+      var angle = (i * Math.PI) / points;
+      var px = Math.cos(angle) * radius;
+      var py = Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Center glow
+    ctx.beginPath();
+    ctx.arc(0, 0, inner * 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawFlame(ctx) {
+    var flicker = 0.8 + Math.random() * 0.4;
+    var r = this.size * flicker;
+    // Outer flame (orange/red)
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Mid flame (yellow)
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.65, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fill();
+    // Core (white)
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawIceShard(ctx) {
+    var r = this.size;
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    // Diamond/crystal shape
+    ctx.beginPath();
+    ctx.moveTo(r * 1.5, 0);
+    ctx.lineTo(0, r * 0.6);
+    ctx.lineTo(-r * 0.8, 0);
+    ctx.lineTo(0, -r * 0.6);
+    ctx.closePath();
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Inner shine
+    ctx.beginPath();
+    ctx.moveTo(r * 0.8, 0);
+    ctx.lineTo(0, r * 0.25);
+    ctx.lineTo(-r * 0.3, 0);
+    ctx.lineTo(0, -r * 0.25);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawLightningBolt(ctx) {
+    var r = this.size;
+    // Electric glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 100, 0.2)';
+    ctx.fill();
+    // Core bolt
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Bright center
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    // Random spark offsets
+    for (var i = 0; i < 3; i++) {
+      var sx = this.x + (Math.random() - 0.5) * r * 4;
+      var sy = this.y + (Math.random() - 0.5) * r * 4;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffff88';
+      ctx.fill();
+    }
+  }
+
+  _drawPhotonBeam(ctx) {
+    var w = this.hitRadius || 8;
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    // Wide beam rectangle
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.6;
+    ctx.fillRect(-w, -w * 0.5, w * 2, w);
+    // Bright core line
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-w, -w * 0.15, w * 2, w * 0.3);
+  }
+
+  _drawVoidRift(ctx) {
+    var r = this.size;
+    var pulse = 0.85 + Math.sin((this._age || 0) * 12) * 0.15;
+    // Dark outer ring
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse * 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(68, 0, 136, 0.4)';
+    ctx.fill();
+    // Purple core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Bright center dot
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#cc88ff';
+    ctx.fill();
+  }
+
+  _drawGravityWell(ctx) {
+    var r = this.size;
+    var t = (this._age || 0) * 3;
+    // Concentric gravitational rings
+    for (var i = 0; i < 3; i++) {
+      var ringR = r * (1.5 + i * 0.8) + Math.sin(t + i) * 2;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = this.color;
+      ctx.globalAlpha = 0.3 - i * 0.08;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawExplosive(ctx) {
+    var r = this.size;
+    var pulse = 1 + Math.sin((this._age || 0) * 10) * 0.15;
+    // Outer warning glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse * 1.4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+    ctx.fill();
+    // Main body
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Fuse spark
+    ctx.beginPath();
+    ctx.arc(this.x, this.y - r * 0.8, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffff00';
+    ctx.fill();
+  }
+
+  _drawMissile(ctx) {
+    var r = this.size;
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    // Missile body (elongated)
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 1.3, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Nose cone
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.moveTo(r * 1.3, 0);
+    ctx.lineTo(r * 0.8, -r * 0.3);
+    ctx.lineTo(r * 0.8, r * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    // Exhaust
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.arc(-r * 1.2, 0, r * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawHoming(ctx) {
+    var r = this.size;
+    // Tracking glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.2;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    // Center
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawBoomerang(ctx) {
+    var r = this.size;
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this._age || 0) * 10);
+    // V-shaped boomerang
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = r * 0.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r, -r * 0.6);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(-r, r * 0.6);
+    ctx.stroke();
+    // Center glow
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  _drawLaser(ctx) {
+    // Thin elongated beam
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    // Glow
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(-2, -this.size * 2, 4, this.size * 4);
+    // Core line
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-1, -this.size * 3, 2, this.size * 6);
+  }
+
+  _drawNeedle(ctx) {
+    // Tiny fast dart
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(this.size * 3, 0);
+    ctx.lineTo(-this.size, -this.size * 0.4);
+    ctx.lineTo(-this.size, this.size * 0.4);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  _drawPierce(ctx) {
+    var r = this.size;
+    // Elongated piercing bolt
+    ctx.translate(this.x, this.y);
+    var angle = Math.atan2(this.vy, this.vx);
+    ctx.rotate(angle);
+    // Outer glow
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 1.5, r * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Core
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.8, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawWave(ctx) {
+    var r = this.size;
+    var pulse = 1 + Math.sin((this._age || 0) * 8) * 0.2;
+    // Oscillating glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    // Core
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
   }
 
   // ============================================================
@@ -280,6 +708,29 @@ class Bullet {
       target.takeDamage(9999);
     }
 
+    // Ice shard: apply slow debuff
+    if (this.slowAmount && this.slowDuration) {
+      if (target && !target._slowTimer) {
+        target._slowMult = 1 - (this.slowAmount || 0.4);
+        target._slowTimer = this.slowDuration || 2000;
+      }
+    }
+
+    // Flame: apply burn damage over time
+    if (this.size >= 7 && this.lifetime <= 0.6 && this.pierceCount >= 1) {
+      if (target && !target._burnTimer) {
+        target._burnDamage = this.damage * 0.3;
+        target._burnTimer = 2000;
+        target._burnTick = 0;
+      }
+    }
+
+    // Lightning bolt: chain to nearby enemies
+    if (this.chainCount && this.chainRange && !this._chainHit) {
+      this._chainHit = true;
+      this._doChainLightning(target);
+    }
+
     // Pierce: track per-target to avoid multi-hits on same frame
     if (this.pierceCount > 0) {
       if (this._hitTargets && this._hitTargets.has(target)) {
@@ -307,6 +758,97 @@ class Bullet {
 
     this._deactivate();
     return true;
+  }
+
+  /**
+   * Chain lightning: hit nearby enemies after hitting primary target.
+   * @param {Object} primaryTarget - The first enemy hit
+   */
+  _doChainLightning(primaryTarget) {
+    var game = window.game;
+    var enemies = game.enemies;
+    if (!enemies) return;
+
+    var chainCount = this.chainCount || 4;
+    var chainRange = this.chainRange || 150;
+    var falloff = 0.25;
+    var hit = [primaryTarget];
+    var current = primaryTarget;
+    var chainDmg = this.damage * (1 - falloff);
+
+    for (var i = 0; i < chainCount; i++) {
+      if (!current) break;
+      var next = null;
+      var nextDistSq = Infinity;
+      var rangeSq = chainRange * chainRange;
+
+      for (var k = 0; k < enemies.length; k++) {
+        var e = enemies[k];
+        if (!e.active) continue;
+        var isHit = false;
+        for (var h = 0; h < hit.length; h++) {
+          if (hit[h] === e) { isHit = true; break; }
+        }
+        if (isHit) continue;
+
+        var dx = e.x - current.x;
+        var dy = e.y - current.y;
+        var distSq = dx * dx + dy * dy;
+        if (distSq < nextDistSq && distSq < rangeSq) {
+          nextDistSq = distSq;
+          next = e;
+        }
+      }
+
+      if (next) {
+        hit.push(next);
+        if (typeof next.takeDamage === 'function') {
+          next.takeDamage(chainDmg);
+        }
+        // Spawn chain visual
+        this._spawnChainVisual(current.x, current.y, next.x, next.y);
+        chainDmg *= (1 - falloff);
+      }
+      current = next;
+    }
+  }
+
+  /**
+   * Spawn lightning visual between two points.
+   */
+  _spawnChainVisual(x1, y1, x2, y2) {
+    var game = window.game;
+    var segments = 4;
+    for (var i = 0; i < segments; i++) {
+      var t = (i + 0.5) / segments;
+      var jitter = 6;
+      var mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * jitter;
+      var my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * jitter;
+      if (game.particles.length >= GAME_CONFIG.BALANCE.MAX_PARTICLES) break;
+      var p = game.getFromPool(game.particlePool, function() { return new Particle(); });
+      if (!p) return;
+      p.x = mx;
+      p.y = my;
+      p.vx = (Math.random() - 0.5) * 20;
+      p.vy = (Math.random() - 0.5) * 20;
+      p.size = 2 + Math.random() * 2;
+      p.color = this.color || '#ffff44';
+      p.life = 200;
+      p.maxLife = 200;
+      p.alpha = 1;
+      p.gravity = 0;
+      p.rotation = 0;
+      p.rotationSpeed = 0;
+      p.active = true;
+      p.category = 'particle';
+      p.drawLayer = 6;
+      p.hitRadius = 0;
+      p.isSquare = true;
+      p._customDraw = null;
+      p._customUpdate = null;
+      p._data = null;
+      game.addEntity(p);
+    }
   }
 
   // ============================================================
@@ -1157,6 +1699,286 @@ var BulletPatterns = {
       explosionRadius: explosionRadius || 55
     });
     return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F5. plagueFlame — Penetrating burning flame
+  // ----------------------------------------------------------
+  plagueFlame: function(x, y, angle, speed, damage, flameLength, pierceCount, burnDamage, color, trailColor) {
+    var bullets = [];
+    // Fire 3 flames in a tight spread for plague effect
+    for (var i = -1; i <= 1; i++) {
+      var a = angle + i * 0.08;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 6,
+        hitRadius: 5,
+        lifetime: (flameLength || 200) / speed + 0.3,
+        pierceCount: pierceCount || 3,
+        burnDamage: burnDamage || 8
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F6. thunderIce — Freezing chain lightning bolt
+  // ----------------------------------------------------------
+  thunderIce: function(x, y, angle, speed, damage, chainCount, chainRange, slowAmount, slowDuration, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 2,
+      chainCount: chainCount || 4,
+      chainRange: chainRange || 160,
+      slowAmount: slowAmount || 0.5,
+      slowDuration: slowDuration || 2500
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F7. deathStorm — Homing spinning blade swarm
+  // ----------------------------------------------------------
+  deathStorm: function(x, y, angle, speed, damage, missileCount, homingStrength, homingRange, spinSpeed, pierceCount, color, trailColor) {
+    var bullets = [];
+    for (var i = 0; i < (missileCount || 4); i++) {
+      var spreadAngle = (i - (missileCount - 1) / 2) * 0.25;
+      var a = angle + spreadAngle;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 3.5,
+        homingStrength: homingStrength || 0.06,
+        homingRange: homingRange || 400,
+        spinSpeed: spinSpeed || 6,
+        pierceCount: pierceCount || 3
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F8. singularityBeam — Gravity well + void rift
+  // ----------------------------------------------------------
+  singularityBeam: function(x, y, angle, speed, damage, wellRadius, pullForce, wellDamage, executeThreshold, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 3,
+      wellRadius: wellRadius || 120,
+      pullForce: pullForce || 100,
+      wellDamage: wellDamage || 12,
+      executeThreshold: executeThreshold || 0.12
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F9. clusterBomb — Homing missiles that create gravity wells
+  // ----------------------------------------------------------
+  clusterBomb: function(x, y, angle, speed, damage, missileCount, explosionRadius, homingStrength, wellRadius, pullForce, color, trailColor) {
+    var bullets = [];
+    for (var i = 0; i < (missileCount || 3); i++) {
+      var spreadAngle = (i - (missileCount - 1) / 2) * 0.3;
+      var a = angle + spreadAngle;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 7,
+        hitRadius: 5.5,
+        lifetime: 3.5,
+        homingStrength: homingStrength || 0.04,
+        homingRange: 350,
+        explosionRadius: explosionRadius || 85,
+        wellRadius: wellRadius || 90,
+        pullForce: pullForce || 70
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F10. elementCannon — Alternating fire/ice element shots
+  // ----------------------------------------------------------
+  _elementCannonToggle: false,
+  elementCannon: function(x, y, angle, speed, damage, burnDamage, burnDuration, slowAmount, slowDuration, color, trailColor) {
+    // Toggle between fire and ice shots
+    this._elementCannonToggle = !this._elementCannonToggle;
+    var isFire = this._elementCannonToggle;
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: isFire ? '#ff6600' : '#88ddff',
+      trailColor: isFire ? '#ff3300' : '#4499cc',
+      category: 'playerBullet',
+      size: 4,
+      hitRadius: 3.5,
+      lifetime: 2.5,
+      burnDamage: isFire ? (burnDamage || 7) : 0,
+      burnDuration: isFire ? (burnDuration || 2000) : 0,
+      slowAmount: isFire ? 0 : (slowAmount || 0.4),
+      slowDuration: isFire ? 0 : (slowDuration || 2000)
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F11. thunderMissile — Lightning chain homing missiles
+  // ----------------------------------------------------------
+  thunderMissile: function(x, y, angle, speed, damage, missileCount, homingStrength, explosionRadius, chainCount, chainRange, color, trailColor) {
+    var bullets = [];
+    for (var i = 0; i < (missileCount || 3); i++) {
+      var spreadAngle = (i - (missileCount - 1) / 2) * 0.35;
+      var a = angle + spreadAngle;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 6,
+        hitRadius: 5,
+        lifetime: 3.5,
+        homingStrength: homingStrength || 0.05,
+        homingRange: 380,
+        explosionRadius: explosionRadius || 75,
+        chainCount: chainCount || 3,
+        chainRange: chainRange || 140
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F12. gravityBlade — Gravity-pulling boomerang blades
+  // ----------------------------------------------------------
+  gravityBlade: function(x, y, angle, speed, range, damage, spinSpeed, pierceCount, wellRadius, pullForce, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 4,
+      originX: x,
+      originY: y,
+      range: range || 360,
+      pierceCount: pierceCount || 4,
+      spinSpeed: spinSpeed || 7,
+      wellRadius: wellRadius || 80,
+      pullForce: pullForce || 60
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F13. voidRocket — Void explosion homing rockets
+  // ----------------------------------------------------------
+  voidRocket: function(x, y, angle, speed, damage, missileCount, homingStrength, explosionRadius, executeThreshold, color, trailColor) {
+    var bullets = [];
+    for (var i = 0; i < (missileCount || 3); i++) {
+      var spreadAngle = (i - (missileCount - 1) / 2) * 0.3;
+      var a = angle + spreadAngle;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 7,
+        hitRadius: 5.5,
+        lifetime: 3.5,
+        homingStrength: homingStrength || 0.04,
+        homingRange: 350,
+        explosionRadius: explosionRadius || 80,
+        executeThreshold: executeThreshold || 0.1
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F14. photonNeedle — Ultra-fast photon piercing needles
+  // ----------------------------------------------------------
+  photonNeedle: function(x, y, angle, speed, damage, bulletCount, pierceCount, color, trailColor) {
+    var bullets = [];
+    for (var i = 0; i < (bulletCount || 3); i++) {
+      var offset = (i - (bulletCount - 1) / 2) * 0.06;
+      var a = angle + offset;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 1.5,
+        hitRadius: 1.2,
+        lifetime: 1.5,
+        pierceCount: pierceCount || 4
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
   }
 
 };

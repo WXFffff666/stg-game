@@ -14,14 +14,17 @@
   const cfg = window.GAME_CONFIG;
   
   // Module references (set during init or on first use)
-  let ui, waveSpawner, weaponManager, skillManager, itemSpawner, buffManager;
+  let ui, waveSpawner, weaponManager, skillManager, itemSpawner, buffManager, talentManager;
 
   // Game state
   let selectedFaction = null;
+  let selectedCharacter = null;
   let playerEntity = null;
   let backgroundStars = [];
   let lastBossScore = 0;
   let gameOverShown = false;
+  let bossDefeatedThisRun = false;
+  let bossKillsThisRun = 0;
 
   // ============ INITIALIZATION ============
   function init() {
@@ -38,6 +41,10 @@
     // Create background starfield
     createStarfield();
 
+    // Set version display
+    var versionEl = document.getElementById('version-info');
+    if (versionEl) versionEl.textContent = 'v' + (cfg.VERSION || '1.0.0');
+
     // Start render loop (always running for menus)
     game.start();
 
@@ -46,8 +53,21 @@
     game._draw = function() {
       drawBackground(game.ctx);
       originalDraw();
+      // Draw spawn warning arrows (red arrows before enemy spawn)
+      if (waveSpawner && waveSpawner.draw) {
+        waveSpawner.draw(game.ctx);
+      }
       drawUIOverlay(game.ctx);
     };
+
+    // Check return guide (7 days inactive)
+    checkReturnGuide();
+
+    // Record last active time
+    recordLastActive();
+
+    // Hide loading screen
+    hideLoadingScreen();
 
     console.log('STG Game initialized. Ready.');
   }
@@ -146,20 +166,80 @@
     ctx.textAlign = 'left';
   }
 
+  // ============ LOADING SCREEN ============
+  function hideLoadingScreen() {
+    window._loadingDone = true;
+    var el = document.getElementById('loading-screen');
+    if (el) {
+      el.classList.add('fade-out');
+      setTimeout(function() { el.style.display = 'none'; }, 600);
+    }
+  }
+
+  // ============ RETURN GUIDE ============
+  function checkReturnGuide() {
+    try {
+      var lastActive = localStorage.getItem('stg_last_active');
+      if (!lastActive) return;
+
+      var lastTime = parseInt(lastActive, 10);
+      if (isNaN(lastTime)) return;
+
+      var daysSince = (Date.now() - lastTime) / (1000 * 60 * 60 * 24);
+      if (daysSince >= 7) {
+        showWelcomeBack();
+      }
+    } catch (e) {
+      // localStorage not available, skip
+    }
+  }
+
+  function showWelcomeBack() {
+    var banner = document.getElementById('welcome-back-banner');
+    if (!banner) return;
+
+    banner.style.display = 'block';
+    banner.className = 'welcome-back';
+    banner.innerHTML =
+      '<div class="wb-title">欢迎回来!</div>' +
+      '<div class="wb-desc">经验获取 2x 加成 (10分钟)</div>';
+
+    // Apply 2x XP buff for 10 minutes
+    window._returnGuideXpMultiplier = 2;
+    setTimeout(function() {
+      window._returnGuideXpMultiplier = 1;
+    }, 10 * 60 * 1000);
+
+    // Remove banner after animation
+    setTimeout(function() {
+      banner.style.display = 'none';
+    }, 5000);
+  }
+
+  function recordLastActive() {
+    try {
+      localStorage.setItem('stg_last_active', String(Date.now()));
+    } catch (e) {
+      // localStorage not available, skip
+    }
+  }
+
   // ============ UI HANDLERS ============
   function setupUIHandlers() {
     // Set ui callbacks (ui.js handles all DOM rendering)
     // Character select: ui generates cards, calls this callback on selection
-    ui.onStartGame = function(factionId) {
+    ui.onStartGame = function(factionId, characterId) {
       selectedFaction = factionId;
-      startNewGame();
+      selectedCharacter = characterId || 'vanguard';
+      // Show talent selection screen before starting game
+      showTalentScreen();
     };
     // Leaderboard button (handled by ui.js, but set data source)
     ui.getLeaderboardData = function() {
       return window.LeaderboardManager.getLeaderboard();
     };
     // Back buttons (handled by ui.js)
-    document.getElementById('btn-restart').addEventListener('click', startNewGame);
+    document.getElementById('btn-restart').addEventListener('click', showTalentScreen);
     document.getElementById('btn-menu').addEventListener('click', backToMenu);
     
     // Leaderboard back
@@ -176,13 +256,18 @@
     document.getElementById('btn-pause-shop').addEventListener('click', () => {
       showInRunShop();
     });
-    document.getElementById('btn-pause-restart').addEventListener('click', () => {
-      document.getElementById('pause-overlay').style.display = 'none';
-      startNewGame();
+    document.getElementById('btn-pause-weapons').addEventListener('click', () => {
+      showPauseWeaponsView();
+    });
+    document.getElementById('btn-pause-skills').addEventListener('click', () => {
+      showPauseSkillsView();
     });
     document.getElementById('btn-pause-menu').addEventListener('click', () => {
       document.getElementById('pause-overlay').style.display = 'none';
       backToMenu();
+    });
+    document.getElementById('btn-pause-back').addEventListener('click', () => {
+      hidePauseSubView();
     });
 
     // In-run shop close button
@@ -201,6 +286,72 @@
   function hideInRunShop() {
     document.getElementById('in-run-shop').style.display = 'none';
     document.getElementById('pause-overlay').style.display = 'flex';
+  }
+
+  // ============ PAUSE SUB-VIEWS ============
+  function showPauseSubView() {
+    document.getElementById('pause-main-menu').style.display = 'none';
+    document.getElementById('pause-sub-view').style.display = 'flex';
+  }
+
+  function hidePauseSubView() {
+    document.getElementById('pause-sub-view').style.display = 'none';
+    document.getElementById('pause-main-menu').style.display = 'block';
+  }
+
+  function showPauseWeaponsView() {
+    var container = document.getElementById('pause-sub-content');
+    if (!container) return;
+
+    var html = '<h3>🔫 当前武器</h3>';
+    if (weaponManager && weaponManager.currentWeapon) {
+      var weaponId = weaponManager.currentWeapon;
+      var weaponCfg = cfg.WEAPONS[weaponId];
+      if (weaponCfg) {
+        html += '<div class="pause-sub-item">' +
+          '<div class="item-icon">' + (weaponCfg.icon || '🔫') + '</div>' +
+          '<div><div class="item-name">' + (weaponCfg.name || weaponId) + '</div>' +
+          '<div class="item-desc">' + (weaponCfg.description || '基础武器') + '</div></div></div>';
+      } else {
+        html += '<div class="pause-sub-item">' +
+          '<div class="item-icon">🔫</div>' +
+          '<div><div class="item-name">' + weaponId + '</div></div></div>';
+      }
+    } else {
+      html += '<div class="pause-sub-empty">无武器数据</div>';
+    }
+
+    container.innerHTML = html;
+    showPauseSubView();
+  }
+
+  function showPauseSkillsView() {
+    var container = document.getElementById('pause-sub-content');
+    if (!container) return;
+
+    var html = '<h3>✨ 已学技能</h3>';
+    if (skillManager && skillManager.learnedSkills && skillManager.learnedSkills.length > 0) {
+      for (var i = 0; i < skillManager.learnedSkills.length; i++) {
+        var skillId = skillManager.learnedSkills[i];
+        var skillCfg = null;
+        // Search in GAME_CONFIG.SKILLS
+        for (var j = 0; j < cfg.SKILLS.length; j++) {
+          if (cfg.SKILLS[j].id === skillId) { skillCfg = cfg.SKILLS[j]; break; }
+        }
+        var name = skillCfg ? skillCfg.name : skillId;
+        var desc = skillCfg ? (skillCfg.description || '') : '';
+        var icon = skillCfg ? (skillCfg.icon || '✨') : '✨';
+        html += '<div class="pause-sub-item">' +
+          '<div class="item-icon">' + icon + '</div>' +
+          '<div><div class="item-name">' + name + '</div>' +
+          '<div class="item-desc">' + desc + '</div></div></div>';
+      }
+    } else {
+      html += '<div class="pause-sub-empty">尚未学习任何技能</div>';
+    }
+
+    container.innerHTML = html;
+    showPauseSubView();
   }
 
   function renderInRunShopItems() {
@@ -260,7 +411,7 @@
       `;
       card.addEventListener('click', () => {
         selectedFaction = id;
-        startNewGame();
+        showTalentScreen();
       });
       container.appendChild(card);
     }
@@ -319,6 +470,205 @@
     inRunGold += Math.floor(amount);
   }
 
+  // ============ COUNTDOWN ============
+  function showCountdown(onComplete) {
+    var overlay = document.getElementById('countdown-overlay');
+    var textEl = document.getElementById('countdown-text');
+    if (!overlay || !textEl) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    game.pause();
+    overlay.style.display = 'flex';
+
+    var steps = [
+      { text: '3', cls: 'countdown-number', duration: 900 },
+      { text: '2', cls: 'countdown-number', duration: 900 },
+      { text: '1', cls: 'countdown-number', duration: 900 },
+      { text: 'GO!', cls: 'countdown-go', duration: 600 },
+    ];
+    var stepIndex = 0;
+
+    function nextStep() {
+      if (stepIndex >= steps.length) {
+        overlay.style.display = 'none';
+        // Play BGM after countdown
+        if (window.audio) window.audio.startBGM();
+        if (onComplete) onComplete();
+        return;
+      }
+      var step = steps[stepIndex];
+      textEl.textContent = step.text;
+      textEl.className = step.cls;
+      // Force re-trigger animation by removing and re-adding element
+      var parent = textEl.parentNode;
+      parent.removeChild(textEl);
+      parent.appendChild(textEl);
+      stepIndex++;
+      setTimeout(nextStep, step.duration);
+    }
+
+    nextStep();
+  }
+
+  // ============ NEW PLAYER TUTORIAL ============
+  var tutorialState = { active: false, step: 0, autoTimer: null };
+
+  var TUTORIAL_STEPS = [
+    { icon: '✈️', text: '移动战机', hint: '鼠标或触屏控制移动方向', highlight: 'player' },
+    { icon: '🔫', text: '自动射击', hint: '战机会自动开火，专注移动即可', highlight: 'none' },
+    { icon: '💎', text: '拾取道具', hint: '击杀敌人掉落的经验和道具，靠近自动拾取', highlight: 'item' },
+    { icon: '⬆️', text: '升级选择', hint: '经验满后升级，选择一个技能强化自己', highlight: 'level' },
+    { icon: '🎉', text: '准备就绪！', hint: '祝你好运，战士！', highlight: 'none' },
+  ];
+
+  function isTutorialDone() {
+    try { return localStorage.getItem('stg_tutorial_done') === '1'; }
+    catch (e) { return true; }
+  }
+
+  function markTutorialDone() {
+    try { localStorage.setItem('stg_tutorial_done', '1'); } catch (e) {}
+  }
+
+  function showTutorial() {
+    var overlay = document.getElementById('tutorial-overlay');
+    var skipBtn = document.getElementById('tutorial-skip');
+    if (!overlay) return;
+
+    tutorialState = { active: true, step: 0, autoTimer: null };
+
+    overlay.style.display = 'block';
+    skipBtn.addEventListener('click', skipTutorial, { once: true });
+
+    showTutorialStep(0);
+  }
+
+  function skipTutorial() {
+    if (!tutorialState.active) return;
+    clearTimeout(tutorialState.autoTimer);
+    tutorialState.active = false;
+    var overlay = document.getElementById('tutorial-overlay');
+    if (overlay) overlay.style.display = 'none';
+    markTutorialDone();
+  }
+
+  function advanceTutorial() {
+    if (!tutorialState.active) return;
+    clearTimeout(tutorialState.autoTimer);
+    showTutorialStep(tutorialState.step + 1);
+  }
+
+  function onTutorialItemPickup() {
+    if (tutorialState.active && tutorialState.step === 2) advanceTutorial();
+  }
+
+  function onTutorialLevelUp() {
+    if (tutorialState.active && tutorialState.step === 3) advanceTutorial();
+  }
+
+  function showTutorialStep(idx) {
+    if (idx >= TUTORIAL_STEPS.length) {
+      tutorialState.active = false;
+      var overlay = document.getElementById('tutorial-overlay');
+      if (overlay) overlay.style.display = 'none';
+      markTutorialDone();
+      return;
+    }
+
+    tutorialState.step = idx;
+    var step = TUTORIAL_STEPS[idx];
+
+    // Update text
+    var indicator = document.getElementById('tutorial-step-indicator');
+    var icon = document.getElementById('tutorial-icon');
+    var text = document.getElementById('tutorial-text');
+    var hint = document.getElementById('tutorial-hint');
+    var highlight = document.getElementById('tutorial-highlight');
+    var content = document.getElementById('tutorial-content');
+
+    if (indicator) indicator.textContent = (idx + 1) + ' / ' + TUTORIAL_STEPS.length;
+    if (icon) icon.textContent = step.icon;
+    if (text) text.textContent = step.text;
+    if (hint) hint.textContent = step.hint;
+
+    // Re-trigger content animation
+    if (content) {
+      content.style.animation = 'none';
+      content.offsetHeight; // force reflow
+      content.style.animation = '';
+    }
+
+    // Position highlight
+    if (highlight) {
+      if (step.highlight === 'player' && playerEntity) {
+        highlight.style.display = 'block';
+        highlight.style.left = (playerEntity.x - 30) + 'px';
+        highlight.style.top = (playerEntity.y - 30) + 'px';
+        highlight.style.width = '60px';
+        highlight.style.height = '60px';
+      } else if (step.highlight === 'level') {
+        var el = document.querySelector('.hud-top-left');
+        if (el) {
+          var r = el.getBoundingClientRect();
+          var cr = game.canvas.getBoundingClientRect();
+          highlight.style.display = 'block';
+          highlight.style.left = (r.left - cr.left - 4) + 'px';
+          highlight.style.top = (r.top - cr.top - 4) + 'px';
+          highlight.style.width = (r.width + 8) + 'px';
+          highlight.style.height = (r.height + 8) + 'px';
+        } else {
+          highlight.style.display = 'none';
+        }
+      } else {
+        highlight.style.display = 'none';
+      }
+    }
+
+    // Play ding sound
+    if (window.audio) {
+      window.audio._ensureContext();
+      if (!window.audio._muted && window.audio._ctx) {
+        var ctx = window.audio._ctx;
+        var now = ctx.currentTime;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.connect(gain);
+        gain.connect(window.audio._masterGain);
+        osc.start(now);
+        osc.stop(now + 0.21);
+      }
+    }
+
+    // Auto-advance for time-based steps
+    var autoDelay = (idx === 0) ? 4000 : (idx === 1) ? 3500 : (idx === 4) ? 3000 : null;
+    if (autoDelay) {
+      tutorialState.autoTimer = setTimeout(function() {
+        if (tutorialState.active && tutorialState.step === idx) advanceTutorial();
+      }, autoDelay);
+    }
+  }
+
+  // ============ TALENT SCREEN ============
+  function showTalentScreen() {
+    // Create or reset talent manager
+    if (!talentManager) {
+      talentManager = new window.TalentManager();
+    }
+    talentManager.reset();
+
+    // Show talent selection UI
+    ui.showTalentScreen(talentManager, function() {
+      // On confirm: apply talents and start game
+      startNewGame();
+    });
+  }
+
   // ============ GAME START ============
   function startNewGame() {
     if (!selectedFaction) {
@@ -356,6 +706,21 @@
     playerEntity = new window.Player(game.width / 2, game.height * 0.8);
     playerEntity.applyFaction(selectedFaction);
 
+    // Apply character stat modifiers
+    if (selectedCharacter && cfg.CHARACTERS[selectedCharacter]) {
+      playerEntity.applyCharacter(selectedCharacter);
+    }
+
+    // Apply talent effects
+    if (talentManager) {
+      talentManager.setPlayer(playerEntity);
+      talentManager.applyAllTalents(playerEntity);
+    }
+
+    // Reset boss-defeated flag for this run
+    bossDefeatedThisRun = false;
+    bossKillsThisRun = 0;
+
     game.addEntity(playerEntity);
     game.player = playerEntity;
 
@@ -380,6 +745,9 @@
     // Connect skill level-up to UI (with fusion integration)
     skillManager.onLevelUp = function(choices) {
       game.pause();
+
+      // Tutorial: advance on level up
+      onTutorialLevelUp();
 
       // Check for available fusions and add fusion cards to choices
       var availableFusions = skillManager.checkFusions();
@@ -433,17 +801,15 @@
       ui.showFusionNotification(fusions);
     };
 
-    // Connect fusion notification click
-    var fusionNotifEl = document.getElementById('fusion-notification');
-    if (fusionNotifEl) {
-      fusionNotifEl.addEventListener('click', function() {
-        ui.hideFusionNotification();
-        // If in gameplay and not paused, trigger level-up to show fusion options
-        if (skillManager && !skillManager._isChoosing) {
-          skillManager._showLevelUpChoices();
-        }
-      });
-    }
+    // Connect fusion execute callback (called from fusion confirm UI)
+    ui.onFusionExecute = function(fusion) {
+      if (!fusion || !fusion.recipe) return;
+      if (fusion.type === 'weapon') {
+        skillManager.executeWeaponFusion(fusion.recipe);
+      } else if (fusion.type === 'skill') {
+        skillManager.executeSkillFusion(fusion.recipe);
+      }
+    };
 
     // Connect event triggers
     playerEntity.onKill = function() {
@@ -463,20 +829,24 @@
     ui.hideAllScreens();
     document.getElementById('menu-screen').style.display = 'none';
     document.getElementById('char-select-screen').style.display = 'none';
+    document.getElementById('talent-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('level-up').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
     document.getElementById('pause-overlay').style.display = 'none';
 
     game.setScene(cfg.SCENES.GAMEPLAY);
-    game.resume();
 
-    // Play BGM
-    if (window.audio) {
-      window.audio.startBGM();
-    }
+    // 3-second countdown before gameplay starts
+    showCountdown(function() {
+      game.resume();
+      console.log('New game started. Faction:', selectedFaction);
 
-    console.log('New game started. Faction:', selectedFaction);
+      // Show tutorial for first-time players
+      if (!isTutorialDone()) {
+        showTutorial();
+      }
+    });
   }
 
   // ============ GAME OVER ============
@@ -501,6 +871,9 @@
       game.kills, game.gameTime
     );
 
+    // Check character unlocks
+    ui.checkCharacterUnlocks(game.kills, bossDefeatedThisRun);
+
     // Show game over screen
     setTimeout(() => {
       game.timeScale = 1.0;
@@ -514,11 +887,18 @@
         maxCombo: game.maxCombo,
         faction: cfg.FACTIONS[selectedFaction] ? cfg.FACTIONS[selectedFaction].name : 'Unknown',
         goldEarned: inRunGold,
+        bossKills: bossKillsThisRun,
+        wave: waveSpawner ? waveSpawner.waveNumber : 0,
       };
 
+      // Save personal bests
+      if (ui && typeof ui.savePersonalBests === 'function') {
+        ui.savePersonalBests(stats);
+      }
+
       ui.showGameOver(stats, function() {
-        // Restart
-        startNewGame();
+        // Restart: show talent screen first
+        showTalentScreen();
       }, function() {
         // Menu
         backToMenu();
@@ -547,6 +927,14 @@
     document.getElementById('level-up').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('char-select-screen').style.display = 'none';
+
+    // Clean up tutorial
+    if (tutorialState.active) {
+      clearTimeout(tutorialState.autoTimer);
+      tutorialState.active = false;
+    }
+    var tutOverlay = document.getElementById('tutorial-overlay');
+    if (tutOverlay) tutOverlay.style.display = 'none';
 
     ui.hideAllScreens();
     document.getElementById('menu-screen').style.display = 'flex';
@@ -707,27 +1095,45 @@
       if (playerEntity.onCrit) playerEntity.onCrit();
     }
 
-    // Apply status effects
+    // Apply status effects + track applied elements for reaction system
+    var _appliedElements = [];
     if (playerEntity.stats.slowChance && Math.random() < playerEntity.stats.slowChance) {
       enemy.slowTimer = cfg.FACTIONS.ice.baseStats.slowDuration || 2000;
       enemy.slowAmount = playerEntity.stats.slowAmount || 0.4;
+      _appliedElements.push('ice');
     }
     if (playerEntity.stats.poisonDamage) {
       enemy.poisonDamage = playerEntity.stats.poisonDamage;
       enemy.poisonDuration = cfg.FACTIONS.poison.baseStats.poisonDuration || 3000;
       enemy.poisonTimer = enemy.poisonDuration;
+      _appliedElements.push('poison');
     }
     if (playerEntity.stats.burnDamage) {
       enemy.burnDamage = playerEntity.stats.burnDamage;
       enemy.burnDuration = cfg.FACTIONS.elemental.baseStats.burnDuration || 2000;
       enemy.burnTimer = enemy.burnDuration;
+      _appliedElements.push('fire');
     }
     if (playerEntity.stats.freezeChance && Math.random() < playerEntity.stats.freezeChance) {
       enemy.frozenTimer = 1500;
+      _appliedElements.push('ice');
     }
-    // Thunder: chain lightning on hit
+    // Thunder: chain lightning on hit + mark shocked element
     if (playerEntity.stats.chainChance && Math.random() < playerEntity.stats.chainChance) {
+      enemy._shockedTimer = 1500;
+      _appliedElements.push('lightning');
       chainDamage(enemy, damage * (playerEntity.stats.chainDamage || 0.5), 0);
+    }
+    // Element Reaction System: check if two elements coexist → trigger reaction
+    if (window.ElementalReactionSystem && _appliedElements.length > 0) {
+      for (var _ei = 0; _ei < _appliedElements.length; _ei++) {
+        var reactionResult = window.ElementalReactionSystem.checkAndTrigger(enemy, _appliedElements[_ei], damage, playerEntity);
+        if (reactionResult) break; // One reaction per hit
+      }
+    }
+    // Vulnerable debuff (from shatter reaction): enemy takes more damage
+    if (enemy._vulnerableTimer > 0 && enemy._vulnerableMult) {
+      damage = Math.floor(damage * enemy._vulnerableMult);
     }
     // Wind: push enemy away
     if (playerEntity.stats.pushForce) {
@@ -792,6 +1198,13 @@
       window.ParticleSystem.bossExplosion(enemy.x, enemy.y);
       game.addShake(15);
       if (window.audio) window.audio.playBigExplosion();
+      bossDefeatedThisRun = true;
+      bossKillsThisRun++;
+
+      // Grant bonus talent point
+      if (talentManager) {
+        talentManager.onBossKill();
+      }
     } else {
       window.ParticleSystem.explosion(enemy.x, enemy.y, enemy.size > 20 ? 'normal' : 'small');
       if (window.audio) window.audio.playExplosion();
@@ -819,6 +1232,10 @@
     if (buffManager && buffManager.getModifier('xpBoost') > 1) {
       xpGain = Math.floor(xpGain * buffManager.getModifier('xpBoost'));
     }
+    // Return guide 2x XP buff
+    if (window._returnGuideXpMultiplier && window._returnGuideXpMultiplier > 1) {
+      xpGain = Math.floor(xpGain * window._returnGuideXpMultiplier);
+    }
     if (skillManager) skillManager.addXp(xpGain);
 
     // Gold (in-run currency)
@@ -826,10 +1243,17 @@
     if (enemy.isBoss) goldGain *= 5; // Boss gives 5x gold
     addInRunGold(goldGain);
 
-    // Lifesteal
+    // Lifesteal — only heal based on actual damage dealt (capped at enemy HP before death)
     if (playerEntity.stats.lifesteal) {
-      const healAmt = Math.floor(damage * playerEntity.stats.lifesteal);
+      const actualDamage = Math.min(damage, enemy.maxHp);
+      const healAmt = Math.floor(actualDamage * playerEntity.stats.lifesteal);
       if (healAmt > 0) playerEntity.heal(healAmt);
+    }
+
+    // Vampire aura: heal % max HP on kill
+    if (playerEntity.stats.vampireAuraOnKill) {
+      const auraHeal = Math.floor(playerEntity.maxHp * playerEntity.stats.vampireAuraOnKill);
+      if (auraHeal > 0) playerEntity.heal(auraHeal);
     }
 
     // On-kill effects
@@ -859,8 +1283,17 @@
         const itemId = rareItems[Math.floor(Math.random() * rareItems.length)];
         itemSpawner.spawnById(itemId, dx, dy);
       }
+      // Boss: 100% guaranteed fusion core drop
+      if (skillManager) {
+        skillManager.addFusionCore(1);
+      }
       // Show boss defeat message
-      ui.showToast('🎉 Boss 击败！稀有道具掉落！', 3000);
+      ui.showToast('🎉 Boss 击败！稀有道具掉落！融合核心 +1', 3000);
+    }
+
+    // Elite enemies: 15% chance to drop fusion core
+    if (enemy.type === 'elite' && !enemy.isBoss && skillManager && Math.random() < 0.15) {
+      skillManager.addFusionCore(1);
     }
 
     // Check for boss trigger
@@ -1007,6 +1440,9 @@
 
     // On-pickup skill trigger
     if (playerEntity.onPickup) playerEntity.onPickup();
+
+    // Tutorial: advance on first pickup
+    onTutorialItemPickup();
   }
 
   // ============ HUD ============
@@ -1050,10 +1486,23 @@
   }
 
   // ============ STARTUP ============
+  function safeInit() {
+    try {
+      init();
+    } catch (e) {
+      console.error('STG Game init failed:', e);
+      // Show error screen
+      var loadingEl = document.getElementById('loading-screen');
+      if (loadingEl) loadingEl.style.display = 'none';
+      var errorEl = document.getElementById('error-screen');
+      if (errorEl) errorEl.style.display = 'flex';
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', safeInit);
   } else {
-    init();
+    safeInit();
   }
 
 })();

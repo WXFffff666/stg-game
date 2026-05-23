@@ -12,6 +12,112 @@
  *   In player.update(dt): this.weaponManager.update(dt);
  */
 
+// ============================================================
+//  REGISTER MISSING FUSED WEAPON CONFIGS (10 weapons)
+//  Called once at load time. Adds configs to GAME_CONFIG.WEAPONS
+//  for fused weapons defined in FUSION_RECIPES but missing from WEAPONS.
+// ============================================================
+(function registerFusedWeapons() {
+  var W = GAME_CONFIG.WEAPONS;
+  if (!W) return;
+
+  if (!W.plagueFlame) {
+    W.plagueFlame = {
+      id: 'plagueFlame', name: '瘟疫火焰', icon: '☣️', rarity: 'legendary', fused: true,
+      description: '持续灼烧穿透火焰',
+      pattern: 'plagueFlame', fireRate: 60, damage: 5, bulletSpeed: 400, bulletSize: 6,
+      pierceCount: 3, burnDamage: 8, burnDuration: 3000, flameLength: 200,
+      bulletColor: '#ccff44', trailColor: '#88cc22',
+    };
+  }
+  if (!W.thunderIce) {
+    W.thunderIce = {
+      id: 'thunderIce', name: '雷暴冰暴', icon: '🌨️', rarity: 'legendary', fused: true,
+      description: '冰冻连锁闪电',
+      pattern: 'thunderIce', fireRate: 500, damage: 16, bulletSpeed: 600, bulletSize: 3,
+      chainCount: 4, chainRange: 160, slowAmount: 0.5, slowDuration: 2500, shatterDamage: 35, shatterRadius: 90,
+      bulletColor: '#aaffff', trailColor: '#66ddff',
+    };
+  }
+  if (!W.deathStorm) {
+    W.deathStorm = {
+      id: 'deathStorm', name: '死亡风暴', icon: '💀', rarity: 'legendary', fused: true,
+      description: '旋转追踪飞刃群',
+      pattern: 'deathStorm', fireRate: 600, damage: 15, bulletSpeed: 380, bulletSize: 5,
+      missileCount: 4, homingStrength: 0.06, homingRange: 400, spinSpeed: 6, pierceCount: 3,
+      bulletColor: '#ddaa44', trailColor: '#aa7722',
+    };
+  }
+  if (!W.singularityBeam) {
+    W.singularityBeam = {
+      id: 'singularityBeam', name: '奇点投射', icon: '🕳️', rarity: 'legendary', fused: true,
+      description: '黑洞光束',
+      pattern: 'singularityBeam', fireRate: 500, damage: 10, bulletSpeed: 350, bulletSize: 5,
+      wellRadius: 120, wellDuration: 3500, pullForce: 100, wellDamage: 12,
+      riftDuration: 3500, riftDamage: 15, riftRadius: 80, executeThreshold: 0.12,
+      bulletColor: '#6600aa', trailColor: '#440066',
+    };
+  }
+  if (!W.clusterBomb) {
+    W.clusterBomb = {
+      id: 'clusterBomb', name: '集束炸弹', icon: '💣', rarity: 'legendary', fused: true,
+      description: '引力聚爆火箭',
+      pattern: 'clusterBomb', fireRate: 800, damage: 30, bulletSpeed: 300, bulletSize: 7,
+      missileCount: 3, explosionRadius: 85, homingStrength: 0.04, homingRange: 350,
+      wellRadius: 90, pullForce: 70,
+      bulletColor: '#cc6644', trailColor: '#994422',
+    };
+  }
+  if (!W.elementCannon) {
+    W.elementCannon = {
+      id: 'elementCannon', name: '元素炮', icon: '🌈', rarity: 'legendary', fused: true,
+      description: '冰火交替元素弹',
+      pattern: 'elementCannon', fireRate: 350, damage: 18, bulletSpeed: 500, bulletSize: 4,
+      burnDamage: 7, burnDuration: 2000, slowAmount: 0.4, slowDuration: 2000,
+      shatterDamage: 25, shatterRadius: 70,
+      bulletColor: '#ff8844', trailColor: '#44aaff',
+    };
+  }
+  if (!W.thunderMissile) {
+    W.thunderMissile = {
+      id: 'thunderMissile', name: '雷鸣导弹', icon: '⚡', rarity: 'legendary', fused: true,
+      description: '闪电连锁追踪导弹',
+      pattern: 'thunderMissile', fireRate: 700, damage: 28, bulletSpeed: 320, bulletSize: 6,
+      missileCount: 3, homingStrength: 0.05, homingRange: 380, explosionRadius: 75,
+      chainCount: 3, chainRange: 140,
+      bulletColor: '#ffff66', trailColor: '#ffaa22',
+    };
+  }
+  if (!W.gravityBlade) {
+    W.gravityBlade = {
+      id: 'gravityBlade', name: '重力飞刃', icon: '🌀', rarity: 'legendary', fused: true,
+      description: '引力回旋飞刃',
+      pattern: 'gravityBlade', fireRate: 550, damage: 24, bulletSpeed: 380, bulletSize: 5,
+      spinSpeed: 7, pierceCount: 4, range: 360, wellRadius: 80, pullForce: 60,
+      bulletColor: '#bbaaee', trailColor: '#8866cc',
+    };
+  }
+  if (!W.voidRocket) {
+    W.voidRocket = {
+      id: 'voidRocket', name: '虚空火箭', icon: '🚀', rarity: 'legendary', fused: true,
+      description: '虚空爆炸火箭',
+      pattern: 'voidRocket', fireRate: 750, damage: 35, bulletSpeed: 300, bulletSize: 7,
+      missileCount: 3, homingStrength: 0.04, homingRange: 350, explosionRadius: 80,
+      riftDuration: 3000, riftDamage: 10, riftRadius: 70, executeThreshold: 0.1,
+      bulletColor: '#8822cc', trailColor: '#5500aa',
+    };
+  }
+  if (!W.photonNeedle) {
+    W.photonNeedle = {
+      id: 'photonNeedle', name: '光子针', icon: '💡', rarity: 'legendary', fused: true,
+      description: '超高速光子穿透针',
+      pattern: 'photonNeedle', fireRate: 90, damage: 5, bulletSpeed: 1400, bulletSize: 1.5,
+      bulletCount: 3, pierceCount: 4, beamWidth: 4,
+      bulletColor: '#ffffff', trailColor: '#ccccff',
+    };
+  }
+})();
+
 class WeaponManager {
   /**
    * @param {object} player - the Player entity this weapon manager is attached to
@@ -255,6 +361,47 @@ class WeaponManager {
 
       case 'shockwaveWep':
         if (B) B.shockwaveWep(x, y, angleUp, spd, dmg, cfg.waveAmplitude || 4, cfg.waveFrequency || 0.05, cfg.explosionRadius || 55, color, trail);
+        break;
+
+      // ---- More Fusion Weapon Patterns (10 new) ----
+      case 'plagueFlame':
+        if (B) B.plagueFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, color, trail);
+        break;
+
+      case 'thunderIce':
+        if (B) B.thunderIce(x, y, angleUp, spd, dmg, cfg.chainCount || 4, cfg.chainRange || 160, cfg.slowAmount || 0.5, cfg.slowDuration || 2500, color, trail);
+        break;
+
+      case 'deathStorm':
+        if (B) B.deathStorm(x, y, angleUp, spd, dmg, cfg.missileCount || 4, cfg.homingStrength || 0.06, cfg.homingRange || 400, cfg.spinSpeed || 6, cfg.pierceCount || 3, color, trail);
+        break;
+
+      case 'singularityBeam':
+        if (B) B.singularityBeam(x, y, angleUp, spd, dmg, cfg.wellRadius || 120, cfg.pullForce || 100, cfg.wellDamage || 12, cfg.executeThreshold || 0.12, color, trail);
+        break;
+
+      case 'clusterBomb':
+        if (B) B.clusterBomb(x, y, angleUp, spd, dmg, cfg.missileCount || 3, cfg.explosionRadius || 85, cfg.homingStrength || 0.04, cfg.wellRadius || 90, cfg.pullForce || 70, color, trail);
+        break;
+
+      case 'elementCannon':
+        if (B) B.elementCannon(x, y, angleUp, spd, dmg, cfg.burnDamage || 7, cfg.burnDuration || 2000, cfg.slowAmount || 0.4, cfg.slowDuration || 2000, color, trail);
+        break;
+
+      case 'thunderMissile':
+        if (B) B.thunderMissile(x, y, angleUp, spd, dmg, cfg.missileCount || 3, cfg.homingStrength || 0.05, cfg.explosionRadius || 75, cfg.chainCount || 3, cfg.chainRange || 140, color, trail);
+        break;
+
+      case 'gravityBlade':
+        if (B) B.gravityBlade(x, y, angleUp, spd, cfg.range || 360, dmg, cfg.spinSpeed || 7, cfg.pierceCount || 4, cfg.wellRadius || 80, cfg.pullForce || 60, color, trail);
+        break;
+
+      case 'voidRocket':
+        if (B) B.voidRocket(x, y, angleUp, spd, dmg, cfg.missileCount || 3, cfg.homingStrength || 0.04, cfg.explosionRadius || 80, cfg.executeThreshold || 0.1, color, trail);
+        break;
+
+      case 'photonNeedle':
+        if (B) B.photonNeedle(x, y, angleUp, spd, dmg, cfg.bulletCount || 3, cfg.pierceCount || 4, color, trail);
         break;
     }
 

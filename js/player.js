@@ -716,12 +716,24 @@ class Player {
     // Shield regen rate (per second, 0 unless faction grants it)
     this.shieldRegen = 0;
 
+    // Shield timer (护盾流 passive: new shield every N ms)
+    this.shieldTimer = 0;
+    this.shieldTimerInterval = 15000; // 15 seconds default
+    this.shieldTimerAmount = 0; // shield amount granted per tick
+
+    // Vampire aura (吸血光环) on-kill heal percent
+    this.characterId = null;
+    this.characterColor = null;
+
     // Engine trail timer
     this._engineTrailTimer = 0;
     this._engineTrailInterval = 0.04; // seconds between trail particles
 
     // Visual time accumulator for ship animations
     this._visualTime = 0;
+
+    // SkillManager reference (set via linkSkillManager)
+    this._skillManager = null;
   }
 
   // ====================================================================
@@ -774,6 +786,20 @@ class Player {
     // --- Shield regeneration ---
     if (this.shieldRegen > 0 && this.shield < this.maxShield) {
       this.shield = Math.min(this.maxShield, this.shield + this.shieldRegen * dt);
+    }
+
+    // --- Shield timer (护盾流 passive: periodic shield grant) ---
+    if (this.shieldTimerAmount > 0) {
+      this.shieldTimer += dt * 1000;
+      if (this.shieldTimer >= this.shieldTimerInterval) {
+        this.shieldTimer -= this.shieldTimerInterval;
+        // Grant shield (stacks up to maxShield)
+        var newShield = Math.min(this.maxShield, this.shield + this.shieldTimerAmount);
+        if (newShield > this.shield) {
+          this.shield = newShield;
+          ParticleSystem.shieldBreak(this.x, this.y, 'rgba(100,180,255,0.6)');
+        }
+      }
     }
 
     // --- Visual time accumulator ---
@@ -877,6 +903,57 @@ class Player {
     this.factionId = factionId;
     this.factionColor = faction.color;
     this._baseStats = Object.assign({}, faction.baseStats);
+
+    this._recalculateStats();
+
+    // Apply faction core passive via SkillManager if available
+    if (this._skillManager && typeof this._skillManager.applyFactionPassive === 'function') {
+      this._skillManager.applyFactionPassive();
+    }
+  }
+
+  /**
+   * Link a SkillManager instance (called after SkillManager is created).
+   * Also triggers faction passive if not yet applied.
+   */
+  linkSkillManager(sm) {
+    this._skillManager = sm;
+  }
+
+  /**
+   * Apply character stat modifiers on top of faction base stats.
+   * Characters are selected before factions and modify base stats multiplicatively.
+   * @param {string} characterId - 'vanguard' | 'ironWall' | 'agile'
+   */
+  applyCharacter(characterId) {
+    var char = GAME_CONFIG.CHARACTERS[characterId];
+    if (!char || !char.statModifiers) return;
+
+    this.characterId = characterId;
+    var mods = char.statModifiers;
+
+    // Apply multiplicative modifiers to base stats
+    if (mods.attack && mods.attack !== 1.0) {
+      this._baseStats.attack = (this._baseStats.attack || 1.0) * mods.attack;
+    }
+    if (mods.hp && mods.hp !== 1.0) {
+      this._baseStats.hp = (this._baseStats.hp || GAME_CONFIG.BALANCE.PLAYER_BASE_HP) * mods.hp;
+    }
+    if (mods.speed && mods.speed !== 1.0) {
+      this._baseStats.speed = (this._baseStats.speed || GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED) * mods.speed;
+    }
+    if (mods.critRate) {
+      this._baseStats.critRate = (this._baseStats.critRate || 0) + mods.critRate;
+    }
+    if (mods.defense) {
+      this._baseStats.defense = (this._baseStats.defense || 0) + mods.defense;
+    }
+    if (mods.dodgeChance) {
+      this._baseStats.dodgeChance = (this._baseStats.dodgeChance || 0) + mods.dodgeChance;
+    }
+
+    // Set character color tint
+    this.characterColor = char.color;
 
     this._recalculateStats();
   }
@@ -992,6 +1069,12 @@ class Player {
 
     // Shield regen
     this.shieldRegen = s.shieldRegen || 0;
+
+    // Shield timer (护盾流 passive)
+    this.shieldTimerAmount = s.shieldTimerAmount || 0;
+
+    // Vampire aura on-kill heal percent (吸血光环)
+    // s.vampireAuraOnKill is read directly from stats in main.js handleEnemyKilled
   }
 
   // ====================================================================

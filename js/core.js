@@ -6,6 +6,54 @@
  * Other modules access engine via window.game
  */
 
+// ============================================================
+//  OBJECT POOL
+// ============================================================
+
+/**
+ * Pre-allocated reusable object pool.
+ * Expands dynamically on demand, never shrinks (no GC pressure).
+ * Compatible with game.getFromPool / game.returnToPool via array-like interface.
+ */
+class ObjectPool {
+  /**
+   * @param {Function} factory - Creates a new object: factory()
+   * @param {number}   initialSize - Number of objects to pre-allocate
+   */
+  constructor(factory, initialSize) {
+    this._items = [];
+    this._factory = factory;
+    for (var i = 0; i < (initialSize || 0); i++) {
+      this._items.push(factory());
+    }
+  }
+
+  /** Number of available (inactive) objects in pool. */
+  get length() { return this._items.length; }
+
+  /**
+   * Remove and return an object from the pool.
+   * If pool is empty, creates a new one via factory (dynamic expansion).
+   */
+  pop() {
+    if (this._items.length > 0) {
+      return this._items.pop();
+    }
+    return this._factory();
+  }
+
+  /**
+   * Return an object to the pool.
+   * Always accepted — pool never shrinks.
+   */
+  push(obj) {
+    this._items.push(obj);
+  }
+}
+
+// Expose globally so other modules can use it
+window.ObjectPool = ObjectPool;
+
 class Game {
   constructor() {
     this.canvas = null;
@@ -15,6 +63,13 @@ class Game {
     this.scale = 1;
     this.offsetX = 0;
     this.offsetY = 0;
+
+    // Canvas design resolution (16:9 letterbox)
+    this.canvasW = 1280;
+    this.canvasH = 720;
+    this.gameScale = 1;
+    this.gameOffsetX = 0;
+    this.gameOffsetY = 0;
 
     // Game state
     this.scene = GAME_CONFIG.SCENES.MENU;
@@ -50,10 +105,20 @@ class Game {
     this.items = [];
     this.particles = [];
 
-    // Object pools for bullets
+    // Object pools (pre-allocated in _initPools after all classes load)
     this.bulletPool = [];
     this.particlePool = [];
     this.itemPool = [];
+    this.enemyPool = [];
+    this.damageNumberPool = [];
+
+    // Entity limits per category
+    this.ENTITY_LIMITS = {
+      enemies: 40,
+      bullets: 200,
+      particles: 150,
+      items: 30,
+    };
 
     // Global time scale (for slow-mo effects)
     this.timeScale = 1.0;
@@ -102,6 +167,7 @@ class Game {
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     this._onResize();
+    this._initPools();
     console.log('STG Engine initialized');
   }
 
@@ -142,6 +208,15 @@ class Game {
 
   // ===== ENTITY MANAGEMENT =====
   addEntity(entity) {
+    // Per-category entity limits
+    var cat = entity.category;
+    var limits = this.ENTITY_LIMITS;
+    if (cat === 'enemy' && this.enemies.length >= limits.enemies) return;
+    if ((cat === 'playerBullet' || cat === 'enemyBullet') &&
+        (this.playerBullets.length + this.enemyBullets.length) >= limits.bullets) return;
+    if (cat === 'particle' && this.particles.length >= limits.particles) return;
+    if (cat === 'item' && this.items.length >= limits.items) return;
+
     // Cap total entities to prevent memory explosion
     if (this.entities.length >= 800) {
       // Drop oldest inactive entity to make room (swap-and-pop)
@@ -238,6 +313,65 @@ class Game {
     }
   }
 
+  // ===== POOL PRE-ALLOCATION =====
+  /**
+   * Pre-allocate all object pools. Called once after all entity classes are loaded.
+   * Pools expand dynamically if exhausted, but never shrink (no GC).
+   */
+  _initPools() {
+    if (this._poolsInitialized) return;
+    this._poolsInitialized = true;
+
+    // Bullet pool: 200 pre-allocated
+    this.bulletPool = new ObjectPool(function() {
+      if (typeof Bullet !== 'undefined') {
+        var b = new Bullet();
+        b.active = false;
+        return b;
+      }
+      return { active: false };
+    }, 200);
+
+    // Particle pool: 150 pre-allocated
+    this.particlePool = new ObjectPool(function() {
+      if (typeof Particle !== 'undefined') return new Particle();
+      return { active: false };
+    }, 150);
+
+    // Enemy pool: 40 pre-allocated
+    this.enemyPool = new ObjectPool(function() {
+      if (typeof Enemy !== 'undefined' && typeof GAME_CONFIG !== 'undefined') {
+        var template = GAME_CONFIG.ENEMIES.small;
+        var e = new Enemy({ x: 0, y: -200 }, template, 0);
+        e.active = false;
+        return e;
+      }
+      return { active: false, category: 'enemy' };
+    }, 40);
+
+    // Item pool: 30 pre-allocated
+    this.itemPool = new ObjectPool(function() {
+      if (typeof Item !== 'undefined') {
+        var item = new Item(0, -200, { size: 12, color: '#ffffff', shape: 'circle', type: 'buff' });
+        item.active = false;
+        return item;
+      }
+      return { active: false, category: 'item' };
+    }, 30);
+
+    // Damage number pool: 50 pre-allocated
+    this.damageNumberPool = new ObjectPool(function() {
+      if (typeof _createDamageNumber !== 'undefined') return _createDamageNumber();
+      return { active: false };
+    }, 50);
+
+    console.log('Object pools initialized: bullets=' + this.bulletPool.length +
+      ', particles=' + this.particlePool.length +
+      ', enemies=' + this.enemyPool.length +
+      ', items=' + this.itemPool.length +
+      ', damageNumbers=' + this.damageNumberPool.length);
+  }
+
   // ===== SCREEN SHAKE =====
   addShake(intensity) {
     this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
@@ -246,9 +380,13 @@ class Game {
   // ===== COORDINATE CONVERSION =====
   canvasToGame(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
+    // Client → canvas coordinates
+    const canvasX = (clientX - rect.left) / this.scale;
+    const canvasY = (clientY - rect.top) / this.scale;
+    // Canvas → game coordinates
     return {
-      x: (clientX - rect.left) / this.scale,
-      y: (clientY - rect.top) / this.scale,
+      x: (canvasX - this.gameOffsetX) / this.gameScale,
+      y: (canvasY - this.gameOffsetY) / this.gameScale,
     };
   }
 
@@ -340,13 +478,25 @@ class Game {
 
   _draw() {
     const ctx = this.ctx;
-    ctx.save();
-    ctx.clearRect(0, 0, this.width, this.height);
+    const dpr = window.devicePixelRatio || 1;
 
-    // Apply screen shake
+    // Clear full canvas (reset to DPR-only transform, then restore)
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.canvasW, this.canvasH);
+    ctx.restore();
+
+    // Persistent game transform is now active
+    ctx.save();
+
+    // Apply screen shake (in game coordinates)
     if (this.shakeIntensity > 0) {
       ctx.translate(this.shakeX, this.shakeY);
     }
+
+    // Fill game area background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.width, this.height);
 
     // Draw entities by layer
     // Layer 0: background effects (particles behind)
@@ -356,6 +506,7 @@ class Game {
     // Layer 4: player bullets
     // Layer 5: player
     // Layer 6: foreground particles
+    // Layer 7: damage numbers
 
     const drawLayer = (list, layer) => {
       for (const entity of list) {
@@ -365,7 +516,7 @@ class Game {
       }
     };
 
-    for (let layer = 0; layer <= 6; layer++) {
+    for (let layer = 0; layer <= 7; layer++) {
       drawLayer(this.particles, layer);
       drawLayer(this.items, layer);
       drawLayer(this.enemyBullets, layer);
@@ -380,28 +531,48 @@ class Game {
   // ===== EVENT HANDLERS =====
   _onResize() {
     const container = this.canvas.parentElement || document.body;
-    const maxW = container.clientWidth || window.innerWidth;
-    const maxH = container.clientHeight || window.innerHeight;
+    const vpW = container.clientWidth || window.innerWidth;
+    const vpH = container.clientHeight || window.innerHeight;
 
-    const aspect = this.width / this.height;
-    let w, h;
-    if (maxW / maxH > aspect) {
-      h = maxH;
-      w = h * aspect;
+    // Step 1: Enforce 16:9 letterbox envelope on viewport
+    const targetAspect = this.canvasW / this.canvasH; // 16/9
+    let envW, envH;
+    if (vpW / vpH > targetAspect) {
+      // Wider than 16:9 → black bars on sides
+      envH = vpH;
+      envW = envH * targetAspect;
     } else {
-      w = maxW;
-      h = w / aspect;
+      // Taller than 16:9 → black bars on top/bottom
+      envW = vpW;
+      envH = envW / targetAspect;
     }
 
-    this.scale = w / this.width;
-    this.offsetX = (maxW - w) / 2;
-    this.offsetY = (maxH - h) / 2;
+    // Step 2: Scale for CSS display (canvas pixels → CSS pixels)
+    this.scale = envW / this.canvasW;
 
-    this.canvas.style.width = w + 'px';
-    this.canvas.style.height = h + 'px';
-    this.canvas.width = this.width * (window.devicePixelRatio || 1);
-    this.canvas.height = this.height * (window.devicePixelRatio || 1);
-    this.ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+    // Step 3: Game-to-canvas coordinate mapping
+    this.gameScale = Math.min(this.canvasW / this.width, this.canvasH / this.height);
+    this.gameOffsetX = (this.canvasW - this.width * this.gameScale) / 2;
+    this.gameOffsetY = (this.canvasH - this.height * this.gameScale) / 2;
+
+    // Step 4: Viewport centering offset
+    this.offsetX = (vpW - envW) / 2;
+    this.offsetY = (vpH - envH) / 2;
+
+    // Step 5: Apply canvas element sizing and persistent transform
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.style.width = envW + 'px';
+    this.canvas.style.height = envH + 'px';
+    this.canvas.width = this.canvasW * dpr;
+    this.canvas.height = this.canvasH * dpr;
+
+    // Persistent transform: game coordinates → canvas device pixels
+    // All draw calls using game coords (0,0)-(600,900) map correctly
+    this.ctx.setTransform(
+      dpr * this.gameScale, 0, 0,
+      dpr * this.gameScale,
+      dpr * this.gameOffsetX, dpr * this.gameOffsetY
+    );
   }
 
   _onPointerMove(e) {
@@ -445,6 +616,8 @@ class Game {
         break;
       case 'f':
       case 'F':
+      case 'F11':
+        e.preventDefault();
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {

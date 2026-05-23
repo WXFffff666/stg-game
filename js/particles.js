@@ -1031,6 +1031,184 @@ var ParticleSystem = {
 
       g.addEntity(star);
     }
+  },
+
+  // ================================================================
+  //  ELEMENTAL REACTION EFFECTS
+  // ================================================================
+
+  /**
+   * Dispatcher for elemental reaction visuals.
+   * @param {number} x
+   * @param {number} y
+   * @param {string} reactionName - 'steam', 'explosion', 'shatter', 'paralyze'
+   */
+  reactionEffect: function(x, y, reactionName) {
+    switch (reactionName) {
+      case 'steam':     this.steamEffect(x, y); break;
+      case 'explosion': this.explosionReaction(x, y); break;
+      case 'shatter':   this.shatterEffect(x, y); break;
+      case 'paralyze':  this.paralyzeEffect(x, y); break;
+    }
+  },
+
+  /**
+   * Steam (fire+ice): expanding white/blue cloud.
+   */
+  steamEffect: function(x, y) {
+    // Large white cloud
+    this.spawn(x, y, {
+      count: 18,
+      speed: 55,
+      life: 900,
+      colors: ['#ffffff', '#ddddff', '#eeeeff', '#ccccee'],
+      size: 5,
+      gravity: -30
+    });
+    // Inner bright core
+    this.spawn(x, y, {
+      count: 6,
+      speed: 20,
+      life: 400,
+      color: '#ffffff',
+      size: 3,
+      gravity: -50
+    });
+    window.game.addShake(3);
+  },
+
+  /**
+   * Explosion (fire+poison): fiery green-orange burst + shockwave ring.
+   */
+  explosionReaction: function(x, y) {
+    // Outer burst
+    this.spawn(x, y, {
+      count: 25,
+      speed: 180,
+      life: 500,
+      colors: ['#ff4400', '#ff8800', '#ffcc00', '#55cc44', '#88ff44'],
+      size: 4,
+      gravity: 10
+    });
+    // Central white flash
+    this.spawn(x, y, {
+      count: 8,
+      speed: 30,
+      life: 250,
+      color: '#ffffff',
+      size: 5,
+      gravity: 0
+    });
+    // Expanding shockwave ring
+    this._spawnReactionRing(x, y, '#ff6600', 110);
+    window.game.addShake(8);
+    this.screenFlash('#ff6600', 150);
+  },
+
+  /**
+   * Shatter (ice+lightning): ice shards fly outward with electric sparks.
+   */
+  shatterEffect: function(x, y) {
+    // Ice shards (square particles)
+    this.spawn(x, y, {
+      count: 15,
+      speed: 140,
+      life: 600,
+      colors: ['#66ddff', '#88ffff', '#aaddff', '#ffffff'],
+      size: 3,
+      gravity: 40,
+      isSquare: true
+    });
+    // Lightning sparks
+    this.spawn(x, y, {
+      count: 10,
+      speed: 100,
+      life: 350,
+      colors: ['#ffff00', '#ffff88', '#88ffff'],
+      size: 2,
+      gravity: 0,
+      isSquare: true
+    });
+    // Frost ring
+    this._spawnReactionRing(x, y, '#88ffff', 80);
+    window.game.addShake(5);
+  },
+
+  /**
+   * Paralyze (poison+lightning): green-yellow electric immobilize.
+   */
+  paralyzeEffect: function(x, y) {
+    // Toxic sparks
+    this.spawn(x, y, {
+      count: 12,
+      speed: 80,
+      life: 600,
+      colors: ['#55cc44', '#88ff44', '#aaff00', '#ffff00'],
+      size: 2.5,
+      gravity: -15,
+      isSquare: true
+    });
+    // Electric arcs around center
+    for (var i = 0; i < 6; i++) {
+      var angle = (i / 6) * Math.PI * 2;
+      var dist = 15 + Math.random() * 20;
+      var px = x + Math.cos(angle) * dist;
+      var py = y + Math.sin(angle) * dist;
+      this.trail(px, py, '#aaff00', 2);
+    }
+    // Central glow
+    this.spawn(x, y, {
+      count: 4,
+      speed: 10,
+      life: 400,
+      color: '#ffff88',
+      size: 6,
+      gravity: 0
+    });
+    window.game.addShake(3);
+  },
+
+  /**
+   * Expanding ring entity for reaction visuals.
+   * @param {number} x
+   * @param {number} y
+   * @param {string} color
+   * @param {number} maxRadius
+   */
+  _spawnReactionRing: function(x, y, color, maxRadius) {
+    var g = window.game;
+    g.addEntity({
+      x: x, y: y,
+      radius: 10,
+      maxRadius: maxRadius,
+      active: true,
+      category: 'particle',
+      drawLayer: 6,
+      lifetime: 0.5,
+      _age: 0,
+      _color: color,
+
+      update: function(dt) {
+        this._age += dt;
+        this.radius += (this.maxRadius * 2) * dt;
+        if (this._age >= this.lifetime) {
+          this.active = false;
+          g.removeEntity(this);
+        }
+      },
+
+      draw: function(ctx) {
+        var alpha = 1 - (this._age / this.lifetime);
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.strokeStyle = this._color;
+        ctx.lineWidth = 2 * alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
   }
 };
 

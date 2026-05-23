@@ -1,9 +1,44 @@
 /**
  * STG Game - Storage & Leaderboard
  * localStorage persistence with basic obfuscation (base64 + checksum).
+ * Includes memory fallback for privacy/incognito mode.
  * 
  * Exports: window.StorageManager, window.LeaderboardManager
  */
+
+// ====================================================================
+//  Safe localStorage wrapper (memory fallback for privacy mode)
+// ====================================================================
+
+var _safeStorage = (function() {
+  var memoryStore = {};
+  var useMemory = false;
+
+  // Test if localStorage is available and writable
+  try {
+    var testKey = '__stg_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+  } catch (e) {
+    useMemory = true;
+    console.warn('localStorage unavailable, using memory fallback (data won\'t persist)');
+  }
+
+  return {
+    getItem: function(key) {
+      if (useMemory) return memoryStore.hasOwnProperty(key) ? memoryStore[key] : null;
+      try { return localStorage.getItem(key); } catch (e) { return null; }
+    },
+    setItem: function(key, value) {
+      if (useMemory) { memoryStore[key] = value; return; }
+      try { localStorage.setItem(key, value); } catch (e) { memoryStore[key] = value; }
+    },
+    removeItem: function(key) {
+      if (useMemory) { delete memoryStore[key]; return; }
+      try { localStorage.removeItem(key); } catch (e) { delete memoryStore[key]; }
+    }
+  };
+})();
 
 // ====================================================================
 //  StorageManager — game progress save/load
@@ -52,7 +87,7 @@ var StorageManager = {
       var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
       var checksum = this._checksum(state);
       var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
-      localStorage.setItem(this._KEY, payload);
+      _safeStorage.setItem(this._KEY, payload);
       return true;
     } catch (e) {
       console.warn('StorageManager.saveGame failed:', e);
@@ -66,7 +101,7 @@ var StorageManager = {
    */
   loadGame: function () {
     try {
-      var raw = localStorage.getItem(this._KEY);
+      var raw = _safeStorage.getItem(this._KEY);
       if (!raw) return null;
 
       var payload = JSON.parse(raw);
@@ -95,7 +130,7 @@ var StorageManager = {
    */
   clearSave: function () {
     try {
-      localStorage.removeItem(this._KEY);
+      _safeStorage.removeItem(this._KEY);
     } catch (e) {
       // ignore
     }
@@ -106,7 +141,7 @@ var StorageManager = {
    * @returns {boolean}
    */
   hasSave: function () {
-    return localStorage.getItem(this._KEY) !== null;
+    return _safeStorage.getItem(this._KEY) !== null;
   }
 };
 
@@ -142,7 +177,7 @@ var LeaderboardManager = {
    */
   _loadRaw: function () {
     try {
-      var raw = localStorage.getItem(this._KEY);
+      var raw = _safeStorage.getItem(this._KEY);
       if (!raw) return [];
 
       var payload = JSON.parse(raw);
@@ -178,7 +213,7 @@ var LeaderboardManager = {
       var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
       var checksum = this._checksum(entries);
       var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
-      localStorage.setItem(this._KEY, payload);
+      _safeStorage.setItem(this._KEY, payload);
       return true;
     } catch (e) {
       console.warn('LeaderboardManager._saveRaw failed:', e);
@@ -311,7 +346,7 @@ var UpgradeManager = {
    */
   load: function () {
     try {
-      var raw = localStorage.getItem(this._KEY);
+      var raw = _safeStorage.getItem(this._KEY);
       if (!raw) return { starCoins: 0, upgrades: {} };
 
       var payload = JSON.parse(raw);
@@ -344,7 +379,7 @@ var UpgradeManager = {
       var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
       var checksum = this._checksum(data);
       var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
-      localStorage.setItem(this._KEY, payload);
+      _safeStorage.setItem(this._KEY, payload);
       return true;
     } catch (e) {
       console.warn('UpgradeManager._save failed:', e);
@@ -440,9 +475,479 @@ var UpgradeManager = {
 };
 
 // ====================================================================
+//  AchievementManager — unlocked achievements persistence
+// ====================================================================
+
+var AchievementManager = {
+  _KEY: 'stg_achievements',
+  _VERSION: 1,
+
+  _checksum: function (achievements) {
+    var hash = achievements.length;
+    for (var i = 0; i < achievements.length; i++) {
+      var a = achievements[i];
+      if (typeof a.id === 'string') {
+        for (var j = 0; j < a.id.length; j++) {
+          hash ^= a.id.charCodeAt(j) << (j % 8);
+        }
+      }
+      if (typeof a.unlockedAt === 'number') hash ^= a.unlockedAt;
+    }
+    return hash >>> 0;
+  },
+
+  /**
+   * Load all achievements from localStorage.
+   * @returns {Array} Array of { id: string, unlockedAt: number } or empty array.
+   */
+  load: function () {
+    try {
+      var raw = _safeStorage.getItem(this._KEY);
+      if (!raw) return [];
+
+      var payload = JSON.parse(raw);
+      if (!payload || payload.v !== this._VERSION || typeof payload.c !== 'number' || typeof payload.d !== 'string') {
+        return [];
+      }
+
+      var jsonStr = decodeURIComponent(escape(atob(payload.d)));
+      var achievements = JSON.parse(jsonStr);
+
+      if (!Array.isArray(achievements)) return [];
+
+      if (this._checksum(achievements) !== payload.c) {
+        console.warn('AchievementManager: checksum mismatch');
+        return [];
+      }
+
+      return achievements;
+    } catch (e) {
+      console.warn('AchievementManager.load failed:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Save achievements array to localStorage.
+   * @param {Array} achievements
+   */
+  _save: function (achievements) {
+    try {
+      var jsonStr = JSON.stringify(achievements);
+      var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      var checksum = this._checksum(achievements);
+      var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
+      _safeStorage.setItem(this._KEY, payload);
+      return true;
+    } catch (e) {
+      console.warn('AchievementManager._save failed:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Unlock an achievement by id.
+   * @param {string} id — achievement identifier
+   * @returns {boolean} true if newly unlocked, false if already unlocked
+   */
+  unlock: function (id) {
+    if (!id) return false;
+    var achievements = this.load();
+
+    for (var i = 0; i < achievements.length; i++) {
+      if (achievements[i].id === id) return false; // already unlocked
+    }
+
+    achievements.push({ id: id, unlockedAt: Date.now() });
+    return this._save(achievements);
+  },
+
+  /**
+   * Check if an achievement is unlocked.
+   * @param {string} id
+   * @returns {boolean}
+   */
+  isUnlocked: function (id) {
+    var achievements = this.load();
+    for (var i = 0; i < achievements.length; i++) {
+      if (achievements[i].id === id) return true;
+    }
+    return false;
+  },
+
+  /**
+   * Get all unlocked achievements.
+   * @returns {Array}
+   */
+  getAll: function () {
+    return this.load();
+  },
+
+  /**
+   * Clear all achievements.
+   */
+  clear: function () {
+    _safeStorage.removeItem(this._KEY);
+  }
+};
+
+// ====================================================================
+//  StatsManager — lifetime statistics persistence
+// ====================================================================
+
+var StatsManager = {
+  _KEY: 'stg_stats',
+  _VERSION: 1,
+
+  _DEFAULTS: {
+    totalGames: 0,
+    totalKills: 0,
+    totalDeaths: 0,
+    longestSurvival: 0,
+    totalScore: 0,
+    totalPlayTime: 0
+  },
+
+  _checksum: function (stats) {
+    var hash = 0;
+    if (typeof stats.totalGames === 'number') hash ^= stats.totalGames;
+    if (typeof stats.totalKills === 'number') hash ^= stats.totalKills;
+    if (typeof stats.totalDeaths === 'number') hash ^= stats.totalDeaths;
+    if (typeof stats.longestSurvival === 'number') hash ^= Math.floor(stats.longestSurvival);
+    if (typeof stats.totalScore === 'number') hash ^= stats.totalScore;
+    if (typeof stats.totalPlayTime === 'number') hash ^= Math.floor(stats.totalPlayTime);
+    return hash >>> 0;
+  },
+
+  /**
+   * Load statistics from localStorage.
+   * @returns {Object} { totalGames, totalKills, totalDeaths, longestSurvival, totalScore, totalPlayTime }
+   */
+  load: function () {
+    try {
+      var raw = _safeStorage.getItem(this._KEY);
+      if (!raw) return Object.assign({}, this._DEFAULTS);
+
+      var payload = JSON.parse(raw);
+      if (!payload || payload.v !== this._VERSION || typeof payload.c !== 'number' || typeof payload.d !== 'string') {
+        return Object.assign({}, this._DEFAULTS);
+      }
+
+      var jsonStr = decodeURIComponent(escape(atob(payload.d)));
+      var stats = JSON.parse(jsonStr);
+
+      if (this._checksum(stats) !== payload.c) {
+        console.warn('StatsManager: checksum mismatch');
+        return Object.assign({}, this._DEFAULTS);
+      }
+
+      // Merge with defaults to handle missing fields from older saves
+      return Object.assign({}, this._DEFAULTS, stats);
+    } catch (e) {
+      console.warn('StatsManager.load failed:', e);
+      return Object.assign({}, this._DEFAULTS);
+    }
+  },
+
+  /**
+   * Save statistics to localStorage.
+   * @param {Object} stats
+   */
+  _save: function (stats) {
+    try {
+      var jsonStr = JSON.stringify(stats);
+      var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      var checksum = this._checksum(stats);
+      var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
+      _safeStorage.setItem(this._KEY, payload);
+      return true;
+    } catch (e) {
+      console.warn('StatsManager._save failed:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Record a completed game run.
+   * @param {Object} data — { kills, deaths, survivalTime, score, playTime }
+   */
+  recordGame: function (data) {
+    var stats = this.load();
+    stats.totalGames += 1;
+    stats.totalKills += (data.kills || 0);
+    stats.totalDeaths += (data.deaths || 0);
+    stats.totalScore += (data.score || 0);
+    stats.totalPlayTime += (data.playTime || 0);
+    if ((data.survivalTime || 0) > stats.longestSurvival) {
+      stats.longestSurvival = data.survivalTime;
+    }
+    return this._save(stats);
+  },
+
+  /**
+   * Get a specific stat value.
+   * @param {string} key
+   * @returns {number}
+   */
+  get: function (key) {
+    var stats = this.load();
+    return stats[key] || 0;
+  },
+
+  /**
+   * Reset all statistics.
+   */
+  reset: function () {
+    _safeStorage.removeItem(this._KEY);
+  }
+};
+
+// ====================================================================
+//  UnlockManager — faction & character unlock states
+// ====================================================================
+
+var UnlockManager = {
+  _KEY: 'stg_unlocks',
+  _VERSION: 1,
+
+  _checksum: function (data) {
+    var hash = 0;
+    if (data.factions) {
+      for (var f in data.factions) {
+        if (data.factions.hasOwnProperty(f)) {
+          for (var j = 0; j < f.length; j++) hash ^= f.charCodeAt(j) << (j % 4);
+          hash ^= data.factions[f] ? 1 : 0;
+        }
+      }
+    }
+    if (data.characters) {
+      for (var c in data.characters) {
+        if (data.characters.hasOwnProperty(c)) {
+          for (var k = 0; k < c.length; k++) hash ^= c.charCodeAt(k) << (k % 4);
+          hash ^= data.characters[c] ? 2 : 0;
+        }
+      }
+    }
+    return hash >>> 0;
+  },
+
+  /**
+   * Load unlock states from localStorage.
+   * @returns {Object} { factions: { id: bool }, characters: { id: bool } }
+   */
+  load: function () {
+    try {
+      var raw = _safeStorage.getItem(this._KEY);
+      if (!raw) return { factions: {}, characters: {} };
+
+      var payload = JSON.parse(raw);
+      if (!payload || payload.v !== this._VERSION || typeof payload.c !== 'number' || typeof payload.d !== 'string') {
+        return { factions: {}, characters: {} };
+      }
+
+      var jsonStr = decodeURIComponent(escape(atob(payload.d)));
+      var data = JSON.parse(jsonStr);
+
+      if (this._checksum(data) !== payload.c) {
+        console.warn('UnlockManager: checksum mismatch');
+        return { factions: {}, characters: {} };
+      }
+
+      return data;
+    } catch (e) {
+      console.warn('UnlockManager.load failed:', e);
+      return { factions: {}, characters: {} };
+    }
+  },
+
+  /**
+   * Save unlock states to localStorage.
+   * @param {Object} data
+   */
+  _save: function (data) {
+    try {
+      var jsonStr = JSON.stringify(data);
+      var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      var checksum = this._checksum(data);
+      var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
+      _safeStorage.setItem(this._KEY, payload);
+      return true;
+    } catch (e) {
+      console.warn('UnlockManager._save failed:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Unlock a faction.
+   * @param {string} factionId
+   * @returns {boolean} true if newly unlocked
+   */
+  unlockFaction: function (factionId) {
+    if (!factionId) return false;
+    var data = this.load();
+    if (data.factions[factionId]) return false; // already unlocked
+    data.factions[factionId] = true;
+    return this._save(data);
+  },
+
+  /**
+   * Check if a faction is unlocked.
+   * @param {string} factionId
+   * @returns {boolean}
+   */
+  isFactionUnlocked: function (factionId) {
+    return !!this.load().factions[factionId];
+  },
+
+  /**
+   * Unlock a character.
+   * @param {string} characterId
+   * @returns {boolean} true if newly unlocked
+   */
+  unlockCharacter: function (characterId) {
+    if (!characterId) return false;
+    var data = this.load();
+    if (data.characters[characterId]) return false;
+    data.characters[characterId] = true;
+    return this._save(data);
+  },
+
+  /**
+   * Check if a character is unlocked.
+   * @param {string} characterId
+   * @returns {boolean}
+   */
+  isCharacterUnlocked: function (characterId) {
+    return !!this.load().characters[characterId];
+  },
+
+  /**
+   * Get all unlock states.
+   * @returns {Object}
+   */
+  getAll: function () {
+    return this.load();
+  },
+
+  /**
+   * Clear all unlock states.
+   */
+  clear: function () {
+    _safeStorage.removeItem(this._KEY);
+  }
+};
+
+// ====================================================================
+//  SettingsManager — game settings persistence
+// ====================================================================
+
+var SettingsManager = {
+  _KEY: 'stg_settings',
+  _VERSION: 1,
+
+  _DEFAULTS: {
+    masterVolume: 1.0,
+    musicVolume: 0.7,
+    sfxVolume: 1.0,
+    effectsQuality: 'high' // 'low', 'medium', 'high'
+  },
+
+  _checksum: function (settings) {
+    var hash = 0;
+    if (typeof settings.masterVolume === 'number') hash ^= Math.round(settings.masterVolume * 100);
+    if (typeof settings.musicVolume === 'number') hash ^= Math.round(settings.musicVolume * 100);
+    if (typeof settings.sfxVolume === 'number') hash ^= Math.round(settings.sfxVolume * 100);
+    if (typeof settings.effectsQuality === 'string') {
+      for (var i = 0; i < settings.effectsQuality.length; i++) {
+        hash ^= settings.effectsQuality.charCodeAt(i) << (i % 4);
+      }
+    }
+    return hash >>> 0;
+  },
+
+  /**
+   * Load settings from localStorage.
+   * @returns {Object} { masterVolume, musicVolume, sfxVolume, effectsQuality }
+   */
+  load: function () {
+    try {
+      var raw = _safeStorage.getItem(this._KEY);
+      if (!raw) return Object.assign({}, this._DEFAULTS);
+
+      var payload = JSON.parse(raw);
+      if (!payload || payload.v !== this._VERSION || typeof payload.c !== 'number' || typeof payload.d !== 'string') {
+        return Object.assign({}, this._DEFAULTS);
+      }
+
+      var jsonStr = decodeURIComponent(escape(atob(payload.d)));
+      var settings = JSON.parse(jsonStr);
+
+      if (this._checksum(settings) !== payload.c) {
+        console.warn('SettingsManager: checksum mismatch');
+        return Object.assign({}, this._DEFAULTS);
+      }
+
+      return Object.assign({}, this._DEFAULTS, settings);
+    } catch (e) {
+      console.warn('SettingsManager.load failed:', e);
+      return Object.assign({}, this._DEFAULTS);
+    }
+  },
+
+  /**
+   * Save settings to localStorage.
+   * @param {Object} settings
+   */
+  _save: function (settings) {
+    try {
+      var jsonStr = JSON.stringify(settings);
+      var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      var checksum = this._checksum(settings);
+      var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
+      _safeStorage.setItem(this._KEY, payload);
+      return true;
+    } catch (e) {
+      console.warn('SettingsManager._save failed:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Update and save specific setting(s).
+   * @param {Object} partial — e.g. { masterVolume: 0.5 }
+   * @returns {boolean}
+   */
+  update: function (partial) {
+    var settings = Object.assign(this.load(), partial);
+    return this._save(settings);
+  },
+
+  /**
+   * Get a single setting value.
+   * @param {string} key
+   * @returns {*}
+   */
+  get: function (key) {
+    return this.load()[key];
+  },
+
+  /**
+   * Reset all settings to defaults.
+   */
+  reset: function () {
+    _safeStorage.removeItem(this._KEY);
+  }
+};
+
+// ====================================================================
 //  Export to window
 // ====================================================================
 
 window.StorageManager = StorageManager;
 window.LeaderboardManager = LeaderboardManager;
 window.UpgradeManager = UpgradeManager;
+window.AchievementManager = AchievementManager;
+window.StatsManager = StatsManager;
+window.UnlockManager = UnlockManager;
+window.SettingsManager = SettingsManager;

@@ -25,12 +25,13 @@ class Enemy {
     this.startX = this.x;
     this.moveTimer = 0;
 
-    // Stats (scaled by difficulty)
-    this.maxHp = template.hp * (1 + diff * cfg.DIFFICULTY_ENEMY_HP);
+    // Stats (scaled by difficulty): HP = base × (1 + diff × 0.06)²
+    this.maxHp = Math.floor(template.hp * Math.pow(1 + diff * 0.06, 2));
     this.hp = this.maxHp;
     this.speed = template.speed;
     this.baseSpeed = template.speed;
-    this.damage = template.damage;
+    this.damage = Math.floor(template.damage * (1 + diff * 0.04));
+    this.bulletDamage = Math.floor((template.bulletDamage || template.damage) * (1 + diff * 0.04));
     this.score = template.score;
     this.xp = template.xp;
     this.size = template.size;
@@ -136,6 +137,28 @@ class Enemy {
     this.fireBreathCooldown = 4000;
     this.tailSwipeTimer = 0;
     this.tailSwipeCooldown = 0; // Phase 2 only
+
+    // --- Movement Patterns (10 patterns) ---
+    this.movementPattern = template.movementPattern || null;
+    this._patternPhase = Math.random() * Math.PI * 2;
+    this._patternAmplitude = template.patternAmplitude || 80;
+    this._patternFrequency = template.patternFrequency || 0.003;
+    this._randomWalkTimer = 0;
+    this._randomWalkDirX = (Math.random() - 0.5) * 2;
+    this._randomWalkDirY = 0.5 + Math.random() * 0.5;
+    this._diveBombPhase = 'approach';
+    this._diveBombTarget = null;
+    this._orbitAngle = Math.random() * Math.PI * 2;
+    this._orbitRadius = 100 + Math.random() * 60;
+    this._formationOffset = { x: template.formationOffsetX || 0, y: template.formationOffsetY || 0 };
+
+    // --- AI Behaviors (5 behaviors) ---
+    this.aiBehavior = template.aiBehavior || null;
+    this._behaviorTimer = 0;
+    this._preferredDistance = template.preferredDistance || 200;
+
+    // --- Bullet Pattern Pool (per-enemy randomization) ---
+    this.bulletPatternPool = template.bulletPatterns || null;
   }
 
   // ---------------------------------------------------------------------------
@@ -254,6 +277,15 @@ class Enemy {
       }
     }
 
+    // --- Elemental Reaction Timers ---
+    if (window.ElementalReactionSystem) {
+      window.ElementalReactionSystem.updateTimers(this, dt);
+    }
+    // Paralyze: stop movement (handled by ElementalReactionSystem.updateTimers)
+    if (this._paralyzeTimer > 0) {
+      this.speed = 0;
+    }
+
     // Regeneration affix
     if (this._regenRate && this._regenRate > 0) {
       this.hp = Math.min(this.maxHp, this.hp + this._regenRate * dt);
@@ -305,6 +337,17 @@ class Enemy {
   _executeAI(dt, game) {
     const player = game.player;
     const cfg = GAME_CONFIG.BALANCE;
+
+    // --- AI Behavior Overlay (strategic behaviors) ---
+    if (this.aiBehavior && player && player.active) {
+      this._applyAIBehavior(dt, game, player, cfg);
+    }
+
+    // --- Movement Pattern System (10 patterns) ---
+    if (this.movementPattern) {
+      this._applyMovementPattern(dt, game, player, cfg);
+      return;
+    }
 
     switch (this.ai) {
       case 'straight':
@@ -707,6 +750,306 @@ class Enemy {
   }
 
   // ---------------------------------------------------------------------------
+  // MOVEMENT PATTERNS (10 patterns)
+  // ---------------------------------------------------------------------------
+  _applyMovementPattern(dt, game, player, cfg) {
+    const t = this.moveTimer;
+    const W = cfg.CANVAS_WIDTH;
+    const H = cfg.CANVAS_HEIGHT;
+
+    switch (this.movementPattern) {
+      case 'linear':
+        // Simple straight-line descent with slight drift
+        this.y += this.speed * dt;
+        this.x += Math.sin(this._patternPhase + t * 0.001) * 0.3;
+        break;
+
+      case 'sineWave':
+        // Smooth sine-wave horizontal oscillation while descending
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(t * this._patternFrequency + this._patternPhase) * this._patternAmplitude;
+        break;
+
+      case 'circular':
+        // Orbit around a central point, slowly drifting downward
+        {
+          const centerX = this.startX || W / 2;
+          const centerY = Math.min(this.y + 50, H * 0.35);
+          this._orbitAngle += this.speed * 0.015 * dt;
+          this.x = centerX + Math.cos(this._orbitAngle) * this._orbitRadius;
+          this.y = centerY + Math.sin(this._orbitAngle) * this._orbitRadius * 0.6;
+          this.y += this.speed * dt * 0.15; // Slow downward drift
+        }
+        break;
+
+      case 'diveBomb':
+        // Three phases: approach from top, fast dive toward target area, pull up
+        {
+          if (this._diveBombPhase === 'approach') {
+            // Slowly descend to engagement altitude
+            this.y += this.speed * 0.5 * dt;
+            this.x = this.startX + Math.sin(t * 0.002) * 40;
+            if (this.y > H * 0.15) {
+              this._diveBombPhase = 'dive';
+              // Pick dive target (player position or random)
+              if (player && player.active) {
+                this._diveBombTarget = { x: player.x, y: player.y };
+              } else {
+                this._diveBombTarget = { x: W * (0.2 + Math.random() * 0.6), y: H * 0.7 };
+              }
+            }
+          } else if (this._diveBombPhase === 'dive') {
+            // Fast diagonal dive toward target
+            const dx = this._diveBombTarget.x - this.x;
+            const dy = this._diveBombTarget.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) {
+              const diveSpeed = this.speed * 3;
+              this.x += (dx / dist) * diveSpeed * dt;
+              this.y += (dy / dist) * diveSpeed * dt;
+            } else {
+              this._diveBombPhase = 'ascend';
+            }
+          } else if (this._diveBombPhase === 'ascend') {
+            // Pull back up
+            this.y -= this.speed * 1.2 * dt;
+            this.x += Math.sin(t * 0.004) * 2;
+            if (this.y < -20) {
+              this._diveBombPhase = 'approach';
+              this.startX = 50 + Math.random() * (W - 100);
+              this.y = -30;
+            }
+          }
+        }
+        break;
+
+      case 'tracking':
+        // Predictive tracking: aim where player is going, not where they are
+        {
+          this.y += this.speed * 0.6 * dt;
+          if (player && player.active) {
+            // Predict player position based on velocity
+            const predictTime = Math.abs(player.y - this.y) / Math.max(this.speed, 1);
+            const predictedX = player.x + (player.vx || 0) * predictTime * 0.3;
+            const dx = predictedX - this.x;
+            this.x += dx * 0.035 * this.speed * dt;
+          }
+          // Gentle sine overlay for less predictable path
+          this.x += Math.sin(t * 0.0025 + this._patternPhase) * 0.8;
+        }
+        break;
+
+      case 'randomWalk':
+        // Random direction changes at intervals
+        {
+          this._randomWalkTimer -= dt * 1000;
+          if (this._randomWalkTimer <= 0) {
+            this._randomWalkTimer = 800 + Math.random() * 1200;
+            this._randomWalkDirX = (Math.random() - 0.5) * 2;
+            this._randomWalkDirY = 0.3 + Math.random() * 0.7;
+          }
+          this.x += this._randomWalkDirX * this.speed * 0.6 * dt;
+          this.y += this._randomWalkDirY * this.speed * dt;
+          // Soft boundary bounce
+          if (this.x < 20) { this.x = 20; this._randomWalkDirX = Math.abs(this._randomWalkDirX); }
+          if (this.x > W - 20) { this.x = W - 20; this._randomWalkDirX = -Math.abs(this._randomWalkDirX); }
+        }
+        break;
+
+      case 'zigzag':
+        // Sharp zigzag: alternate between diagonal-down-left and diagonal-down-right
+        {
+          const zigPeriod = 1200; // ms per zig
+          const phase = Math.floor(t / zigPeriod) % 2;
+          const zigProgress = (t % zigPeriod) / zigPeriod;
+          const zigWidth = this._patternAmplitude * 1.2;
+          if (phase === 0) {
+            this.x = this.startX - zigWidth * 0.5 + zigWidth * zigProgress;
+          } else {
+            this.x = this.startX + zigWidth * 0.5 - zigWidth * zigProgress;
+          }
+          this.y += this.speed * dt;
+        }
+        break;
+
+      case 'spiral':
+        // Expanding spiral path while descending
+        {
+          const centerX = W / 2;
+          const angle = t * 0.002;
+          const radius = 60 + t * 0.025;
+          this.x = centerX + Math.cos(angle + this._patternPhase) * Math.min(radius, 250);
+          this.y += this.speed * dt * 0.4;
+          this.x += Math.sin(t * 0.001) * 20; // Secondary oscillation
+        }
+        break;
+
+      case 'vFormation':
+        // V-formation movement: position relative to a virtual leader
+        {
+          this.y += this.speed * dt;
+          const leaderX = W / 2 + Math.sin(t * 0.0015) * 120;
+          const leaderY = this.y;
+          this.x += (leaderX + this._formationOffset.x - this.x) * 0.04;
+          this.y += (leaderY + this._formationOffset.y - this.y) * 0.02;
+        }
+        break;
+
+      case 'uFormation':
+        // U-shaped formation: arc movement with opening
+        {
+          this.y += this.speed * 0.7 * dt;
+          const uPhase = t * 0.002;
+          const uRadius = this._patternAmplitude;
+          const uAngle = this._formationOffset.x * 0.02 + Math.PI * 0.15;
+          this.x = W / 2 + Math.sin(uPhase + uAngle) * uRadius;
+          // Vertical variation based on formation offset
+          this.y += Math.cos(uPhase + this._formationOffset.y * 0.01) * 10 * dt;
+        }
+        break;
+
+      default:
+        // Fallback: straight down
+        this.y += this.speed * dt;
+        break;
+    }
+
+    // Keep in bounds
+    if (!this.isBoss) {
+      this.x = Math.max(-20, Math.min(W + 20, this.x));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI BEHAVIORS (5 strategic behaviors)
+  // ---------------------------------------------------------------------------
+  _applyAIBehavior(dt, game, player, cfg) {
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+    const W = cfg.CANVAS_WIDTH;
+
+    switch (this.aiBehavior) {
+      case 'aggressive':
+        // Maintain preferred distance: approach if too far, retreat if too close
+        {
+          const preferred = this._preferredDistance;
+          const tolerance = 40;
+          if (distToPlayer > preferred + tolerance) {
+            // Too far: move closer
+            const factor = Math.min(1, (distToPlayer - preferred) / 200) * 0.6;
+            this.x += dx * factor * dt;
+            this.y += dy * factor * dt * 0.3;
+          } else if (distToPlayer < preferred - tolerance) {
+            // Too close: back off
+            const factor = Math.min(1, (preferred - distToPlayer) / 100) * 0.4;
+            this.x -= dx * factor * dt;
+            this.y -= dy * factor * dt * 0.2;
+          }
+          // Slight strafing to be harder to hit
+          this.x += Math.sin(this.moveTimer * 0.005) * this.speed * 0.3 * dt;
+        }
+        break;
+
+      case 'charger':
+        // Rush toward player aggressively, with brief cooldown retreats
+        {
+          this._behaviorTimer += dt * 1000;
+          const chargeDuration = 2000;
+          const restDuration = 1500;
+          const cycleTime = chargeDuration + restDuration;
+          const phase = this._behaviorTimer % cycleTime;
+
+          if (phase < chargeDuration) {
+            // CHARGE: rush toward player
+            if (distToPlayer > 1) {
+              const rushSpeed = this.speed * 2.5;
+              this.x += (dx / distToPlayer) * rushSpeed * dt;
+              this.y += (dy / distToPlayer) * rushSpeed * dt;
+            }
+          } else {
+            // REST: pull back and reposition
+            if (distToPlayer > 1) {
+              this.x -= (dx / distToPlayer) * this.speed * 0.5 * dt;
+              this.y -= (dy / distToPlayer) * this.speed * 0.3 * dt;
+            }
+          }
+        }
+        break;
+
+      case 'orbiter':
+        // Circle around the player at preferred distance
+        {
+          this._orbitAngle += this.speed * 0.008 * dt;
+          const preferred = this._preferredDistance;
+          // Smoothly adjust orbit radius toward preferred distance
+          const radiusError = distToPlayer - preferred;
+          const targetX = player.x + Math.cos(this._orbitAngle) * preferred;
+          const targetY = player.y + Math.sin(this._orbitAngle) * preferred * 0.5;
+          this.x += (targetX - this.x) * 0.03 * this.speed * dt;
+          this.y += (targetY - this.y) * 0.03 * this.speed * dt;
+          // Keep enemy above player (don't go below screen center)
+          if (this.y > cfg.CANVAS_HEIGHT * 0.6) {
+            this.y = cfg.CANVAS_HEIGHT * 0.6;
+          }
+        }
+        break;
+
+      case 'flee':
+        // Move away from player, dodge side to side
+        {
+          if (distToPlayer > 1 && distToPlayer < this._preferredDistance * 1.5) {
+            // Move away from player
+            const fleeSpeed = this.speed * 1.2;
+            this.x -= (dx / distToPlayer) * fleeSpeed * dt;
+            this.y -= (dy / distToPlayer) * fleeSpeed * 0.5 * dt;
+          }
+          // Zigzag while fleeing
+          this.x += Math.sin(this.moveTimer * 0.006) * this.speed * 0.8 * dt;
+          // Clamp to screen
+          this.x = Math.max(20, Math.min(W - 20, this.x));
+          this.y = Math.max(20, Math.min(cfg.CANVAS_HEIGHT * 0.5, this.y));
+        }
+        break;
+
+      case 'support':
+        // Follow nearby allies, stay behind them
+        {
+          let allyX = 0, allyY = 0, allyCount = 0;
+          if (game.enemies) {
+            for (let i = 0; i < game.enemies.length; i++) {
+              const e = game.enemies[i];
+              if (e.active && e !== this && !e.isBoss) {
+                const adx = e.x - this.x;
+                const ady = e.y - this.y;
+                const aDist = Math.sqrt(adx * adx + ady * ady);
+                if (aDist < 200) {
+                  allyX += e.x;
+                  allyY += e.y;
+                  allyCount++;
+                }
+              }
+            }
+          }
+          if (allyCount > 0) {
+            // Move toward ally cluster center, but stay slightly behind (higher y)
+            const clusterX = allyX / allyCount;
+            const clusterY = allyY / allyCount;
+            this.x += (clusterX - this.x) * 0.015 * this.speed * dt;
+            this.y += ((clusterY + 30) - this.y) * 0.01 * this.speed * dt;
+          } else {
+            // No allies nearby: drift toward player slowly
+            if (distToPlayer > 1) {
+              this.x += (dx / distToPlayer) * this.speed * 0.3 * dt;
+              this.y += (dy / distToPlayer) * this.speed * 0.15 * dt;
+            }
+          }
+        }
+        break;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // PHANTOM BOSS SPECIAL ATTACKS
   // ---------------------------------------------------------------------------
   _fireBurst(game) {
@@ -865,11 +1208,16 @@ class Enemy {
     const BulletPatterns = window.BulletPatterns;
     if (!BulletPatterns) return;
 
+    // Blind (steam reaction): chance to miss entirely
+    if (this._blindTimer > 0 && this._blindAmount && Math.random() < this._blindAmount) {
+      return; // Miss! Shot wasted
+    }
+
     const player = game.player;
     const cfg = this.bulletConfig;
 
     // Available bullet patterns for random selection
-    const PATTERN_POOL = ['aimed', 'circle', 'spiralOut', 'spread', 'burst'];
+    const DEFAULT_POOL = ['aimed', 'circle', 'spiralOut', 'spread', 'burst'];
 
     // Determine fire pattern based on AI type
     let pattern;
@@ -884,8 +1232,11 @@ class Enemy {
       };
       const patterns = bossPatterns[this.ai] || ['circle', 'spiralOut', 'aimed'];
       pattern = patterns[phaseIdx] || 'aimed';
+    } else if (this.bulletPatternPool && this.bulletPatternPool.length > 0) {
+      // Per-enemy bullet pattern pool: pick randomly from the pool each cycle
+      pattern = this.bulletPatternPool[Math.floor(Math.random() * this.bulletPatternPool.length)];
     } else {
-      // Regular enemies: random pattern selection (weighted)
+      // Regular enemies: random pattern selection from default pool (weighted)
       // aimed: 40%, circle: 20%, spiralOut: 15%, spread: 15%, burst: 10%
       const roll = Math.random();
       if (roll < 0.40) pattern = 'aimed';
@@ -1146,6 +1497,54 @@ class Enemy {
       ctx.beginPath();
       ctx.arc(0, 0, this.size * 1.05, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // --- Elemental Reaction Overlays ---
+    // Shocked (lightning): yellow electric sparks
+    if (this._shockedTimer > 0) {
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
+      ctx.lineWidth = 1.5;
+      var shockTime = Date.now() * 0.01;
+      for (var si = 0; si < 3; si++) {
+        var sa = shockTime + si * 2.1;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(sa) * this.size * 0.3, Math.sin(sa) * this.size * 0.3);
+        ctx.lineTo(Math.cos(sa + 0.5) * this.size * 0.8, Math.sin(sa + 0.5) * this.size * 0.8);
+        ctx.lineTo(Math.cos(sa + 1) * this.size * 0.4, Math.sin(sa + 1) * this.size * 0.4);
+        ctx.stroke();
+      }
+    }
+    // Paralyze: green-yellow electric cage
+    if (this._paralyzeTimer > 0) {
+      ctx.fillStyle = 'rgba(170, 255, 0, 0.3)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(170, 255, 0, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Blind (steam): white fog overlay
+    if (this._blindTimer > 0) {
+      ctx.fillStyle = 'rgba(220, 220, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Vulnerable (shatter): cracked ice lines
+    if (this._vulnerableTimer > 0) {
+      ctx.strokeStyle = 'rgba(136, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
+      for (var vi = 0; vi < 5; vi++) {
+        var va = (vi / 5) * Math.PI * 2 + this.size;
+        var vlen = this.size * (0.5 + Math.random() * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(va) * vlen, Math.sin(va) * vlen);
+        ctx.stroke();
+      }
     }
 
     // Elite affix visual indicators
@@ -2658,6 +3057,10 @@ class WaveSpawner {
     this.waveEnemiesTotal = 0;
     this.waveBossSpawned = false;
     this.waveBossTypes = ['boss', 'boss_guardian', 'boss_summoner', 'boss_dragon', 'boss_phantom'];
+
+    // Entry warning system: red arrow 0.5s before spawn
+    this._spawnWarnings = [];
+    this.WARNING_DURATION = 500; // 0.5 seconds
   }
 
   // ---------------------------------------------------------------------------
@@ -2666,6 +3069,9 @@ class WaveSpawner {
   update(dt) {
     const game = window.game;
     if (!game || game.scene !== GAME_CONFIG.SCENES.GAMEPLAY) return;
+
+    // Process spawn warnings (red arrows before enemy spawn)
+    this._processWarnings(dt, game);
 
     const cfg = GAME_CONFIG.BALANCE;
     const spawnRules = GAME_CONFIG.WAVES.spawnRules;
@@ -3044,9 +3450,13 @@ class WaveSpawner {
     const template = GAME_CONFIG.ENEMIES[bossType];
     if (!template) return;
 
-    // Scale boss HP by wave number
+    // Scale boss HP by wave number: HP = base × (1 + wave × 0.06)²
     const scaledTemplate = Object.assign({}, template);
-    scaledTemplate.hp = Math.floor(template.hp * (1 + this.waveNumber * 0.12));
+    scaledTemplate.hp = Math.floor(template.hp * Math.pow(1 + this.waveNumber * 0.06, 2));
+    // Scale boss damage: damage = base × (1 + wave × 0.04)
+    const waveDmgScale = 1 + this.waveNumber * 0.04;
+    scaledTemplate.damage = Math.floor(template.damage * waveDmgScale);
+    scaledTemplate.bulletDamage = Math.floor((template.bulletDamage || template.damage) * waveDmgScale);
     scaledTemplate.bossName = template.name;
 
     const opts = {
@@ -3106,15 +3516,25 @@ class WaveSpawner {
 
     const positions = this._getSpawnPositions(count, spacing, pattern, cfg);
 
-    // Scale HP by wave number
-    const waveHpScale = 1 + this.waveNumber * 0.12;
+    // Scale HP by wave number: HP = base × (1 + wave × 0.06)²
+    const waveHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
+    // Scale damage by wave number: damage = base × (1 + wave × 0.04)
+    const waveDmgScale = 1 + this.waveNumber * 0.04;
     const scaledConfig = Object.assign({}, enemyConfig);
     scaledConfig.hp = Math.floor(enemyConfig.hp * waveHpScale);
+    scaledConfig.damage = Math.floor(enemyConfig.damage * waveDmgScale);
+    scaledConfig.bulletDamage = Math.floor((enemyConfig.bulletDamage || enemyConfig.damage) * waveDmgScale);
 
     for (const pos of positions) {
-      const opts = { x: pos.x, y: pos.y };
-      const enemy = new Enemy(opts, scaledConfig, difficulty);
-      window.game.addEntity(enemy);
+      // Queue entry warning: red arrow 0.5s before spawn
+      this._spawnWarnings.push({
+        x: pos.x,
+        y: pos.y,
+        timer: 0,
+        duration: this.WARNING_DURATION,
+        config: scaledConfig,
+        difficulty: difficulty,
+      });
     }
     return count;
   }
@@ -3230,6 +3650,78 @@ class WaveSpawner {
     this.waveEnemiesSpawned = 0;
     this.waveEnemiesTotal = 0;
     this.waveBossSpawned = false;
+    // Reset spawn warnings
+    this._spawnWarnings = [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // PROCESS SPAWN WARNINGS (red arrows 0.5s before spawn)
+  // ---------------------------------------------------------------------------
+  _processWarnings(dt, game) {
+    for (let i = this._spawnWarnings.length - 1; i >= 0; i--) {
+      const w = this._spawnWarnings[i];
+      w.timer += dt * 1000;
+
+      if (w.timer >= w.duration) {
+        // Warning expired: spawn the enemy
+        const opts = { x: w.x, y: w.y };
+        const enemy = new Enemy(opts, w.config, w.difficulty);
+        game.addEntity(enemy);
+        this._spawnWarnings.splice(i, 1);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // DRAW SPAWN WARNING ARROWS (called from game draw loop)
+  // ---------------------------------------------------------------------------
+  draw(ctx) {
+    if (!this._spawnWarnings || this._spawnWarnings.length === 0) return;
+
+    for (const w of this._spawnWarnings) {
+      this._drawWarningArrow(ctx, w.x, w.y, w.timer / w.duration);
+    }
+  }
+
+  _drawWarningArrow(ctx, x, y, progress) {
+    ctx.save();
+
+    // Arrow fades in during first half, then pulses
+    const alpha = progress < 0.5
+      ? progress * 2  // 0 → 1 over first half
+      : 0.7 + Math.sin(progress * Math.PI * 6) * 0.3; // Pulse during second half
+
+    ctx.globalAlpha = alpha;
+
+    // Red warning arrow pointing downward
+    const arrowSize = 14;
+    const bobOffset = Math.sin(progress * Math.PI * 4) * 3;
+
+    // Arrow body (triangle pointing down)
+    ctx.fillStyle = '#ff3333';
+    ctx.beginPath();
+    ctx.moveTo(x, y + bobOffset + arrowSize);           // Bottom point
+    ctx.lineTo(x - arrowSize * 0.6, y + bobOffset - arrowSize * 0.4); // Top left
+    ctx.lineTo(x + arrowSize * 0.6, y + bobOffset - arrowSize * 0.4); // Top right
+    ctx.closePath();
+    ctx.fill();
+
+    // Glow effect
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#ff6666';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // "!" exclamation mark inside arrow
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', x, y + bobOffset - arrowSize * 0.05);
+
+    ctx.restore();
   }
 }
 

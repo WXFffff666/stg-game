@@ -33,36 +33,180 @@ canvas {
 
 /* HUD */
 #hud {
-  position: absolute; top: 10px; left: 10px; right: 10px;
-  display: none; flex-direction: column; gap: 4px;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: none; pointer-events: none;
   font-size: 13px; color: #fff; text-shadow: 0 0 4px rgba(0,0,0,0.8);
 }
-#hud .hud-row {
-  display: flex; justify-content: space-between; align-items: center;
+#hud > * { pointer-events: auto; }
+
+/* HUD Top Row: Level(left) | Wave(center) | Coins+Kills(right) */
+.hud-top {
+  position: absolute; left: 8px; right: 8px;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 8px;
 }
-#hud .hp-bar {
-  width: 120px; height: 8px; background: rgba(255,255,255,0.2);
-  border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.3);
+.hud-top-left {
+  display: flex; flex-direction: column; gap: 2px;
+  background: rgba(0,0,0,0.5); border-radius: 6px; padding: 4px 8px;
 }
-#hud .hp-fill {
-  height: 100%; background: linear-gradient(90deg, #ff4444, #ff8844);
-  transition: width 0.3s;
+.hud-top-center {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 0;
+  text-align: center;
 }
-#hud .xp-bar {
-  width: 120px; height: 4px; background: rgba(255,255,255,0.15);
+.hud-top-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  background: rgba(0,0,0,0.5); border-radius: 6px; padding: 4px 8px;
+}
+
+/* Level & XP */
+.hud-level { font-size: 14px; font-weight: bold; color: #ffdd00; }
+.hud-xp-bar {
+  width: 100px; height: 4px; background: rgba(255,255,255,0.15);
   border-radius: 2px; overflow: hidden;
 }
-#hud .xp-fill {
+.hud-xp-fill {
   height: 100%; background: linear-gradient(90deg, #4488ff, #44ddff);
   transition: width 0.3s;
 }
-#hud .combo-text {
-  position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
-  font-size: 18px; font-weight: bold; color: #ffdd00;
-  text-shadow: 0 0 10px rgba(255,221,0,0.8);
-  opacity: 0; transition: opacity 0.3s;
+
+/* Wave Display */
+.hud-wave {
+  font-size: 20px; font-weight: bold; color: #fff;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  opacity: 0; transition: opacity 0.5s;
+  background: rgba(0,0,0,0.5); border-radius: 8px; padding: 4px 16px;
 }
-#hud .combo-text.active { opacity: 1; }
+.hud-wave.active { opacity: 1; }
+
+/* Wave Progress Bar */
+.hud-wave-progress {
+  position: absolute; top: 42px; left: 50%; transform: translateX(-50%);
+  width: 200px; height: 6px; background: rgba(255,255,255,0.15);
+  border-radius: 3px; overflow: hidden;
+  background: rgba(0,0,0,0.5); padding: 2px;
+}
+.hud-wave-progress-fill {
+  height: 100%; background: linear-gradient(90deg, #44aaff, #44ffaa);
+  border-radius: 2px; transition: width 0.3s;
+}
+
+/* Game Timer (top center) */
+.game-timer-hud {
+  font-size: 14px; color: #fff;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.5); padding: 2px 10px; border-radius: 4px;
+}
+
+/* Coins & Kills */
+.hud-coins { font-size: 14px; }
+.hud-kills { font-size: 12px; color: #ccc; }
+
+/* HP Bar (bottom) */
+.hud-hp-container {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  width: min(300px, 60vw); display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.5); border-radius: 6px; padding: 4px 8px;
+}
+.hud-hp-bar {
+  flex: 1; height: 10px; background: rgba(255,255,255,0.2);
+  border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.3);
+}
+.hud-hp-fill {
+  height: 100%; border-radius: 4px; transition: width 0.3s;
+  background: #44ff44;
+}
+.hud-hp-fill.hp-yellow { background: linear-gradient(90deg, #ffdd00, #ffaa00); }
+.hud-hp-fill.hp-red { background: linear-gradient(90deg, #ff4444, #ff0000); animation: hpFlash 0.5s infinite; }
+.hud-hp-text { font-size: 11px; min-width: 60px; text-align: right; }
+
+@keyframes hpFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Boss HP Bar */
+.hud-boss-bar {
+  position: absolute; top: 52px; left: 5%; right: 5%;
+  display: none; flex-direction: column; align-items: center;
+  background: rgba(0,0,0,0.6); border-radius: 4px; padding: 3px 8px;
+  border: 1px solid rgba(255,68,68,0.5);
+}
+.hud-boss-name { font-size: 11px; font-weight: bold; color: #ff6666; margin-bottom: 2px; }
+.hud-boss-hp-bar {
+  width: 100%; height: 20px; background: rgba(255,255,255,0.15);
+  border-radius: 3px; overflow: hidden; position: relative;
+}
+.hud-boss-hp-fill {
+  height: 100%; border-radius: 2px; transition: width 0.2s;
+  background: #44ff44;
+}
+.hud-boss-hp-fill.boss-yellow { background: linear-gradient(90deg, #ffdd00, #cccc00); }
+.hud-boss-hp-fill.boss-orange { background: linear-gradient(90deg, #ff8800, #ff6600); }
+.hud-boss-hp-fill.boss-red { background: linear-gradient(90deg, #ff4444, #ff0000); animation: hpFlash 0.4s infinite; }
+.hud-boss-hp-pct {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; font-weight: bold; color: #fff;
+  text-shadow: 0 0 3px rgba(0,0,0,0.8);
+}
+
+/* Combo Display */
+.combo-text {
+  position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 28px; font-weight: bold; color: #ffdd00;
+  text-shadow: 0 0 15px rgba(255,221,0,0.8), 0 2px 4px rgba(0,0,0,0.5);
+  opacity: 0; transition: opacity 0.4s;
+  pointer-events: none;
+}
+.combo-text.active { opacity: 1; }
+.combo-text.combo-decay { opacity: 0.5; transition: opacity 0.8s; }
+
+/* Skill Bar (bottom, above weapon bar) */
+.hud-skill-bar {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  display: none; flex-direction: column; align-items: center; gap: 2px;
+}
+.hud-skill-row {
+  display: flex; gap: 4px; align-items: center;
+}
+.hud-skill-slot {
+  width: 36px; height: 36px; background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; position: relative; overflow: hidden;
+}
+.hud-skill-slot .skill-cooldown-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.7); transition: height 0.1s;
+}
+.hud-skill-slot .skill-level-badge {
+  position: absolute; bottom: 1px; right: 2px;
+  font-size: 8px; font-weight: bold; color: #ffdd00;
+  text-shadow: 0 0 2px #000;
+}
+.hud-skill-label { font-size: 9px; color: #888; }
+
+/* Weapon Bar (bottom) */
+.hud-weapon-bar {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  display: none; gap: 4px; align-items: center;
+  background: rgba(0,0,0,0.5); border-radius: 6px; padding: 4px 8px;
+}
+.hud-weapon-slot {
+  width: 40px; height: 40px; background: rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; position: relative;
+}
+.hud-weapon-slot.active-weapon { border-color: #ffdd00; box-shadow: 0 0 6px rgba(255,221,0,0.5); }
+.hud-weapon-slot .weapon-level-badge {
+  position: absolute; bottom: 1px; right: 2px;
+  font-size: 9px; font-weight: bold; color: #44ffaa;
+  text-shadow: 0 0 2px #000;
+}
 
 /* Menu Screens */
 .menu-screen {
@@ -70,6 +214,8 @@ canvas {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: rgba(5,5,30,0.92); color: #fff;
   z-index: 20;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow-y: auto;
 }
 .menu-screen h1 {
   font-size: 36px; font-weight: bold; margin-bottom: 8px;
@@ -96,10 +242,34 @@ canvas {
   border-color: #ffdd00; background: rgba(255,221,0,0.1);
 }
 
-/* Character Select */
-#char-select {
-  display: none; flex-wrap: wrap; gap: 10px; justify-content: center;
+/* Character Select (角色) */
+#character-select {
+  display: none; flex-wrap: wrap; gap: 12px; justify-content: center;
   max-width: 440px; padding: 20px;
+}
+.character-card {
+  width: 130px; padding: 14px 10px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 10px; background: rgba(255,255,255,0.05);
+  cursor: pointer; text-align: center; transition: all 0.2s;
+}
+.character-card:hover, .character-card:active {
+  border-color: #ffdd00; background: rgba(255,221,0,0.1); transform: scale(1.05);
+}
+.character-card.locked {
+  opacity: 0.5; cursor: not-allowed; border-color: rgba(255,255,255,0.1);
+}
+.character-card.locked:hover {
+  transform: none; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+}
+.character-card .char-icon { font-size: 32px; margin-bottom: 6px; }
+.character-card .char-name { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+.character-card .char-desc { font-size: 10px; color: #aaa; margin-bottom: 6px; }
+.character-card .char-unlock { font-size: 9px; color: #ff8888; }
+
+/* Faction Select */
+#char-select {
+  display: none; flex-direction: column; align-items: center;
+  gap: 10px; max-width: 440px; padding: 20px;
 }
 .char-card {
   width: 120px; padding: 10px; border: 2px solid rgba(255,255,255,0.2);
@@ -113,11 +283,51 @@ canvas {
 .char-card .name { font-size: 12px; font-weight: bold; }
 .char-card .desc { font-size: 10px; color: #aaa; margin-top: 2px; }
 
+/* Character cards in Faction Select screen */
+.faction-char-section { width: 100%; margin-bottom: 16px; }
+.faction-char-label {
+  font-size: 16px; font-weight: bold; color: #ffdd00;
+  text-align: center; margin-bottom: 10px;
+  text-shadow: 0 0 8px rgba(255,221,0,0.4);
+}
+.faction-char-row {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.faction-char-card {
+  width: 120px; padding: 10px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 10px; background: rgba(255,255,255,0.05);
+  cursor: pointer; text-align: center; transition: all 0.2s;
+}
+.faction-char-card:hover, .faction-char-card:active {
+  border-color: #ffdd00; background: rgba(255,221,0,0.1); transform: scale(1.05);
+}
+.faction-char-card.selected {
+  border-color: #ffdd00; background: rgba(255,221,0,0.15);
+  box-shadow: 0 0 12px rgba(255,221,0,0.4);
+}
+.faction-char-card.locked {
+  opacity: 0.5; cursor: not-allowed; border-color: rgba(255,255,255,0.1);
+}
+.faction-char-card.locked:hover {
+  transform: none; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+}
+.faction-char-card .fc-icon { font-size: 28px; margin-bottom: 4px; }
+.faction-char-card .fc-name { font-size: 12px; font-weight: bold; }
+.faction-char-card .fc-desc { font-size: 10px; color: #aaa; margin-top: 2px; }
+.faction-char-card .fc-unlock { font-size: 9px; color: #ff8888; margin-top: 4px; }
+
+/* Faction row in combined screen */
+.faction-section { width: 100%; }
+.faction-row {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+
 /* Level Up Overlay */
 #level-up {
   display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.8); z-index: 30;
   flex-direction: column; align-items: center; justify-content: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 #level-up h2 {
   font-size: 28px; color: #ffdd00; margin-bottom: 20px;
@@ -203,14 +413,79 @@ canvas {
   to { transform: translateX(-50%) translateY(0); opacity: 1; }
 }
 
-/* Game Over */
+/* Game Over / Settlement Panel */
 #game-over {
   display: none;
+  padding: 20px 16px;
+}
+#game-over .settlement-title {
+  font-size: 32px; font-weight: bold; color: #ff4444;
+  text-shadow: 0 0 20px rgba(255,68,68,0.6);
+  margin-bottom: 4px;
+  animation: settlementPulse 2s ease-in-out infinite;
+}
+@keyframes settlementPulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(255,68,68,0.6); }
+  50% { text-shadow: 0 0 30px rgba(255,68,68,0.9), 0 0 50px rgba(255,68,68,0.3); }
+}
+#game-over .settlement-subtitle {
+  font-size: 12px; color: #888; margin-bottom: 20px; letter-spacing: 4px;
 }
 #game-over .final-score {
   font-size: 48px; font-weight: bold; color: #ffdd00;
   text-shadow: 0 0 30px rgba(255,221,0,0.6);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+#game-over .star-coin-earned {
+  font-size: 16px; color: #ffdd00; margin-bottom: 16px;
+}
+#game-over .settlement-stats {
+  width: min(320px, 85vw);
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 24px;
+}
+#game-over .stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  border-left: 3px solid rgba(255,255,255,0.15);
+  opacity: 0; transform: translateX(-20px);
+  transition: opacity 0.4s, transform 0.4s;
+}
+#game-over .stat-row.visible {
+  opacity: 1; transform: translateX(0);
+}
+#game-over .stat-row.is-record {
+  border-left-color: #ffdd00;
+  background: rgba(255,221,0,0.08);
+}
+#game-over .stat-row .stat-label {
+  font-size: 13px; color: #aaa;
+  display: flex; align-items: center; gap: 6px;
+}
+#game-over .stat-row .stat-value {
+  font-size: 16px; font-weight: bold; color: #fff;
+}
+#game-over .stat-row.is-record .stat-label { color: #ffdd00; }
+#game-over .stat-row.is-record .stat-value { color: #ffdd00; }
+#game-over .stat-row .record-badge {
+  font-size: 10px; color: #ffdd00; background: rgba(255,221,0,0.2);
+  padding: 1px 6px; border-radius: 8px; margin-left: 6px;
+}
+#game-over .settlement-buttons {
+  display: flex; flex-direction: column; gap: 10px;
+  align-items: center;
+}
+#game-over .settlement-buttons .menu-btn {
+  width: min(240px, 70vw);
+}
+#game-over .settlement-buttons .btn-row {
+  display: flex; gap: 10px;
+}
+#game-over .settlement-buttons .btn-row .menu-btn {
+  width: min(115px, 33vw);
+  font-size: 13px; padding: 10px 0;
 }
 #game-over .stats {
   font-size: 14px; color: #aaa; margin-bottom: 30px; text-align: center; line-height: 1.8;
@@ -231,14 +506,6 @@ canvas {
 .lb-entry .rank { color: #ffdd00; width: 30px; }
 .lb-entry .score { color: #44ddff; }
 
-/* Pause overlay */
-#pause-overlay {
-  display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6); z-index: 25;
-  align-items: center; justify-content: center;
-  font-size: 36px; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,0.5);
-}
-
 /* Toast messages */
 .toast {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -249,13 +516,68 @@ canvas {
 }
 .toast.show { opacity: 1; }
 
-/* Responsive */
+/* Responsive - Mobile Portrait */
 @media (max-width: 480px) {
   .menu-screen h1 { font-size: 28px; }
-  .menu-btn { width: 180px; padding: 12px 0; font-size: 14px; }
-  .char-card { width: 100px; padding: 8px; }
-  .skill-card { width: 110px; padding: 10px 8px; }
-  #hud { font-size: 11px; }
+  .menu-btn { width: 180px; padding: 12px 0; font-size: 14px; min-height: 44px; }
+  .char-card { width: 100px; padding: 8px; min-height: 44px; }
+  .skill-card { width: 110px; padding: 10px 8px; min-height: 44px; }
+  #hud { font-size: 14px; }
+  .hud-kills { font-size: 14px; }
+  .hud-hp-text { font-size: 14px; }
+  .hud-boss-name { font-size: 14px; }
+  .hud-boss-hp-pct { font-size: 14px; }
+  .hud-skill-label { font-size: 14px; }
+  .hud-coins { font-size: 14px; }
+  .hud-wave { font-size: 18px; }
+  .hud-level { font-size: 14px; }
+
+  /* Vertical HUD layout for portrait */
+  .hud-top {
+    flex-direction: column; align-items: center; gap: 4px;
+  }
+  .hud-top-left, .hud-top-right {
+    flex-direction: row; gap: 8px;
+  }
+
+  /* Ensure touch targets ≥44×44px */
+  .pause-btn { min-height: 44px; min-width: 44px; font-size: 14px; }
+  .hud-weapon-slot { width: 44px; height: 44px; font-size: 20px; }
+  .hud-skill-slot { width: 44px; height: 44px; }
+  .character-card { min-height: 44px; }
+  .codex-tab { min-height: 44px; font-size: 14px; }
+  .shop-item-btn { min-height: 44px; font-size: 14px; }
+  .setting-item label { font-size: 14px; }
+  .toggle { width: 50px; height: 28px; }
+  .toggle-slider:before { height: 22px; width: 22px; }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(22px); }
+
+  /* Fullscreen toggle button */
+  .fs-toggle {
+    position: absolute; z-index: 30;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    width: 44px; height: 44px;
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px; color: #fff; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .fs-toggle:active { background: rgba(255,255,255,0.2); }
+}
+
+/* Fullscreen toggle (desktop) */
+@media (min-width: 481px) {
+  .fs-toggle {
+    position: absolute; z-index: 30;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    width: 32px; height: 32px;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; color: #888; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0.5; transition: opacity 0.2s;
+  }
+  .fs-toggle:hover { opacity: 1; color: #fff; }
 }
 
 /* Upgrade Shop */
@@ -321,11 +643,36 @@ canvas {
   text-shadow: 0 0 15px rgba(255,221,0,0.6);
 }
 
+/* Countdown Overlay */
+#countdown-overlay {
+  display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 55;
+  flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.countdown-number {
+  font-size: 120px; font-weight: bold; color: #ffdd00;
+  text-shadow: 0 0 40px rgba(255,221,0,0.8), 0 0 80px rgba(255,136,0,0.4);
+  animation: countdownPop 0.8s ease-out forwards;
+}
+.countdown-go {
+  font-size: 80px; font-weight: bold; color: #44ff44;
+  text-shadow: 0 0 40px rgba(68,255,68,0.8), 0 0 80px rgba(68,255,68,0.4);
+  animation: countdownPop 0.6s ease-out forwards;
+}
+@keyframes countdownPop {
+  0% { transform: scale(2.5); opacity: 0; }
+  30% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* Pause Overlay */
 #pause-overlay {
   display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.85); z-index: 50;
+  background: rgba(0,0,0,0.5); z-index: 50;
   flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .pause-title {
   font-size: 36px; color: #ffdd00; font-weight: bold;
@@ -343,12 +690,31 @@ canvas {
   border-color: #ffdd00; background: rgba(255,221,0,0.15); color: #ffdd00;
   transform: scale(1.05);
 }
+.pause-sub-content {
+  max-width: 340px; max-height: 50vh; overflow-y: auto;
+  padding: 10px; text-align: center;
+}
+.pause-sub-content h3 {
+  font-size: 20px; color: #ffdd00; margin-bottom: 12px;
+  text-shadow: 0 0 10px rgba(255,221,0,0.4);
+}
+.pause-sub-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; margin: 6px 0;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+  background: rgba(255,255,255,0.05); text-align: left;
+}
+.pause-sub-item .item-icon { font-size: 24px; flex-shrink: 0; }
+.pause-sub-item .item-name { font-size: 13px; font-weight: bold; color: #fff; }
+.pause-sub-item .item-desc { font-size: 11px; color: #aaa; margin-top: 2px; }
+.pause-sub-empty { font-size: 14px; color: #888; padding: 20px; }
 
 /* In-Run Shop */
 #in-run-shop {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(5,5,30,0.95); z-index: 60;
-  flex-direction: column; align-items: center; padding: 20px; overflow-y: auto;
+  flex-direction: column; align-items: center; overflow-y: auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
 }
 .shop-header {
   text-align: center; margin-bottom: 20px;
@@ -456,48 +822,366 @@ canvas {
 }
 .toggle input:checked + .toggle-slider { background-color: #44dd44; }
 .toggle input:checked + .toggle-slider:before { transform: translateX(26px); }
+
+/* Settings Select */
+.setting-select {
+  padding: 4px 10px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+  background: rgba(255,255,255,0.08); color: #fff; font-size: 13px;
+  cursor: pointer; outline: none; accent-color: #ffdd00;
+}
+.setting-select option { background: #1a1a3a; color: #fff; }
+
+/* Meta Shop Styles */
+.meta-shop-balance {
+  font-size: 20px; color: #ffdd00; margin: 12px 0 8px;
+  text-shadow: 0 0 12px rgba(255,221,0,0.5);
+}
+.meta-shop-tabs {
+  display: flex; gap: 10px; margin: 10px 0 16px;
+}
+.meta-shop-tab {
+  padding: 8px 20px; border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+  background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; transition: all 0.2s;
+  font-size: 13px;
+}
+.meta-shop-tab:hover { border-color: #ffdd00; }
+.meta-shop-tab.active { border-color: #ffdd00; background: rgba(255,221,0,0.2); color: #ffdd00; }
+.meta-shop-items {
+  display: grid; grid-template-columns: 1fr; gap: 10px;
+  width: 100%; max-width: 360px; max-height: 50vh; overflow-y: auto;
+  padding: 0 6px; margin-bottom: 16px;
+}
+.meta-shop-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px; background: rgba(255,255,255,0.04);
+  transition: all 0.25s;
+}
+.meta-shop-card:hover {
+  border-color: rgba(255,221,0,0.35); background: rgba(255,255,255,0.08);
+  transform: translateY(-1px);
+}
+.meta-shop-card.owned {
+  border-color: rgba(68,221,68,0.4); background: rgba(68,221,68,0.06);
+}
+.meta-shop-icon { font-size: 30px; flex-shrink: 0; width: 40px; text-align: center; }
+.meta-shop-info { flex: 1; text-align: left; }
+.meta-shop-name { font-size: 14px; font-weight: bold; color: #fff; }
+.meta-shop-desc { font-size: 11px; color: #88ccff; margin-top: 3px; line-height: 1.3; }
+.meta-shop-category { font-size: 10px; color: #666; margin-top: 2px; }
+.meta-shop-buy {
+  padding: 8px 14px; border: 2px solid #ffdd00; border-radius: 6px;
+  background: rgba(255,221,0,0.12); color: #ffdd00;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+  flex-shrink: 0; min-width: 80px; text-align: center; white-space: nowrap;
+}
+.meta-shop-buy:hover:not(:disabled) {
+  background: rgba(255,221,0,0.3); transform: scale(1.05);
+}
+.meta-shop-buy:disabled {
+  border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.05); cursor: not-allowed;
+}
+.meta-shop-buy.owned-btn {
+  border-color: #44dd44; color: #44dd44; background: rgba(68,221,68,0.1);
+  cursor: default;
+}
+
+/* Loading Screen */
+#loading-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #050515; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.5s;
+}
+#loading-screen.fade-out { opacity: 0; pointer-events: none; }
+#loading-canvas {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+}
+.loading-content {
+  position: relative; z-index: 1; text-align: center;
+}
+.loading-title {
+  font-size: 32px; font-weight: bold; margin-bottom: 8px;
+  background: linear-gradient(180deg, #ffdd00, #ff8800);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.loading-subtitle {
+  font-size: 14px; color: #666; margin-bottom: 30px;
+}
+.loading-bar-container {
+  width: 200px; height: 4px; background: rgba(255,255,255,0.1);
+  border-radius: 2px; overflow: hidden; margin: 0 auto;
+}
+.loading-bar {
+  height: 100%; width: 0%; background: linear-gradient(90deg, #ffdd00, #ff8800);
+  border-radius: 2px; transition: width 0.3s;
+}
+.loading-text {
+  font-size: 12px; color: #555; margin-top: 12px;
+}
+/* Error overlay */
+#error-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #0a0a1a; z-index: 2000;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; text-align: center; padding: 20px;
+}
+#error-screen .error-icon { font-size: 48px; margin-bottom: 16px; }
+#error-screen .error-msg { font-size: 16px; color: #ccc; margin-bottom: 24px; max-width: 300px; }
+#error-screen .error-btn {
+  padding: 12px 32px; border: 2px solid #ffdd00; border-radius: 8px;
+  background: rgba(255,221,0,0.15); color: #ffdd00; font-size: 15px;
+  cursor: pointer;
+}
+/* Version display */
+.version-info {
+  font-size: 11px; color: #555; margin-top: 16px; text-align: center;
+}
+/* Welcome back banner */
+.welcome-back {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(255,221,0,0.2), rgba(255,136,0,0.2));
+  border: 1px solid rgba(255,221,0,0.4); border-radius: 10px;
+  padding: 12px 24px; z-index: 25; text-align: center;
+  animation: welcomeFadeIn 0.5s ease-out, welcomeFadeOut 0.5s ease-in 4.5s forwards;
+}
+.welcome-back .wb-title { font-size: 18px; color: #ffdd00; font-weight: bold; }
+.welcome-back .wb-desc { font-size: 12px; color: #aaa; margin-top: 4px; }
+@keyframes welcomeFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes welcomeFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Talent Tree Screen */
+#talent-screen {
+  flex-direction: column; align-items: center; gap: 12px;
+  max-height: 100vh; overflow-y: auto; padding: 20px 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.talent-points-display {
+  font-size: 16px; color: #ffdd00; font-weight: bold;
+  background: rgba(255,221,0,0.1); border: 1px solid rgba(255,221,0,0.3);
+  border-radius: 8px; padding: 6px 16px;
+}
+.talent-branches {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+}
+.talent-branch-tab {
+  padding: 6px 14px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; border: 2px solid transparent;
+  background: rgba(255,255,255,0.08); color: #ccc; transition: all 0.2s;
+}
+.talent-branch-tab.active {
+  border-color: var(--branch-color, #ffdd00);
+  background: rgba(255,255,255,0.15);
+  color: #fff; font-weight: bold;
+}
+.talent-tree {
+  width: 100%; max-width: 500px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.talent-layer {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+.talent-layer-label {
+  font-size: 11px; color: #666; width: 100%; text-align: center;
+  margin-bottom: 2px;
+}
+.talent-node {
+  width: 90px; padding: 8px 4px; border-radius: 8px; text-align: center;
+  background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.12);
+  cursor: pointer; transition: all 0.2s; font-size: 11px; color: #bbb;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.talent-node:hover:not(.locked):not(.selected) {
+  background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25);
+}
+.talent-node.selected {
+  border-color: var(--branch-color, #ffdd00);
+  background: rgba(255,221,0,0.15);
+  color: #fff; font-weight: bold;
+  box-shadow: 0 0 8px rgba(255,221,0,0.3);
+}
+.talent-node.locked {
+  opacity: 0.35; cursor: not-allowed;
+}
+.talent-node-icon { font-size: 20px; }
+.talent-node-name { font-size: 12px; line-height: 1.2; }
+.talent-node-desc {
+  font-size: 10px; color: #888; line-height: 1.2;
+  display: none;
+}
+.talent-node.selected .talent-node-desc,
+.talent-node:hover .talent-node-desc {
+  display: block;
+}
+.talent-footer {
+  display: flex; gap: 12px; margin-top: 8px;
+}
+
+/* Tutorial Overlay */
+#tutorial-overlay {
+  display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 55; pointer-events: auto;
+}
+.tutorial-backdrop {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+}
+.tutorial-skip-btn {
+  position: absolute; top: 12px; right: 12px;
+  padding: 6px 16px; border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px; background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7); font-size: 13px;
+  cursor: pointer; transition: all 0.2s; z-index: 2;
+}
+.tutorial-skip-btn:hover {
+  background: rgba(255,255,255,0.2); color: #fff;
+}
+.tutorial-content {
+  position: absolute; left: 50%; bottom: 25%;
+  transform: translateX(-50%);
+  text-align: center; z-index: 2; width: 90%; max-width: 320px;
+  animation: tutorialFadeIn 0.4s ease-out;
+}
+@keyframes tutorialFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.tutorial-step-indicator {
+  font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;
+}
+.tutorial-icon {
+  font-size: 48px; margin-bottom: 8px;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,0.3));
+}
+.tutorial-text {
+  font-size: 18px; font-weight: bold; color: #fff;
+  text-shadow: 0 0 10px rgba(255,255,255,0.3);
+  margin-bottom: 4px;
+}
+.tutorial-hint {
+  font-size: 13px; color: #aaa;
+}
+.tutorial-highlight {
+  position: absolute; z-index: 1;
+  border: 2px solid rgba(255,221,0,0.8);
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(255,221,0,0.4), inset 0 0 15px rgba(255,221,0,0.1);
+  pointer-events: none;
+  animation: tutorialPulse 1.5s ease-in-out infinite;
+}
+@keyframes tutorialPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(255,221,0,0.4), inset 0 0 15px rgba(255,221,0,0.1); }
+  50% { box-shadow: 0 0 25px rgba(255,221,0,0.7), inset 0 0 20px rgba(255,221,0,0.2); }
+}
 </style>
 </head>
 <body>
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <canvas id="loading-canvas"></canvas>
+  <div class="loading-content">
+    <div class="loading-title">星域战机</div>
+    <div class="loading-subtitle">STAR DOMAIN STG</div>
+    <div class="loading-bar-container"><div class="loading-bar" id="loading-bar"></div></div>
+    <div class="loading-text" id="loading-text">加载中...</div>
+  </div>
+</div>
+
+<!-- Error Screen -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-msg">游戏出了点小问题，请刷新页面重试</div>
+  <button class="error-btn" onclick="location.reload()">刷新页面</button>
+</div>
+
 <div id="game-container">
   <canvas id="game-canvas"></canvas>
 
+  <!-- Fullscreen Toggle -->
+  <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="if(document.fullscreenElement){document.exitFullscreen()}else{document.documentElement.requestFullscreen()}">⛶</button>
+
   <!-- HUD (hidden by default) -->
   <div id="hud">
-    <div class="hud-row">
-      <span>❤️ <span id="hp-text">100/100</span></span>
-      <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+    <!-- Top Row -->
+    <div class="hud-top">
+      <!-- Left: Level + XP -->
+      <div class="hud-top-left">
+        <div class="hud-level">Lv.<span id="level-text">1</span></div>
+        <div class="hud-xp-bar"><div class="hud-xp-fill" id="xp-fill" style="width:0%"></div></div>
+      </div>
+      <!-- Center: Wave + Timer -->
+      <div class="hud-top-center">
+        <div class="game-timer-hud" id="game-timer-hud">00:00</div>
+        <div class="hud-wave" id="wave-display"></div>
+        <div class="hud-wave-progress" id="wave-progress" style="display:none">
+          <div class="hud-wave-progress-fill" id="wave-progress-fill" style="width:100%"></div>
+        </div>
+      </div>
+      <!-- Right: Coins + Kills + Time -->
+      <div class="hud-top-right">
+        <div class="hud-coins">💰 <span id="gold-text">0</span></div>
+        <div class="hud-kills">击杀: <span id="kills-text">0</span></div>
+        <div class="hud-kills">⏱️ <span id="time-text">00:00</span></div>
+        <div class="hud-kills">⭐ <span id="score-text">0</span></div>
+      </div>
     </div>
-    <div class="hud-row">
-      <span>⭐ <span id="score-text">0</span></span>
-      <span>Lv.<span id="level-text">1</span></span>
+
+    <!-- Boss HP Bar -->
+    <div class="hud-boss-bar" id="boss-bar">
+      <div class="hud-boss-name" id="boss-name">BOSS</div>
+      <div class="hud-boss-hp-bar">
+        <div class="hud-boss-hp-fill" id="boss-hp-fill" style="width:100%"></div>
+        <div class="hud-boss-hp-pct" id="boss-hp-pct">100%</div>
+      </div>
     </div>
-    <div class="hud-row">
-      <span></span>
-      <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
-    </div>
-    <div class="hud-row">
-      <span>💀 <span id="kills-text">0</span></span>
-      <span>⏱️ <span id="time-text">00:00</span></span>
-    </div>
-    <div class="hud-row">
-      <span>💰 <span id="gold-text">0</span></span>
-      <span></span>
-    </div>
+
+    <!-- Combo Display -->
     <div class="combo-text" id="combo-text"></div>
+
+    <!-- HP Bar (bottom area) -->
+    <div class="hud-hp-container">
+      <span>❤️</span>
+      <div class="hud-hp-bar"><div class="hud-hp-fill" id="hp-fill" style="width:100%"></div></div>
+      <span class="hud-hp-text" id="hp-text">100/100</span>
+    </div>
+
+    <!-- Skill Bar -->
+    <div class="hud-skill-bar" id="skill-bar">
+      <div class="hud-skill-label">主动技能</div>
+      <div class="hud-skill-row" id="active-skill-row"></div>
+      <div class="hud-skill-label">被动技能</div>
+      <div class="hud-skill-row" id="passive-skill-row"></div>
+    </div>
+
+    <!-- Weapon Bar -->
+    <div class="hud-weapon-bar" id="weapon-bar"></div>
   </div>
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <!-- Countdown Overlay -->
+  <div id="countdown-overlay">
+    <div id="countdown-text" class="countdown-number"></div>
+  </div>
+
   <!-- Pause Overlay -->
   <div id="pause-overlay">
     <div class="pause-title">⏸️ 已暂停</div>
-    <div class="pause-buttons">
-      <button class="pause-btn" id="btn-resume">继续游戏</button>
-      <button class="pause-btn" id="btn-pause-shop">💰 商店</button>
-      <button class="pause-btn" id="btn-pause-restart">重新开始</button>
-      <button class="pause-btn" id="btn-pause-menu">返回主菜单</button>
+    <div id="pause-main-menu">
+      <div class="pause-buttons">
+        <button class="pause-btn" id="btn-resume">▶ 继续游戏</button>
+        <button class="pause-btn" id="btn-pause-weapons">🔫 武器</button>
+        <button class="pause-btn" id="btn-pause-skills">✨ 技能</button>
+        <button class="pause-btn" id="btn-pause-shop">💰 商店</button>
+        <button class="pause-btn" id="btn-pause-menu">🏠 返回主菜单</button>
+      </div>
+    </div>
+    <div id="pause-sub-view" style="display:none">
+      <div id="pause-sub-content" class="pause-sub-content"></div>
+      <button class="pause-btn" id="btn-pause-back" style="margin-top:16px">← 返回</button>
     </div>
   </div>
 
@@ -513,21 +1197,46 @@ canvas {
 
   <!-- Main Menu -->
   <div class="menu-screen" id="menu-screen">
+    <div id="welcome-back-banner" style="display:none"></div>
     <h1>星域战机</h1>
     <div class="subtitle">STAR DOMAIN STG</div>
     <button class="menu-btn highlight" id="btn-start">开始游戏</button>
     <button class="menu-btn" id="btn-codex">📖 图鉴</button>
+    <button class="menu-btn" id="btn-meta-shop">🛒 商店</button>
     <button class="menu-btn" id="btn-settings">⚙️ 设置</button>
     <button class="menu-btn" id="btn-leaderboard">排行榜</button>
     <button class="menu-btn" id="btn-howto">操作说明</button>
   </div>
 
-  <!-- Character Select -->
+  <!-- Character Select (角色选择) -->
+  <div class="menu-screen" id="character-select-screen" style="display:none">
+    <h1 style="font-size:28px">选择战机</h1>
+    <div class="subtitle">SELECT CHARACTER</div>
+    <div id="character-select" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:440px;padding:20px"></div>
+    <button class="menu-btn" id="btn-back-from-char" style="margin-top:16px">返回</button>
+  </div>
+
+  <!-- Faction Select (流派选择) -->
   <div class="menu-screen" id="char-select-screen" style="display:none">
     <h1 style="font-size:28px">选择流派</h1>
     <div class="subtitle">SELECT FACTION</div>
     <div id="char-select"></div>
     <button class="menu-btn" id="btn-back-menu" style="margin-top:16px">返回</button>
+  </div>
+
+  <!-- Talent Tree (天赋树) -->
+  <div class="menu-screen" id="talent-screen" style="display:none">
+    <h1 style="font-size:28px">🌟 天赋树</h1>
+    <div class="subtitle">TALENT TREE</div>
+    <div class="talent-points-display">
+      剩余天赋点: <span id="talent-points-remaining">5</span>
+    </div>
+    <div class="talent-branches" id="talent-branches"></div>
+    <div class="talent-tree" id="talent-tree"></div>
+    <div class="talent-footer">
+      <button class="menu-btn" id="btn-talent-reset">重置天赋</button>
+      <button class="menu-btn highlight" id="btn-talent-confirm">确认出战</button>
+    </div>
   </div>
 
   <!-- Level Up -->
@@ -542,14 +1251,20 @@ canvas {
     <div class="fusion-desc" id="fusion-notification-desc"></div>
   </div>
 
-  <!-- Game Over -->
+  <!-- Game Over / Settlement Panel -->
   <div class="menu-screen" id="game-over">
-    <h1>游戏结束</h1>
+    <div class="settlement-title">游戏结束</div>
+    <div class="settlement-subtitle">SETTLEMENT</div>
     <div class="final-score" id="final-score">0</div>
     <div class="star-coin-earned" id="star-coin-earned"></div>
-    <div class="stats" id="game-stats"></div>
-    <button class="menu-btn" id="btn-restart">再来一局</button>
-    <button class="menu-btn" id="btn-menu">返回主菜单</button>
+    <div class="settlement-stats" id="settlement-stats"></div>
+    <div class="settlement-buttons">
+      <button class="menu-btn" id="btn-restart">🔄 再来一局</button>
+      <div class="btn-row">
+        <button class="menu-btn" id="btn-menu">🏠 返回主菜单</button>
+        <button class="menu-btn" id="btn-share">📤 分享</button>
+      </div>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -588,6 +1303,19 @@ canvas {
     <button class="menu-btn" id="btn-back-from-codex">返回</button>
   </div>
 
+  <!-- Meta Shop (商店) -->
+  <div class="menu-screen" id="meta-shop-screen" style="display:none">
+    <h1 style="font-size:28px">🛒 商店</h1>
+    <div class="subtitle">SHOP</div>
+    <div class="meta-shop-balance">⭐ 星币: <span id="meta-shop-coins">0</span></div>
+    <div class="meta-shop-tabs">
+      <button class="meta-shop-tab active" data-category="consumable">消耗品</button>
+      <button class="meta-shop-tab" data-category="permanent">永久道具</button>
+    </div>
+    <div class="meta-shop-items" id="meta-shop-items"></div>
+    <button class="menu-btn" id="btn-back-from-shop">返回</button>
+  </div>
+
   <!-- Settings (设置) -->
   <div class="menu-screen" id="settings-screen" style="display:none">
     <h1 style="font-size:28px">⚙️ 设置</h1>
@@ -611,11 +1339,91 @@ canvas {
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="setting-item">
+        <label>✨ 特效质量</label>
+        <select id="effects-quality" class="setting-select">
+          <option value="low">低</option>
+          <option value="medium" selected>中</option>
+          <option value="high">高</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>🖥️ 全屏模式</label>
+        <label class="toggle">
+          <input type="checkbox" id="fullscreen-toggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
+    <div class="version-info" id="version-info">v1.0.0</div>
     <button class="menu-btn" id="btn-back-from-settings">返回</button>
   </div>
 
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay">
+    <div class="tutorial-backdrop"></div>
+    <div class="tutorial-highlight" id="tutorial-highlight"></div>
+    <button class="tutorial-skip-btn" id="tutorial-skip">跳过教程</button>
+    <div class="tutorial-content" id="tutorial-content">
+      <div class="tutorial-step-indicator" id="tutorial-step-indicator"></div>
+      <div class="tutorial-icon" id="tutorial-icon"></div>
+      <div class="tutorial-text" id="tutorial-text"></div>
+      <div class="tutorial-hint" id="tutorial-hint"></div>
+    </div>
+  </div>
+
 </div>
+
+<!-- Loading screen starfield (runs immediately, before game scripts) -->
+<script>
+(function() {
+  var canvas = document.getElementById('loading-canvas');
+  var ctx = canvas.getContext('2d');
+  var stars = [];
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  for (var i = 0; i < 80; i++) {
+    stars.push({
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 0.5, speed: Math.random() * 30 + 10,
+      alpha: Math.random() * 0.5 + 0.3
+    });
+  }
+  function draw() {
+    ctx.fillStyle = '#050515';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      s.y += s.speed * 0.016;
+      if (s.y > canvas.height + 5) { s.y = -5; s.x = Math.random() * canvas.width; }
+      ctx.globalAlpha = s.alpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(s.x, s.y, s.size, s.size);
+    }
+    ctx.globalAlpha = 1;
+    if (!window._loadingDone) requestAnimationFrame(draw);
+  }
+  draw();
+  // Simulate progress
+  var bar = document.getElementById('loading-bar');
+  var text = document.getElementById('loading-text');
+  var progress = 0;
+  var messages = ['加载核心引擎...', '初始化战斗系统...', '加载武器模块...', '准备就绪!'];
+  var interval = setInterval(function() {
+    progress += Math.random() * 15 + 5;
+    if (progress > 95) progress = 95;
+    bar.style.width = progress + '%';
+    var idx = Math.min(Math.floor(progress / 25), messages.length - 1);
+    text.textContent = messages[idx];
+    if (window._loadingDone) {
+      bar.style.width = '100%';
+      text.textContent = '准备就绪!';
+      clearInterval(interval);
+    }
+  }, 150);
+})();
+</script>
 
 <!-- Scripts loaded in dependency order -->
 <script src="js/config.js"></script>
@@ -631,5 +1439,35 @@ canvas {
 <script src="js/skills.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    // Check for updates periodically
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // New version available, notify user
+          if (confirm('发现新版本，是否刷新？')) {
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+            window.location.reload();
+          }
+        }
+      });
+    });
+  }).catch(err => console.log('SW registration failed:', err));
+
+  // Reload on controller change (after skipWaiting)
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
+</script>
 </body>
 </html>
