@@ -1168,6 +1168,343 @@ var ParticleSystem = {
     window.game.addShake(3);
   },
 
+  // ================================================================
+  //  流派专属粒子特效
+  // ================================================================
+
+  /**
+   * 播放流派专属终极技能粒子特效
+   * @param {string} factionId - 流派ID
+   * @param {number} x
+   * @param {number} y
+   */
+  factionUltimateEffect: function(factionId, x, y) {
+    var g = window.game;
+    switch (factionId) {
+      case 'gravity':
+        // 重力流：引力场扭曲环 + 向心收缩粒子
+        for (var gi = 0; gi < 20; gi++) {
+          var gAngle = (gi / 20) * Math.PI * 2;
+          var gDist = 80 + Math.random() * 40;
+          var gx = x + Math.cos(gAngle) * gDist;
+          var gy = y + Math.sin(gAngle) * gDist;
+          var gp = g.getFromPool(g.particlePool, this._factory);
+          gp.init(gx, gy, {
+            speed: 0, life: 800, color: '#8866cc', size: 3
+          });
+          gp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var pullX = x - this.x;
+            var pullY = y - this.y;
+            var dist = Math.sqrt(pullX * pullX + pullY * pullY);
+            if (dist > 2) {
+              this.x += (pullX / dist) * 120 * dt;
+              this.y += (pullY / dist) * 120 * dt;
+            }
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(gp);
+        }
+        this.spawn(x, y, { count: 12, speed: 40, life: 500, colors: ['#8866cc', '#aa88ee', '#ffffff'], size: 4, gravity: -30 });
+        g.addShake(5);
+        break;
+
+      case 'void':
+        // 虚空流：黑洞吞噬环 + 虚空裂隙
+        for (var vi = 0; vi < 16; vi++) {
+          var vAngle = (vi / 16) * Math.PI * 2;
+          var vx = x + Math.cos(vAngle) * 60;
+          var vy = y + Math.sin(vAngle) * 60;
+          var vp = g.getFromPool(g.particlePool, this._factory);
+          vp.init(vx, vy, {
+            speed: 0, life: 600, color: '#220044', size: 4
+          });
+          vp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var angle = Math.atan2(this.y - y, this.x - x) + 3 * dt;
+            var radius = 60 * (1 - t);
+            this.x = x + Math.cos(angle) * radius;
+            this.y = y + Math.sin(angle) * radius;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(vp);
+        }
+        this.spawn(x, y, { count: 15, speed: 100, life: 400, colors: ['#440088', '#6600aa', '#220044'], size: 3, gravity: 0 });
+        g.addShake(6);
+        break;
+
+      case 'thunder':
+        // 雷电流：闪电链 + 电弧爆发
+        this.lightning(x - 80, y - 80, x + 80, y + 80, '#ffff00');
+        this.lightning(x + 80, y - 80, x - 80, y + 80, '#ffff44');
+        this.lightning(x, y - 100, x, y + 100, '#ffff88');
+        this.spawn(x, y, { count: 20, speed: 150, life: 300, colors: ['#ffff00', '#ffff88', '#ffffff'], size: 2.5, isSquare: true });
+        g.addShake(8);
+        this.screenFlash('#ffff00', 100);
+        break;
+
+      case 'wind':
+        // 风之流：旋风环 + 风刃粒子
+        for (var wi = 0; wi < 24; wi++) {
+          var wAngle = (wi / 24) * Math.PI * 2;
+          var wDist = 30 + Math.random() * 60;
+          var wx = x + Math.cos(wAngle) * wDist;
+          var wy = y + Math.sin(wAngle) * wDist;
+          var wp = g.getFromPool(g.particlePool, this._factory);
+          wp.init(wx, wy, {
+            speed: 0, life: 500, color: '#88ff88', size: 2
+          });
+          wp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var angle = Math.atan2(this.y - y, this.x - x) + 5 * dt;
+            var radius = 30 + t * 80;
+            this.x = x + Math.cos(angle) * radius;
+            this.y = y + Math.sin(angle) * radius;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(wp);
+        }
+        this.spawn(x, y, { count: 10, speed: 80, life: 400, colors: ['#88ff88', '#aaffaa', '#ffffff'], size: 2, gravity: -20 });
+        g.addShake(4);
+        break;
+
+      case 'shadow':
+        // 暗影流：暗影波纹 + 残影拖尾
+        for (var si = 0; si < 8; si++) {
+          var sAngle = Math.random() * Math.PI * 2;
+          var sDist = 40 + Math.random() * 40;
+          var sx = x + Math.cos(sAngle) * sDist;
+          var sy = y + Math.sin(sAngle) * sDist;
+          this.spawn(sx, sy, {
+            count: 3, speed: 60, life: 600, colors: ['#111166', '#2222aa', '#3333cc'], size: 4, gravity: -10
+          });
+        }
+        this.spawn(x, y, { count: 15, speed: 120, life: 500, colors: ['#111166', '#000033', '#222288'], size: 3, gravity: 0 });
+        g.addShake(3);
+        break;
+
+      case 'holy':
+        // 圣光流：圣光射线 + 治愈光环
+        for (var hi = 0; hi < 12; hi++) {
+          var hAngle = (hi / 12) * Math.PI * 2;
+          var hx = x + Math.cos(hAngle) * 10;
+          var hy = y + Math.sin(hAngle) * 10;
+          var hp = g.getFromPool(g.particlePool, this._factory);
+          hp.init(hx, hy, {
+            speed: 0, life: 700, color: '#ffffcc', size: 2
+          });
+          hp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var angle = Math.atan2(this.y - y, this.x - x);
+            var radius = t * 120;
+            this.x = x + Math.cos(angle) * radius;
+            this.y = y + Math.sin(angle) * radius;
+            this.size = 2 + t * 3;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(hp);
+        }
+        this.spawn(x, y, { count: 20, speed: 60, life: 600, colors: ['#ffffcc', '#ffff88', '#ffffff'], size: 3, gravity: -40 });
+        g.addShake(3);
+        this.screenFlash('#ffffcc', 200);
+        break;
+
+      case 'blood':
+        // 血祭流：血红脉冲环 + 鲜血飞溅
+        for (var bi = 0; bi < 16; bi++) {
+          var bAngle = (bi / 16) * Math.PI * 2;
+          this.spawn(x, y, {
+            count: 2, speed: 200, life: 500, colors: ['#cc0000', '#ff0000', '#ff3333'], size: 3, angle: bAngle, gravity: 30
+          });
+        }
+        this.spawn(x, y, { count: 10, speed: 40, life: 600, colors: ['#cc0000', '#990000'], size: 5, gravity: 50 });
+        g.addShake(6);
+        this.screenFlash('#cc0000', 150);
+        break;
+
+      case 'magnet':
+        // 磁力流：磁力线环 + 吸引粒子
+        for (var mi = 0; mi < 12; mi++) {
+          var mAngle = (mi / 12) * Math.PI * 2;
+          var mDist = 70 + Math.random() * 30;
+          var mx = x + Math.cos(mAngle) * mDist;
+          var my = y + Math.sin(mAngle) * mDist;
+          var mp = g.getFromPool(g.particlePool, this._factory);
+          mp.init(mx, my, {
+            speed: 0, life: 600, color: '#cc44cc', size: 2.5
+          });
+          mp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var angle = Math.atan2(this.y - y, this.x - x) + 4 * dt;
+            var radius = 70 * (1 - t * 0.5);
+            this.x = x + Math.cos(angle) * radius;
+            this.y = y + Math.sin(angle) * radius;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(mp);
+        }
+        this.spawn(x, y, { count: 8, speed: 30, life: 400, colors: ['#cc44cc', '#ff66ff', '#ffffff'], size: 3, gravity: 0 });
+        g.addShake(4);
+        break;
+
+      case 'mirror':
+        // 镜之流：镜面反射碎片 + 光折射
+        for (var mri = 0; mri < 8; mri++) {
+          var mrAngle = (mri / 8) * Math.PI * 2;
+          var mrDist = 50 + Math.random() * 30;
+          var mrx = x + Math.cos(mrAngle) * mrDist;
+          var mry = y + Math.sin(mrAngle) * mrDist;
+          this.spawn(mrx, mry, {
+            count: 3, speed: 80, life: 500, colors: ['#aaccee', '#ccddff', '#ffffff'], size: 3, isSquare: true, gravity: -15
+          });
+        }
+        this.spawn(x, y, { count: 12, speed: 100, life: 400, colors: ['#aaccee', '#ffffff', '#ddeeff'], size: 2.5, gravity: 0 });
+        g.addShake(4);
+        break;
+
+      case 'time':
+        // 时之流：时空扭曲环 + 时钟粒子
+        for (var ti = 0; ti < 24; ti++) {
+          var tAngle = (ti / 24) * Math.PI * 2;
+          var tDist = 60;
+          var tx = x + Math.cos(tAngle) * tDist;
+          var ty = y + Math.sin(tAngle) * tDist;
+          var tp = g.getFromPool(g.particlePool, this._factory);
+          tp.init(tx, ty, {
+            speed: 0, life: 800, color: '#ccbb88', size: 2
+          });
+          tp._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            var angle = Math.atan2(this.y - y, this.x - x) + 2 * dt;
+            var radius = 60 + Math.sin(t * Math.PI * 4) * 20;
+            this.x = x + Math.cos(angle) * radius;
+            this.y = y + Math.sin(angle) * radius;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(tp);
+        }
+        this.spawn(x, y, { count: 10, speed: 40, life: 500, colors: ['#ccbb88', '#eedd99', '#ffffff'], size: 3, gravity: -20 });
+        g.addShake(3);
+        break;
+
+      case 'fury':
+        // 狂怒流：怒火爆发 + 火焰旋涡
+        for (var fi = 0; fi < 16; fi++) {
+          var fAngle = (fi / 16) * Math.PI * 2;
+          this.spawn(x, y, {
+            count: 2, speed: 180, life: 400, colors: ['#ff0044', '#ff4400', '#ff8800'], size: 3.5, angle: fAngle, gravity: -20
+          });
+        }
+        this.spawn(x, y, { count: 15, speed: 60, life: 500, colors: ['#ff0044', '#cc0033', '#ff4400'], size: 5, gravity: -40 });
+        g.addShake(7);
+        this.screenFlash('#ff0044', 120);
+        break;
+
+      case 'luck':
+        // 幸运流：四叶草粒子 + 金币爆发
+        for (var li = 0; li < 4; li++) {
+          var lAngle = (li / 4) * Math.PI * 2 + Math.PI / 4;
+          var lx = x + Math.cos(lAngle) * 30;
+          var ly = y + Math.sin(lAngle) * 30;
+          this.spawn(lx, ly, {
+            count: 5, speed: 80, life: 600, colors: ['#44ff44', '#88ff88', '#ffff00'], size: 3, gravity: -25
+          });
+        }
+        this.spawn(x, y, { count: 20, speed: 120, life: 500, colors: ['#44ff44', '#ffff00', '#ffffff'], size: 2.5, gravity: -30 });
+        g.addShake(4);
+        break;
+
+      case 'sonic':
+        // 音波流：音波冲击环 + 震荡波
+        this._spawnReactionRing(x, y, '#ff88ff', 150);
+        this._spawnReactionRing(x, y, '#ff88ff', 120);
+        this.spawn(x, y, { count: 25, speed: 200, life: 400, colors: ['#ff88ff', '#ffaaff', '#ffffff'], size: 2.5, gravity: 0 });
+        g.addShake(10);
+        this.screenFlash('#ff88ff', 100);
+        break;
+
+      case 'minion':
+        // 魔仆流：魔仆召唤阵 + 鲜血之球
+        for (var moi = 0; moi < 6; moi++) {
+          var moAngle = (moi / 6) * Math.PI * 2;
+          var moDist = 50;
+          var mox = x + Math.cos(moAngle) * moDist;
+          var moy = y + Math.sin(moAngle) * moDist;
+          this.spawn(mox, moy, {
+            count: 4, speed: 50, life: 600, colors: ['#ff4488', '#cc3366', '#ff6699'], size: 3, gravity: -20
+          });
+        }
+        this.spawn(x, y, { count: 10, speed: 30, life: 500, colors: ['#ff4488', '#cc0066'], size: 4, gravity: 40 });
+        g.addShake(5);
+        break;
+
+      case 'data':
+        // 数据流：数据流矩阵 + 扫描线
+        for (var dai = 0; dai < 20; dai++) {
+          var daAngle = Math.random() * Math.PI * 2;
+          var daDist = 40 + Math.random() * 60;
+          var dax = x + Math.cos(daAngle) * daDist;
+          var day = y + Math.sin(daAngle) * daDist;
+          var dap = g.getFromPool(g.particlePool, this._factory);
+          dap.init(dax, day, {
+            speed: 0, life: 500, color: '#00ffcc', size: 2, isSquare: true
+          });
+          dap._customUpdate = function(dt) {
+            var t = 1 - this.life / this.maxLife;
+            this.y -= 60 * dt;
+            this.x += Math.sin(t * Math.PI * 6) * 2;
+            this.life -= dt * 1000;
+            this.alpha = Math.max(0, this.life / this.maxLife);
+            if (this.life <= 0) {
+              this.active = false;
+              g.returnToPool(g.particlePool, this, GAME_CONFIG.BALANCE.MAX_PARTICLES);
+              g.removeEntity(this);
+            }
+          };
+          g.addEntity(dap);
+        }
+        this.spawn(x, y, { count: 8, speed: 40, life: 400, colors: ['#00ffcc', '#00ff88', '#ffffff'], size: 2, gravity: -30, isSquare: true });
+        g.addShake(3);
+        break;
+    }
+  },
+
   /**
    * Expanding ring entity for reaction visuals.
    * @param {number} x

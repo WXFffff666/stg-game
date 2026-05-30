@@ -169,6 +169,94 @@ var FACTION_SYSTEM = {
       description: '掌控时间之力，逆转乾坤',
       effects: [{ stat: 'enemySlow', op: 'set', value: 0.5 }, { stat: 'cooldownReduction', op: 'add', value: 0.75 }, { stat: 'timeSlowAmount', op: 'multiply', value: 1.0 }],
       visualColor: '#ccbb88', visualType: 'holy' }
+  },
+  fury: {
+    corePassive: { effects: [{ stat: 'lowHpBonus', op: 'add', value: 0.1 }, { stat: 'attack', op: 'multiply', value: 0.1 }] },
+    exclusiveSkills: ['fr_berserk', 'fr_lastStand', 'fr_rage'],
+    ultimate: { id: 'ut_fury', name: '💢 不灭狂怒', faction: 'fury', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '怒火焚天，不死不休',
+      effects: [{ stat: 'lowHpBonus', op: 'add', value: 1.0 }, { stat: 'rageThreshold', op: 'add', value: 0.3 }, { stat: 'attackSpeed', op: 'multiply', value: -0.3 }],
+      visualColor: '#ff0044', visualType: 'fire' }
+  },
+  luck: {
+    corePassive: { effects: [{ stat: 'luckBonus', op: 'add', value: 0.05 }, { stat: 'critRate', op: 'add', value: 0.03 }] },
+    exclusiveSkills: ['lk_fortune', 'lk_jackpot', 'lk_miracle'],
+    ultimate: { id: 'ut_luck', name: '🍀 命运之子', faction: 'luck', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '天命所归，万事皆顺',
+      effects: [{ stat: 'luckBonus', op: 'add', value: 0.5 }, { stat: 'critRate', op: 'add', value: 0.25 }, { stat: 'dropRateBonus', op: 'add', value: 0.5 }, { stat: 'luckyDodge', op: 'set', value: 0.15 }],
+      visualColor: '#44ff44', visualType: 'holy' }
+  },
+  sonic: {
+    corePassive: { effects: [{ stat: 'sonicDamage', op: 'add', value: 0.15 }, { stat: 'sonicRadius', op: 'add', value: 20 }] },
+    exclusiveSkills: ['sn_wave', 'sn_echo', 'sn_resonance'],
+    ultimate: { id: 'ut_sonic', name: '🔊 毁灭共鸣', faction: 'sonic', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '音波共鸣达到极致，万物共振碎裂',
+      effects: [{ stat: 'sonicDamage', op: 'multiply', value: 2.0 }, { stat: 'sonicRadius', op: 'multiply', value: 1.0 }, { stat: 'sonicStun', op: 'set', value: 1000 }],
+      visualColor: '#ff88ff', visualType: 'holy' }
+  },
+  rune: {
+    corePassive: { effects: [{ stat: 'runeDrop', op: 'add', value: 0.05 }, { stat: 'runeEffect', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['rn_mark', 'rn_chain', 'rn_explosion'],
+    ultimate: { id: 'ut_rune', name: '🔮 符文之主', faction: 'rune', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '符文之力觉醒，印记永驻',
+      effects: [{ stat: 'runeDrop', op: 'multiply', value: 2.0 }, { stat: 'runeDuration', op: 'multiply', value: 2.0 }, { stat: 'runeNova', op: 'set', value: { damage: 60, radius: 250 } }],
+      visualColor: '#ffaa44', visualType: 'holy' }
+  },
+  star: {
+    corePassive: { effects: [{ stat: 'chargeRate', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['st_charge', 'st_burst', 'st_shower'],
+    ultimate: { id: 'ut_star', name: '⭐ 超新星', faction: 'star', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '星辰之力爆发，照亮一切黑暗',
+      effects: [{ stat: 'chargeRate', op: 'multiply', value: 3.0 }, { stat: 'starBurstDamage', op: 'multiply', value: 2.0 }, { stat: 'starBurstHeal', op: 'set', value: 30 }],
+      visualColor: '#ffffaa', visualType: 'lightning' }
+  },
+  darkGold: {
+    corePassive: { effects: [{ stat: 'goldBonus', op: 'add', value: 0.1 }, { stat: 'goldOnHit', op: 'add', value: 1 }] },
+    exclusiveSkills: ['dg_goldRush', 'dg_midas', 'dg_magnet'],
+    ultimate: { id: 'ut_darkGold', name: '💰 黄金帝王', faction: 'darkGold', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '万物皆可化金，财富即力量',
+      effects: [{ stat: 'goldBonus', op: 'multiply', value: 3.0 }, { stat: 'goldDamageConvert', op: 'set', value: 0.15 }, { stat: 'goldShield', op: 'set', value: { amount: 50, regen: 2 } }],
+      visualColor: '#ffcc00', visualType: 'holy' }
+  },
+  minion: {
+    corePassive: { effects: [{ stat: 'minionCount', op: 'add', value: 1 }, { stat: 'minionDamage', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['mn_bloodOrb', 'mn_minionDmg', 'mn_minionCount'],
+    ultimate: { id: 'ut_minion', name: '👹 魔仆军团', faction: 'minion', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '鲜血之力觉醒，魔仆大军降临',
+      effects: [{ stat: 'minionCount', op: 'add', value: 3 }, { stat: 'minionDamage', op: 'multiply', value: 1.5 }, { stat: 'bloodOrbHeal', op: 'set', value: 15 }],
+      visualColor: '#ff4488', visualType: 'fire' }
+  },
+  data: {
+    corePassive: { effects: [{ stat: 'weakPointChance', op: 'add', value: 0.05 }, { stat: 'weakPointBonus', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['dt_weakScan', 'dt_critBonus', 'dt_scanRange'],
+    ultimate: { id: 'ut_data', name: '📊 全知之眼', faction: 'data', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '数据之力完全解析，洞悉一切弱点',
+      effects: [{ stat: 'weakPointChance', op: 'set', value: 0.8 }, { stat: 'weakPointBonus', op: 'multiply', value: 2.0 }, { stat: 'scanCritGuarantee', op: 'set', value: true }],
+      visualColor: '#00ffcc', visualType: 'holy' }
+  },
+  storm: {
+    corePassive: { effects: [{ stat: 'windWallRadius', op: 'add', value: 20 }, { stat: 'windPushForce', op: 'add', value: 25 }] },
+    exclusiveSkills: ['sm_wall', 'sm_gust', 'sm_tornado'],
+    ultimate: { id: 'ut_storm', name: '🌪️ 风暴领主', faction: 'storm', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '风暴之力觉醒，龙卷风暴席卷战场',
+      effects: [{ stat: 'windWallRadius', op: 'multiply', value: 2.0 }, { stat: 'windPushForce', op: 'multiply', value: 2.0 }, { stat: 'tornadoChance', op: 'add', value: 0.5 }],
+      visualColor: '#88ffcc', visualType: 'poison' }
+  },
+  soul: {
+    corePassive: { effects: [{ stat: 'maxSouls', op: 'add', value: 10 }, { stat: 'soulBonus', op: 'add', value: 0.01 }] },
+    exclusiveSkills: ['so_collect', 'so_burst', 'so_siphon'],
+    ultimate: { id: 'ut_soul', name: '👻 灵魂收割者', faction: 'soul', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '灵魂之力完全觉醒，万物灵魂归于己身',
+      effects: [{ stat: 'maxSouls', op: 'multiply', value: 2.0 }, { stat: 'soulBonus', op: 'multiply', value: 3.0 }, { stat: 'soulExplosion', op: 'set', value: { damage: 40, radius: 200 } }],
+      visualColor: '#cc88ff', visualType: 'holy' }
+  },
+  genesis: {
+    corePassive: { effects: [{ stat: 'buffDuration', op: 'add', value: 5000 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['ge_chaos', 'ge_creation', 'ge_entropy'],
+    ultimate: { id: 'ut_genesis', name: '🌌 创世神', faction: 'genesis', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '混沌创世之力觉醒，随机增益变为三倍',
+      effects: [{ stat: 'randomBuffInterval', op: 'multiply', value: -0.5 }, { stat: 'buffDuration', op: 'multiply', value: 2.0 }, { stat: 'genesisMultiBuff', op: 'set', value: 3 }],
+      visualColor: '#ffffff', visualType: 'holy' }
   }
 };
 

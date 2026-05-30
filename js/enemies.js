@@ -26,7 +26,10 @@ class Enemy {
     this.moveTimer = 0;
 
     // Stats (scaled by difficulty): HP = base × (1 + diff × 0.06)²
-    this.maxHp = Math.floor(template.hp * Math.pow(1 + diff * 0.06, 2));
+    var hpScale = Math.pow(1 + diff * 0.06, 2);
+    // 难度曲线：前期HP×0.8，后期HP逐渐增加
+    if (window.game && window.game.hpMultiplier) hpScale *= window.game.hpMultiplier;
+    this.maxHp = Math.floor(template.hp * hpScale);
     this.hp = this.maxHp;
     this.speed = template.speed;
     this.baseSpeed = template.speed;
@@ -159,6 +162,83 @@ class Enemy {
 
     // --- Bullet Pattern Pool (per-enemy randomization) ---
     this.bulletPatternPool = template.bulletPatterns || null;
+
+    // --- New Enemy Type Properties ---
+    // Invisible
+    this.invisibleTimer = 0;
+    this.invisibleInterval = template.invisibleInterval || 3000;
+    this.invisibleDuration = template.invisibleDuration || 2000;
+    this.isInvisible = false;
+    this.alpha = 1;
+
+    // SplitMaster (multi-level split)
+    this.splitLevels = template.splitLevels || 1;
+
+    // Parasite
+    this.latchDamage = template.latchDamage || 8;
+    this.latchInterval = template.latchInterval || 1000;
+    this.latchRange = template.latchRange || 50;
+    this.latchTimer = 0;
+    this.isLatched = false;
+
+    // Devourer
+    this.growPerKill = template.growPerKill || 2;
+    this.maxSize = template.maxSize || 40;
+    this.damagePerGrow = template.damagePerGrow || 3;
+    this.killCount = 0;
+
+    // Healer
+    this.healAmount = template.healAmount || 5;
+    this.healInterval = template.healInterval || 2000;
+    this.healRange = template.healRange || 200;
+    this.healTimer = 0;
+
+    // LaserTower
+    this.laserWidth = template.laserWidth || 4;
+    this.laserDuration = template.laserDuration || 800;
+    this.laserTimer = 0;
+    this.isFiringLaser = false;
+    this.laserAngle = 0;
+
+    // Ghost
+    this.phaseThrough = template.phaseThrough || false;
+    this.phaseChance = template.phaseChance || 0.3;
+
+    // Phantom (afterimages)
+    this.afterimageInterval = template.afterimageInterval || 2500;
+    this.afterimageDuration = template.afterimageDuration || 1500;
+    this.afterimageDamage = template.afterimageDamage || 8;
+    this.afterimageTimer = 0;
+
+    // Mirror
+    this.reflectChance = template.reflectChance || 0;
+    this.reflectDamage = template.reflectDamage || 0;
+
+    // Magnet
+    this.pullStrength = template.pullStrength || 80;
+    this.pullRange = template.pullRange || 250;
+
+    // Time
+    this.slowFieldRange = template.slowFieldRange || 180;
+    this.slowFieldAmount = template.slowFieldAmount || 0.35;
+
+    // Void
+    this.warpRadius = template.warpRadius || 100;
+
+    // Chaos
+    this.chaosInterval = template.chaosInterval || 3000;
+    this.chaosTimer = 0;
+    this.currentChaosAI = 'follow';
+
+    // Berserker
+    this.berserkThreshold = template.berserkThreshold || 0.3;
+    this.berserkSpeedBoost = template.berserkSpeedBoost || 1.8;
+    this.berserkFireRateBoost = template.berserkFireRateBoost || 0.5;
+    this.isBerserk = false;
+
+    // Homing bullets
+    this.homing = template.homing || false;
+    this.homingStrength = template.homingStrength || 0.03;
   }
 
   // ---------------------------------------------------------------------------
@@ -259,6 +339,17 @@ class Enemy {
       }
     }
 
+    // 冰雪花粒子：冻结或减速时生成冰蓝色雪花粒子
+    if ((this.frozenTimer > 0 || this.slowTimer > 0) && window.ParticleSystem) {
+      this._iceParticleTimer = (this._iceParticleTimer || 0) + dt;
+      if (this._iceParticleTimer >= 0.25) {
+        this._iceParticleTimer = 0;
+        window.ParticleSystem.spawn(this.x + (Math.random() - 0.5) * this.size * 1.5, this.y + (Math.random() - 0.5) * this.size, {
+          count: 1, speed: 15, life: 700, colors: ['#66ddff', '#88ffff', '#aaeeff', '#ffffff'], size: 2, gravity: -20, isSquare: true
+        });
+      }
+    }
+
     // Poison DoT
     if (this.poisonTimer > 0) {
       var poisonDmg = this.poisonDamage * dt;
@@ -276,6 +367,14 @@ class Enemy {
         }
         this._dotPoisonAccum = 0;
         this._dotPoisonDisplayTimer = 0;
+      }
+      // 毒气泡粒子：每隔约0.3秒生成一个绿色上升气泡
+      this._poisonBubbleTimer = (this._poisonBubbleTimer || 0) + dt;
+      if (this._poisonBubbleTimer >= 0.3 && window.ParticleSystem) {
+        this._poisonBubbleTimer = 0;
+        window.ParticleSystem.spawn(this.x + (Math.random() - 0.5) * this.size, this.y, {
+          count: 1, speed: 25, life: 600, colors: ['#55cc44', '#88ff66', '#aaffaa'], size: 3, gravity: -50
+        });
       }
       if (!alive) {
         // Enemy died from poison DOT - trigger kill handler
@@ -302,6 +401,14 @@ class Enemy {
         this._dotBurnAccum = 0;
         this._dotBurnDisplayTimer = 0;
       }
+      // 火焰粒子：每隔约0.2秒生成橙红色上升火焰粒子
+      this._fireParticleTimer = (this._fireParticleTimer || 0) + dt;
+      if (this._fireParticleTimer >= 0.2 && window.ParticleSystem) {
+        this._fireParticleTimer = 0;
+        window.ParticleSystem.spawn(this.x + (Math.random() - 0.5) * this.size, this.y - this.size * 0.3, {
+          count: 1, speed: 35, life: 400, colors: ['#ff4400', '#ff8800', '#ffcc00', '#ff6600'], size: 2.5, gravity: -80
+        });
+      }
       if (!alive2) {
         // Enemy died from burn DOT - trigger kill handler
         if (window.handleEnemyKilled) window.handleEnemyKilled(this, false, 0);
@@ -321,6 +428,19 @@ class Enemy {
     // Regeneration affix
     if (this._regenRate && this._regenRate > 0) {
       this.hp = Math.min(this.maxHp, this.hp + this._regenRate * dt);
+    }
+
+    // 狂战士：HP低于阈值时进入狂暴状态
+    if (this.type === 'berserker' && !this.isBerserk && this.hp / this.maxHp < this.berserkThreshold) {
+      this.isBerserk = true;
+      this.speed = this.baseSpeed * this.berserkSpeedBoost;
+      this.fireRate = this.fireRate * this.berserkFireRateBoost;
+      // 狂暴特效
+      if (window.ParticleSystem) {
+        window.ParticleSystem.spawn(this.x, this.y, {
+          count: 10, speed: 50, life: 500, colors: ['#ff4400', '#ff6600', '#ff8800'], size: 3, gravity: -30
+        });
+      }
     }
 
     // --- AI Behavior ---
@@ -778,6 +898,293 @@ class Enemy {
           }
         }
         break;
+
+      // ---- 30种新敌人 AI ----
+      case 'invisible':
+        // 隐身者：周期性隐身，移动时跟踪玩家
+        {
+          this.y += this.speed * dt;
+          if (player && player.active) {
+            const dx = player.x - this.x;
+            this.x += dx * 0.015;
+          }
+          // 隐身逻辑
+          this.invisibleTimer += dt * 1000;
+          if (!this.isInvisible && this.invisibleTimer >= this.invisibleInterval) {
+            this.isInvisible = true;
+            this.invisibleTimer = 0;
+          }
+          if (this.isInvisible) {
+            this.alpha = Math.max(0.1, this.alpha - dt * 2);
+            if (this.invisibleTimer >= this.invisibleDuration) {
+              this.isInvisible = false;
+              this.invisibleTimer = 0;
+            }
+          } else {
+            this.alpha = Math.min(1, this.alpha + dt * 3);
+          }
+        }
+        break;
+
+      case 'splitMaster':
+        // 多级分裂者：类似splitter但可多次分裂
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.002) * 80;
+        break;
+
+      case 'parasite':
+        // 寄生者：快速接近玩家并附着造成持续伤害
+        if (this.isLatched && player && player.active) {
+          // 附着在玩家身上
+          this.x = player.x + Math.sin(this.moveTimer * 0.01) * 15;
+          this.y = player.y - 20 + Math.cos(this.moveTimer * 0.008) * 5;
+          this.latchTimer += dt * 1000;
+          if (this.latchTimer >= this.latchInterval) {
+            this.latchTimer = 0;
+            if (player.takeDamage) {
+              player.takeDamage(this.latchDamage);
+            }
+          }
+          // 附着时间过长自动脱落
+          if (this.latchTimer > 5000) {
+            this.isLatched = false;
+            this.y -= 50;
+          }
+        } else {
+          // 快速接近玩家
+          if (player && player.active) {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < this.latchRange) {
+              this.isLatched = true;
+              this.latchTimer = 0;
+            } else if (dist > 0) {
+              this.x += (dx / dist) * this.speed * dt * 1.3;
+              this.y += (dy / dist) * this.speed * dt * 1.3;
+            }
+          } else {
+            this.y += this.speed * dt;
+          }
+        }
+        break;
+
+      case 'devourer':
+        // 吞噬者：击杀后变大变强
+        this.y += this.speed * dt;
+        if (player && player.active) {
+          const dx = player.x - this.x;
+          this.x += dx * 0.012;
+        }
+        // 根据击杀数调整大小（在takeDamage的onDeath回调中处理增长）
+        break;
+
+      case 'healer':
+        // 治愈者：治疗附近友军，保持距离
+        {
+          this.y += this.speed * dt * 0.5;
+          this.x = this.startX + Math.sin(this.moveTimer * 0.002) * 100;
+          // 治疗附近友军
+          this.healTimer += dt * 1000;
+          if (this.healTimer >= this.healInterval) {
+            this.healTimer = 0;
+            if (game.enemies) {
+              for (let i = 0; i < game.enemies.length; i++) {
+                const ally = game.enemies[i];
+                if (ally.active && ally !== this && !ally.isBoss) {
+                  const adx = ally.x - this.x;
+                  const ady = ally.y - this.y;
+                  const aDist = Math.sqrt(adx * adx + ady * ady);
+                  if (aDist < this.healRange && ally.hp < ally.maxHp) {
+                    ally.hp = Math.min(ally.maxHp, ally.hp + this.healAmount);
+                    // 治疗特效
+                    if (window.ParticleSystem) {
+                      window.ParticleSystem.spawn(ally.x, ally.y - ally.size, {
+                        count: 3, speed: 20, life: 500, colors: ['#44ff88', '#88ffaa', '#ffffff'], size: 2, gravity: -30
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        break;
+
+      case 'laserTower':
+        // 激光塔：发射激光束
+        {
+          if (this.y < this.targetY) {
+            this.y += this.speed * dt * 2;
+          } else {
+            this.y = this.targetY;
+            this.x = this.startX + Math.sin(this.moveTimer * 0.001) * 40;
+          }
+          // 激光充能和发射
+          this.laserTimer += dt * 1000;
+          if (!this.isFiringLaser && this.laserTimer >= this.fireRate) {
+            this.isFiringLaser = true;
+            this.laserTimer = 0;
+            // 锁定玩家角度
+            if (player && player.active) {
+              this.laserAngle = Math.atan2(player.y - this.y, player.x - this.x);
+            }
+          }
+          if (this.isFiringLaser) {
+            if (this.laserTimer >= this.laserDuration) {
+              this.isFiringLaser = false;
+              this.laserTimer = 0;
+            }
+            // 激光碰撞检测（每帧）
+            if (player && player.active && this.laserTimer % 100 < 20) {
+              const px = player.x - this.x;
+              const py = player.y - this.y;
+              const dist = Math.sqrt(px * px + py * py);
+              const angleToPlayer = Math.atan2(py, px);
+              const angleDiff = Math.abs(angleToPlayer - this.laserAngle);
+              if (angleDiff < 0.1 && dist < 500) {
+                if (player.takeDamage) {
+                  player.takeDamage(this.bulletConfig.damage * dt * 5);
+                }
+              }
+            }
+          }
+        }
+        break;
+
+      case 'ghost':
+        // 幽灵：可穿越子弹
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.003) * 100;
+        if (player && player.active) {
+          const dx = player.x - this.x;
+          this.x += dx * 0.008;
+        }
+        // 穿越效果：半透明
+        this.alpha = 0.6 + Math.sin(this.moveTimer * 0.005) * 0.2;
+        break;
+
+      case 'phantom':
+        // 幻影：留下残影
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.004) * 120;
+        if (player && player.active) {
+          const dx = player.x - this.x;
+          this.x += dx * 0.01;
+        }
+        // 生成残影
+        this.afterimageTimer += dt * 1000;
+        if (this.afterimageTimer >= this.afterimageInterval) {
+          this.afterimageTimer = 0;
+          this._spawnAfterimage(game);
+        }
+        break;
+
+      case 'mirror':
+        // 镜像：反弹伤害
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.002) * 80;
+        if (player && player.active) {
+          const dx = player.x - this.x;
+          this.x += dx * 0.01;
+        }
+        // 反射效果在takeDamage中处理
+        break;
+
+      case 'magnet':
+        // 磁铁：吸引玩家
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.0015) * 60;
+        // 吸引玩家
+        if (player && player.active) {
+          const dx = this.x - player.x;
+          const dy = this.y - player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < this.pullRange && dist > 0) {
+            const force = this.pullStrength * (1 - dist / this.pullRange);
+            player.x += (dx / dist) * force * dt;
+            player.y += (dy / dist) * force * dt * 0.3;
+          }
+        }
+        break;
+
+      case 'time':
+        // 时间者：减速力场
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.moveTimer * 0.002) * 90;
+        if (player && player.active) {
+          const dx = player.x - this.x;
+          this.x += dx * 0.008;
+        }
+        // 减速力场效果（对玩家子弹减速）
+        // 在碰撞系统中处理
+        break;
+
+      case 'voidEnemy':
+        // 虚空者：随机传送
+        this.teleportTimer += dt * 1000;
+        if (this.teleportTimer >= this.teleportInterval) {
+          this.teleportTimer = 0;
+          // 传送特效
+          if (window.ParticleSystem) {
+            window.ParticleSystem.spawn(this.x, this.y, {
+              count: 8, speed: 40, life: 400, colors: ['#4422aa', '#6644cc', '#8866ff'], size: 3, gravity: 0
+            });
+          }
+          this.x = 40 + Math.random() * (cfg.CANVAS_WIDTH - 80);
+          this.y = 30 + Math.random() * (cfg.CANVAS_HEIGHT * 0.4);
+          // 传送后特效
+          if (window.ParticleSystem) {
+            window.ParticleSystem.spawn(this.x, this.y, {
+              count: 8, speed: 40, life: 400, colors: ['#4422aa', '#6644cc', '#8866ff'], size: 3, gravity: 0
+            });
+          }
+        }
+        // 缓慢移动
+        this.y += this.speed * dt * 0.3;
+        this.x += Math.sin(this.moveTimer * 0.003) * 50 * dt;
+        break;
+
+      case 'chaos':
+        // 混沌者：随机切换AI行为
+        this.chaosTimer += dt * 1000;
+        if (this.chaosTimer >= this.chaosInterval) {
+          this.chaosTimer = 0;
+          const aiOptions = ['follow', 'cross', 'straight', 'spiral'];
+          this.currentChaosAI = aiOptions[Math.floor(Math.random() * aiOptions.length)];
+          // 切换特效
+          if (window.ParticleSystem) {
+            window.ParticleSystem.spawn(this.x, this.y, {
+              count: 5, speed: 30, life: 300, colors: ['#ff44ff', '#ff88ff', '#ffaaff'], size: 2, gravity: 0
+            });
+          }
+        }
+        // 执行当前AI
+        switch (this.currentChaosAI) {
+          case 'follow':
+            this.y += this.speed * dt;
+            if (player && player.active) {
+              const dx = player.x - this.x;
+              this.x += dx * 0.02;
+            }
+            break;
+          case 'cross':
+            this.y += this.speed * dt;
+            this.x = this.startX + Math.sin(this.moveTimer * 0.003) * 80;
+            break;
+          case 'straight':
+            this.y += this.speed * dt;
+            break;
+          case 'spiral':
+            {
+              const centerX = cfg.CANVAS_WIDTH / 2;
+              const angle = this.moveTimer * 0.002;
+              this.x = centerX + Math.cos(angle) * 100;
+              this.y += this.speed * dt * 0.5;
+            }
+            break;
+        }
+        break;
     }
   }
 
@@ -1141,6 +1548,53 @@ class Enemy {
   }
 
   // ---------------------------------------------------------------------------
+  // PHANTOM: SPAWN AFTERIMAGE (残影)
+  // ---------------------------------------------------------------------------
+  _spawnAfterimage(game) {
+    if (!game || !game.addEntity) return;
+    // 创建一个短暂存在的残影
+    const afterimageTemplate = {
+      hp: this.maxHp * 0.05,
+      speed: 0,
+      damage: this.afterimageDamage || 8,
+      score: 0,
+      xp: 0,
+      size: this.size * 0.9,
+      color: this.color,
+      type: 'kamikaze',
+      ai: 'straight',
+      bulletSpeed: 0,
+      fireRate: 99999,
+      hitRadius: this.size * 0.8,
+      explodeRadius: 60,
+      explodeDamage: this.afterimageDamage || 8,
+    };
+
+    const afterimage = new Enemy({
+      x: this.x + (Math.random() - 0.5) * 30,
+      y: this.y + (Math.random() - 0.5) * 20,
+    }, afterimageTemplate, game.difficulty || 0);
+
+    // 残影在短时间内消失
+    afterimage._afterimageTimer = this.afterimageDuration || 1500;
+    afterimage._isAfterimage = true;
+    afterimage.alpha = 0.5;
+    const originalUpdate = afterimage.update.bind(afterimage);
+    afterimage.update = function(dt) {
+      this._afterimageTimer -= dt * 1000;
+      this.alpha = Math.max(0, this._afterimageTimer / (this.afterimageDuration || 1500));
+      if (this._afterimageTimer <= 0) {
+        this.active = false;
+        this._remove();
+        return;
+      }
+      originalUpdate(dt);
+    };
+
+    game.addEntity(afterimage);
+  }
+
+  // ---------------------------------------------------------------------------
   // APPLY BOSS PHASE
   // ---------------------------------------------------------------------------
   _applyBossPhase(phase) {
@@ -1338,6 +1792,25 @@ class Enemy {
       }
     }
 
+    // Mirror: 有概率反弹伤害
+    if (this.type === 'mirror' && this.reflectChance > 0) {
+      if (Math.random() < this.reflectChance) {
+        const game = window.game;
+        if (game && game.player && game.player.active) {
+          const reflectedDmg = Math.floor(amount * this.reflectDamage);
+          if (reflectedDmg > 0 && game.player.takeDamage) {
+            game.player.takeDamage(reflectedDmg);
+            // 反弹特效
+            if (window.ParticleSystem) {
+              window.ParticleSystem.spawn(this.x, this.y - this.size, {
+                count: 4, speed: 30, life: 300, colors: ['#ffffff', '#eeeeee', '#dddddd'], size: 2, gravity: -20
+              });
+            }
+          }
+        }
+      }
+    }
+
     this.hp -= amount;
     this.flashTimer = 80;
     this.damaged = true;
@@ -1390,6 +1863,27 @@ class Enemy {
             y: this.y + Math.sin(angle) * 10,
           };
           const splitEnemy = new Enemy(opts, splitTemplate, game.difficulty);
+          game.addEntity(splitEnemy);
+        }
+      }
+    }
+
+    // SplitMaster: 多级分裂，子代也可以继续分裂
+    if (this.type === 'splitMaster' && this.splitCount > 0 && this.splitType) {
+      const splitTemplate = GAME_CONFIG.ENEMIES[this.splitType];
+      if (splitTemplate) {
+        for (let i = 0; i < this.splitCount; i++) {
+          const angle = (Math.PI * 2 / this.splitCount) * i - Math.PI / 2;
+          const opts = {
+            x: this.x + Math.cos(angle) * 20,
+            y: this.y + Math.sin(angle) * 10,
+          };
+          const splitEnemy = new Enemy(opts, splitTemplate, game.difficulty);
+          // 如果分裂目标是splitter，赋予它继续分裂的能力（splitLevels-1次）
+          if (this.splitLevels > 1 && splitTemplate.type === 'splitter') {
+            splitEnemy.splitCount = Math.max(1, this.splitCount - 1);
+            splitEnemy.splitLevels = this.splitLevels - 1;
+          }
           game.addEntity(splitEnemy);
         }
       }
@@ -1461,6 +1955,18 @@ class Enemy {
     ctx.save();
     ctx.translate(this.x, this.y);
 
+    // 透明度处理（隐身者、幽灵等）
+    if (this.alpha !== undefined && this.alpha < 1) {
+      ctx.globalAlpha = this.alpha;
+    }
+
+    // 闪电抽搐效果：受击（shocked）时随机偏移绘制位置
+    if (this._shockedTimer > 0) {
+      var _twX = (Math.random() - 0.5) * 6;
+      var _twY = (Math.random() - 0.5) * 6;
+      ctx.translate(_twX, _twY);
+    }
+
     // Damage flash
     const flash = this.flashTimer > 0 ? (Math.sin(this.flashTimer * 0.5) > 0) : false;
     const color = flash ? '#ffffff' : this.color;
@@ -1493,6 +1999,37 @@ class Enemy {
       case 'boss_summoner': this._drawBattleshipSummoner(ctx, color); break;
       case 'boss_dragon':   this._drawBattleshipDragon(ctx, color); break;
       case 'boss_phantom':  this._drawBattleshipPhantom(ctx, color); break;
+      // 30种新敌人绘制
+      case 'fireElement':   this._drawElement(ctx, color, '#ff6600'); break;
+      case 'iceElement':    this._drawElement(ctx, color, '#88ddff'); break;
+      case 'thunderElement': this._drawElement(ctx, color, '#ffff44'); break;
+      case 'poisonElement': this._drawElement(ctx, color, '#66ff66'); break;
+      case 'berserker':     this._drawEliteUnit(ctx, color, '#ff4400'); break;
+      case 'guardian':      this._drawArmoredBomber(ctx, color); break;
+      case 'healer':        this._drawSupportUnit(ctx, color); break;
+      case 'summoner':      this._drawCarrier(ctx, color); break;
+      case 'invisible':     this._drawStealthFighter(ctx, color); break;
+      case 'splitMaster':   this._drawDroneCarrier(ctx, color); break;
+      case 'parasite':      this._drawParasite(ctx, color); break;
+      case 'devourer':      this._drawDevourer(ctx, color); break;
+      case 'marksman':      this._drawPrecisionBomber(ctx, color); break;
+      case 'turret':        this._drawTurret(ctx, color); break;
+      case 'missileCar':    this._drawMissileCar(ctx, color); break;
+      case 'laserTower':    this._drawLaserTower(ctx, color); break;
+      case 'flyingSwarm':   this._drawDroneSwarm(ctx, color); break;
+      case 'bat':           this._drawBat(ctx, color); break;
+      case 'ghost':         this._drawGhost(ctx, color); break;
+      case 'dragon':        this._drawDragon(ctx, color); break;
+      case 'titan':         this._drawHeavyBomber(ctx, color); break;
+      case 'colossus':      this._drawHeavyBomber(ctx, color); break;
+      case 'fortress':      this._drawTurret(ctx, color); break;
+      case 'hive':          this._drawCarrier(ctx, color); break;
+      case 'phantom':       this._drawStealthFighter(ctx, color); break;
+      case 'mirror':        this._drawMirror(ctx, color); break;
+      case 'magnet':        this._drawMagnet(ctx, color); break;
+      case 'time':          this._drawTimeUnit(ctx, color); break;
+      case 'voidEnemy':     this._drawVoidUnit(ctx, color); break;
+      case 'chaos':         this._drawChaosUnit(ctx, color); break;
       default:            this._drawFighter(ctx, color, false); break;
     }
 
@@ -3042,6 +3579,417 @@ class Enemy {
     }
   }
 
+  // ---- 30种新敌人绘制方法 ----
+  _drawElement(ctx, color, glowColor) {
+    const r = this.size;
+    const time = this.moveTimer * 0.005;
+    // 元素光环
+    const glowGrad = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.5);
+    glowGrad.addColorStop(0, glowColor + '88');
+    glowGrad.addColorStop(0.6, glowColor + '22');
+    glowGrad.addColorStop(1, glowColor + '00');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    // 核心
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    // 旋转元素符号
+    ctx.strokeStyle = '#ffffff88';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const a = time * 2 + (Math.PI * 2 / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3);
+      ctx.lineTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9);
+      ctx.stroke();
+    }
+  }
+
+  _drawEliteUnit(ctx, color, accentColor) {
+    const r = this.size;
+    // 主体
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.7, r * 0.5);
+    ctx.lineTo(r * 0.3, r * 0.8);
+    ctx.lineTo(-r * 0.3, r * 0.8);
+    ctx.lineTo(-r * 0.7, r * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 狂暴光环
+    if (this.isBerserk) {
+      ctx.strokeStyle = '#ff440088';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  _drawSupportUnit(ctx, color) {
+    const r = this.size;
+    // 十字标记
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-r * 0.15, -r * 0.5, r * 0.3, r);
+    ctx.fillRect(-r * 0.5, -r * 0.15, r, r * 0.3);
+    // 治疗光环
+    const time = this.moveTimer * 0.003;
+    ctx.strokeStyle = '#44ff8844';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (1 + Math.sin(time) * 0.2), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  _drawParasite(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.008;
+    // 触手
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const a = (Math.PI * 2 / 4) * i + time;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(
+        Math.cos(a + 0.5) * r * 0.5,
+        Math.sin(a + 0.5) * r * 0.5,
+        Math.cos(a) * r * 1.2,
+        Math.sin(a) * r * 1.2
+      );
+      ctx.stroke();
+    }
+    // 核心
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawDevourer(ctx, color) {
+    const r = this.size;
+    // 大嘴形状
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.8, -r * 0.3);
+    ctx.quadraticCurveTo(0, -r, r * 0.8, -r * 0.3);
+    ctx.lineTo(r * 0.6, r * 0.5);
+    ctx.quadraticCurveTo(0, r * 0.8, -r * 0.6, r * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // 嘴巴
+    ctx.fillStyle = '#442200';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.5, 0);
+    ctx.quadraticCurveTo(0, r * 0.5, r * 0.5, 0);
+    ctx.quadraticCurveTo(0, r * 0.2, -r * 0.5, 0);
+    ctx.fill();
+  }
+
+  _drawTurret(ctx, color) {
+    const r = this.size;
+    // 底座
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(-r * 0.6, -r * 0.3, r * 1.2, r * 0.8);
+    // 炮管
+    ctx.fillStyle = color;
+    ctx.fillRect(-r * 0.15, -r, r * 0.3, r * 0.8);
+    // 顶部
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.2, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawMissileCar(ctx, color) {
+    const r = this.size;
+    // 车身
+    ctx.fillStyle = color;
+    ctx.fillRect(-r * 0.7, -r * 0.3, r * 1.4, r * 0.7);
+    // 导弹架
+    ctx.fillStyle = '#ff4400';
+    ctx.fillRect(-r * 0.5, -r * 0.8, r * 0.3, r * 0.5);
+    ctx.fillRect(r * 0.2, -r * 0.8, r * 0.3, r * 0.5);
+    // 轮子
+    ctx.fillStyle = '#333333';
+    ctx.beginPath();
+    ctx.arc(-r * 0.5, r * 0.4, r * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.5, r * 0.4, r * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawLaserTower(ctx, color) {
+    const r = this.size;
+    // 底座
+    ctx.fillStyle = '#444444';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    // 激光发射器
+    ctx.fillStyle = color;
+    ctx.fillRect(-r * 0.1, -r * 1.2, r * 0.2, r * 0.8);
+    // 发射中效果
+    if (this.isFiringLaser) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = this.laserWidth;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(Math.cos(this.laserAngle) * 500, Math.sin(this.laserAngle) * 500);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  _drawBat(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.01;
+    const wingFlap = Math.sin(time * 5) * 0.3;
+    // 翅膀
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.3);
+    ctx.quadraticCurveTo(-r * 1.5, -r * (0.8 + wingFlap), -r * 1.2, r * 0.2);
+    ctx.lineTo(0, 0);
+    ctx.quadraticCurveTo(r * 1.5, -r * (0.8 + wingFlap), r * 1.2, r * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    // 身体
+    ctx.fillStyle = '#442266';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.3, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 眼睛
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.arc(-r * 0.15, -r * 0.2, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.15, -r * 0.2, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawGhost(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.004;
+    // 幽灵身体
+    ctx.globalAlpha = this.alpha || 0.7;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.quadraticCurveTo(r * 0.8, -r * 0.5, r * 0.6, r * 0.3);
+    ctx.lineTo(r * 0.4, r * 0.8 + Math.sin(time * 3) * r * 0.1);
+    ctx.lineTo(r * 0.2, r * 0.6);
+    ctx.lineTo(0, r * 0.8 + Math.sin(time * 3 + 1) * r * 0.1);
+    ctx.lineTo(-r * 0.2, r * 0.6);
+    ctx.lineTo(-r * 0.4, r * 0.8 + Math.sin(time * 3 + 2) * r * 0.1);
+    ctx.lineTo(-r * 0.6, r * 0.3);
+    ctx.quadraticCurveTo(-r * 0.8, -r * 0.5, 0, -r);
+    ctx.fill();
+    // 眼睛
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-r * 0.2, -r * 0.2, r * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.2, -r * 0.2, r * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  _drawDragon(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.004;
+    // 翅膀
+    ctx.fillStyle = color + 'aa';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.3, 0);
+    ctx.quadraticCurveTo(-r * 1.5, -r * 0.5, -r * 1.2, r * 0.3);
+    ctx.lineTo(-r * 0.3, r * 0.2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 0.3, 0);
+    ctx.quadraticCurveTo(r * 1.5, -r * 0.5, r * 1.2, r * 0.3);
+    ctx.lineTo(r * 0.3, r * 0.2);
+    ctx.fill();
+    // 身体
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.5, r * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 头
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.7, r * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    // 眼睛
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(-r * 0.15, -r * 0.75, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.15, -r * 0.75, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawMirror(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.003;
+    // 镜面效果
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.3, color);
+    grad.addColorStop(0.5, '#ffffff');
+    grad.addColorStop(0.7, color);
+    grad.addColorStop(1, '#ffffff');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    // 反射光线
+    ctx.strokeStyle = '#ffffff44';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = time + (Math.PI * 2 / 6) * i;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.4, Math.sin(a) * r * 0.4);
+      ctx.lineTo(Math.cos(a) * r * 1.2, Math.sin(a) * r * 1.2);
+      ctx.stroke();
+    }
+  }
+
+  _drawMagnet(ctx, color) {
+    const r = this.size;
+    // U形磁铁
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.8, Math.PI, 0);
+    ctx.lineTo(r * 0.8, r * 0.3);
+    ctx.arc(0, r * 0.3, r * 0.4, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    // N/S标记
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${r * 0.4}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('N', -r * 0.4, -r * 0.1);
+    ctx.fillText('S', r * 0.4, -r * 0.1);
+    // 吸力场效果
+    const time = this.moveTimer * 0.005;
+    ctx.strokeStyle = color + '44';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (1.5 + Math.sin(time) * 0.3), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  _drawTimeUnit(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.003;
+    // 时钟外形
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    // 表盘
+    ctx.fillStyle = '#112244';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2);
+    ctx.fill();
+    // 时针
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(time) * r * 0.4, Math.sin(time) * r * 0.4);
+    ctx.stroke();
+    // 分针
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(time * 3) * r * 0.55, Math.sin(time * 3) * r * 0.55);
+    ctx.stroke();
+    // 减速力场
+    ctx.strokeStyle = '#8888ff44';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  _drawVoidUnit(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.005;
+    // 虚空漩涡
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    // 旋转光环
+    for (let i = 0; i < 3; i++) {
+      const a = time * (2 + i * 0.5) + (Math.PI * 2 / 3) * i;
+      const radius = r * (0.5 + i * 0.2);
+      ctx.strokeStyle = `rgba(100,50,200,${0.6 - i * 0.15})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, a, a + Math.PI * 1.5);
+      ctx.stroke();
+    }
+    // 核心
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.4);
+    coreGrad.addColorStop(0, '#8844ff');
+    coreGrad.addColorStop(0.5, '#4422aa');
+    coreGrad.addColorStop(1, '#000000');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawChaosUnit(ctx, color) {
+    const r = this.size;
+    const time = this.moveTimer * 0.006;
+    // 混沌粒子
+    for (let i = 0; i < 5; i++) {
+      const a = time * (1 + i * 0.3) + (Math.PI * 2 / 5) * i;
+      const radius = r * (0.5 + Math.sin(time * 2 + i) * 0.3);
+      ctx.fillStyle = i % 2 === 0 ? color : '#ff88ff';
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * radius, Math.sin(a) * radius, r * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 核心
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // 随机闪烁
+    if (Math.random() < 0.1) {
+      ctx.fillStyle = '#ffffff88';
+      ctx.beginPath();
+      ctx.arc((Math.random() - 0.5) * r, (Math.random() - 0.5) * r, r * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   _drawHpBar(ctx) {
     const barWidth = this.size * 2.2;
     const barHeight = 4;
@@ -3484,7 +4432,10 @@ class WaveSpawner {
 
     // Scale boss HP by wave number: HP = base × (1 + wave × 0.06)²
     const scaledTemplate = Object.assign({}, template);
-    scaledTemplate.hp = Math.floor(template.hp * Math.pow(1 + this.waveNumber * 0.06, 2));
+    var bossHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
+    // Boss难度递增：第一个Boss简单，后续逐渐变强
+    if (window.game && window.game.bossHpMultiplier) bossHpScale *= window.game.bossHpMultiplier;
+    scaledTemplate.hp = Math.floor(template.hp * bossHpScale);
     // Scale boss damage: damage = base × (1 + wave × 0.04)
     const waveDmgScale = 1 + this.waveNumber * 0.04;
     scaledTemplate.damage = Math.floor(template.damage * waveDmgScale);

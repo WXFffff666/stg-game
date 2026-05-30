@@ -1,7 +1,9 @@
-const CACHE_NAME = 'stg-game-v1';
+const CACHE_NAME = 'stg-game-v2';
 const ASSETS = [
   './',
   './index.html',
+  './manifest.json',
+  './icon.svg',
   './js/config.js',
   './js/core.js',
   './js/storage.js',

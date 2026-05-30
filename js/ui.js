@@ -44,6 +44,9 @@ class UIManager {
     // HUD - Weapon bar
     this.elWeaponBar = gid('weapon-bar');
 
+    // HUD - Pause button (手机端)
+    this.elHudPauseBtn = gid('hud-pause-btn');
+
     // Toast / Pause
     this.elToast = gid('toast');
     this.elPauseOverlay = gid('pause-overlay');
@@ -139,11 +142,16 @@ class UIManager {
 
   showHUD() {
     if (this.elHud) this.elHud.style.display = 'flex';
+    // 暂停按钮由CSS媒体查询控制显示（仅手机端显示）
+    // 移除内联样式，让CSS接管
+    if (this.elHudPauseBtn) this.elHudPauseBtn.style.removeProperty('display');
     this._startHUDLoop();
   }
 
   hideHUD() {
     if (this.elHud) this.elHud.style.display = 'none';
+    // 隐藏暂停按钮
+    if (this.elHudPauseBtn) this.elHudPauseBtn.style.display = 'none';
     this._stopHUDLoop();
   }
 
@@ -358,6 +366,14 @@ class UIManager {
       });
     }
 
+    // 重置数据按钮
+    const btnResetData = document.getElementById('btn-reset-data');
+    if (btnResetData) {
+      btnResetData.addEventListener('click', () => {
+        this._showResetConfirm();
+      });
+    }
+
     // Game Over buttons
     if (this.elBtnRestart) {
       this.elBtnRestart.addEventListener('click', () => {
@@ -380,6 +396,18 @@ class UIManager {
         }
       }
     });
+
+    // 暂停按钮点击事件 (手机端)
+    const pauseBtn = document.getElementById('hud-pause-btn');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (game && game.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
+          if (this.onPauseToggle) this.onPauseToggle();
+        }
+      });
+    }
 
     // Delegate click on skill choices (dynamic content)
     if (this.elSkillChoices) {
@@ -456,18 +484,16 @@ class UIManager {
 
   /**
    * Get unlocked characters from localStorage.
-   * Default: only 'vanguard' is unlocked.
+   * 所有角色默认解锁。
    */
   _getUnlockedCharacters() {
-    try {
-      var saved = localStorage.getItem('stg_unlocked_characters');
-      if (saved) {
-        var parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    // Default: vanguard unlocked
-    return ['vanguard'];
+    // 返回所有角色key
+    var allChars = [];
+    var characters = GAME_CONFIG.CHARACTERS;
+    for (var key in characters) {
+      allChars.push(key);
+    }
+    return allChars;
   }
 
   /**
@@ -481,31 +507,10 @@ class UIManager {
 
   /**
    * Check and unlock characters based on conditions.
-   * Called after game over.
-   * @param {number} totalKills - Cumulative kills
-   * @param {boolean} bossDefeated - Whether a boss was defeated this run
+   * 所有角色已默认解锁，此方法保留兼容性但不再执行解锁逻辑。
    */
   checkCharacterUnlocks(totalKills, bossDefeated) {
-    var unlocked = this._getUnlockedCharacters();
-    var changed = false;
-
-    // ironWall: kill 500 enemies total
-    if (!unlocked.includes('ironWall') && totalKills >= 500) {
-      unlocked.push('ironWall');
-      changed = true;
-      this.showToast('🛡️ 解锁新角色：铁壁战机！', 3000, '#4488ff');
-    }
-
-    // agile: beat a boss
-    if (!unlocked.includes('agile') && bossDefeated) {
-      unlocked.push('agile');
-      changed = true;
-      this.showToast('💨 解锁新角色：灵动战机！', 3000, '#44ff88');
-    }
-
-    if (changed) {
-      this._saveUnlockedCharacters(unlocked);
-    }
+    // 所有角色默认已解锁，无需检查
   }
 
   /**
@@ -1292,9 +1297,18 @@ class UIManager {
       rarityEl.textContent = this._rarityLabel(data.rarity);
       card.appendChild(rarityEl);
 
-      // Click handler: pass full item object back
+      // Click handler: pass full item object back (with anti-spam)
       card.addEventListener('click', (function(selectedItem) {
         return function() {
+          if (card.classList.contains('disabled')) return;
+          card.classList.add('disabled');
+          card.style.pointerEvents = 'none';
+          card.style.opacity = '0.5';
+          setTimeout(function() {
+            card.classList.remove('disabled');
+            card.style.pointerEvents = '';
+            card.style.opacity = '';
+          }, 500);
           if (typeof onSelect === 'function') {
             onSelect(selectedItem);
           }
@@ -1304,12 +1318,140 @@ class UIManager {
       container.appendChild(card);
     }
 
+    // 键盘快捷键选择（1/2/3）和ESC阻止
+    var self = this;
+    var keyHandler = function(e) {
+      if (e.key >= '1' && e.key <= '3') {
+        var idx = parseInt(e.key) - 1;
+        var cards = container.querySelectorAll('.skill-card');
+        if (cards[idx]) cards[idx].click();
+      }
+      // 阻止ESC关闭弹窗
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', keyHandler);
+    this._levelUpKeyHandler = keyHandler;
+
     // Show the overlay as flex
     if (this.elLevelUp) this.elLevelUp.style.display = 'flex';
   }
 
   hideLevelUp() {
+    if (this._levelUpKeyHandler) {
+      document.removeEventListener('keydown', this._levelUpKeyHandler);
+      this._levelUpKeyHandler = null;
+    }
     if (this.elLevelUp) this.elLevelUp.style.display = 'none';
+  }
+
+  // ====================================================================
+  //  Wave Shop Overlay (波次间商店)
+  // ====================================================================
+
+  showWaveShop(items, gold, onPurchase, onRefresh, onClose) {
+    var overlay = document.getElementById('wave-shop-overlay');
+    if (!overlay) {
+      overlay = this._createWaveShopOverlay();
+    }
+
+    var goldDisplay = overlay.querySelector('#wave-shop-gold');
+    var itemsContainer = overlay.querySelector('#wave-shop-items');
+    var refreshBtn = overlay.querySelector('#wave-shop-refresh');
+    var closeBtn = overlay.querySelector('#wave-shop-close');
+    var refreshCost = document.getElementById('wave-shop-refresh-cost');
+
+    if (goldDisplay) goldDisplay.textContent = gold;
+    if (refreshCost) refreshCost.textContent = GAME_CONFIG.SHOP.refreshCost;
+
+    // 渲染商品
+    if (itemsContainer) {
+      itemsContainer.innerHTML = '';
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var canAfford = gold >= item.cost;
+        var card = document.createElement('div');
+        card.className = 'wave-shop-item' + (canAfford ? '' : ' disabled');
+        card.innerHTML =
+          '<div class="wave-shop-item-icon">' + item.icon + '</div>' +
+          '<div class="wave-shop-item-info">' +
+            '<div class="wave-shop-item-name">' + item.name + '</div>' +
+            '<div class="wave-shop-item-desc">' + (item.description || '') + '</div>' +
+          '</div>' +
+          '<button class="wave-shop-item-btn' + (canAfford ? '' : ' cant-afford') + '"' +
+            (canAfford ? '' : ' disabled') + '>' +
+            '💰 ' + item.cost +
+          '</button>';
+
+        (function(itemId, canAfford) {
+          if (canAfford) {
+            card.querySelector('.wave-shop-item-btn').addEventListener('click', function() {
+              if (typeof onPurchase === 'function') onPurchase(itemId);
+            });
+          }
+        })(item.id, canAfford);
+
+        itemsContainer.appendChild(card);
+      }
+    }
+
+    // 刷新按钮
+    if (refreshBtn) {
+      refreshBtn.onclick = function() {
+        if (typeof onRefresh === 'function') onRefresh();
+      };
+    }
+
+    // 关闭按钮
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        if (typeof onClose === 'function') onClose();
+      };
+    }
+
+    // 阻止ESC关闭
+    this._waveShopKeyHandler = function(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', this._waveShopKeyHandler);
+
+    overlay.style.display = 'flex';
+  }
+
+  hideWaveShop() {
+    if (this._waveShopKeyHandler) {
+      document.removeEventListener('keydown', this._waveShopKeyHandler);
+      this._waveShopKeyHandler = null;
+    }
+    var overlay = document.getElementById('wave-shop-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  _createWaveShopOverlay() {
+    var overlay = document.createElement('div');
+    overlay.id = 'wave-shop-overlay';
+    overlay.style.cssText = 'display:none;position:absolute;top:0;left:0;width:100%;height:100%;' +
+      'background:rgba(5,5,30,0.95);z-index:65;flex-direction:column;align-items:center;' +
+      'overflow-y:auto;padding:20px;';
+
+    overlay.innerHTML =
+      '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="font-size:28px;color:#ffdd00;font-weight:bold;text-shadow:0 0 15px rgba(255,221,0,0.5);">🛒 波次商店</div>' +
+        '<div style="font-size:20px;color:#ffdd00;margin-top:8px;">金币: <span id="wave-shop-gold">0</span></div>' +
+      '</div>' +
+      '<div id="wave-shop-items" style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px;margin-bottom:20px;"></div>' +
+      '<div style="display:flex;gap:12px;">' +
+        '<button id="wave-shop-refresh" class="wave-shop-btn" style="background:rgba(100,200,255,0.15);border-color:#64c8ff;color:#64c8ff;">🔄 刷新 (<span id="wave-shop-refresh-cost">50</span>💰)</button>' +
+        '<button id="wave-shop-close" class="wave-shop-btn" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3);color:#fff;">继续游戏 ▶</button>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    return overlay;
   }
 
   // ====================================================================
@@ -2018,6 +2160,82 @@ class UIManager {
   }
 
   // ====================================================================
+  //  Settings - Reset Data (重置数据)
+  // ====================================================================
+
+  /**
+   * 显示重置数据确认弹窗
+   */
+  _showResetConfirm() {
+    var self = this;
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:22px;font-weight:bold;color:#ff6666;margin-bottom:12px;text-shadow:0 0 15px rgba(255,68,68,0.5);';
+    title.textContent = '⚠️ 重置数据';
+    overlay.appendChild(title);
+
+    var desc = document.createElement('div');
+    desc.style.cssText = 'font-size:14px;color:#ccc;margin-bottom:24px;text-align:center;max-width:280px;line-height:1.6;';
+    desc.textContent = '将清除以下数据:\n· 排行榜记录\n· 个人最佳战绩\n· 商店购买记录\n· 消耗品库存\n· 角色解锁进度\n\n此操作不可撤销！';
+    overlay.appendChild(desc);
+
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:16px;';
+
+    var btnConfirm = document.createElement('button');
+    btnConfirm.className = 'menu-btn';
+    btnConfirm.textContent = '确认重置';
+    btnConfirm.style.cssText = 'border-color:#ff4444;color:#ff4444;';
+    btnConfirm.addEventListener('click', function() {
+      document.getElementById('ui-overlay').removeChild(overlay);
+      self._resetAllData();
+    });
+    btnRow.appendChild(btnConfirm);
+
+    var btnCancel = document.createElement('button');
+    btnCancel.className = 'menu-btn';
+    btnCancel.textContent = '取消';
+    btnCancel.addEventListener('click', function() {
+      document.getElementById('ui-overlay').removeChild(overlay);
+    });
+    btnRow.appendChild(btnCancel);
+
+    overlay.appendChild(btnRow);
+    document.getElementById('ui-overlay').appendChild(overlay);
+  }
+
+  /**
+   * 执行数据重置
+   */
+  _resetAllData() {
+    try {
+      // 清除排行榜
+      localStorage.removeItem('stg_leaderboard');
+      // 清除个人最佳
+      localStorage.removeItem('stg_personal_bests');
+      // 清除商店购买
+      localStorage.removeItem('stg_shop_purchases');
+      // 清除消耗品
+      localStorage.removeItem('stg_active_consumables');
+      // 清除角色解锁
+      localStorage.removeItem('stg_unlocked_characters');
+      // 清除特效设置
+      localStorage.removeItem('stg_effects_quality');
+      // 清除已完成教程
+      localStorage.removeItem('stg_tutorial_done');
+      // 清除星币（如果有UpgradeManager）
+      if (window.UpgradeManager && typeof window.UpgradeManager.resetStarCoins === 'function') {
+        window.UpgradeManager.resetStarCoins();
+      }
+      this.showToast('✅ 数据已重置！', 2500);
+    } catch (e) {
+      this.showToast('⚠️ 重置失败', 2000);
+    }
+  }
+
+  // ====================================================================
   //  Codex (图鉴)
   // ====================================================================
 
@@ -2064,7 +2282,7 @@ class UIManager {
         container.appendChild(card);
       }
     } else if (tab === 'factions') {
-      // Render factions
+      // 渲染流派
       for (const [id, f] of Object.entries(cfg.FACTIONS)) {
         const card = document.createElement('div');
         card.className = 'codex-card';
@@ -2074,6 +2292,54 @@ class UIManager {
           <div class="codex-card-desc">${f.description || ''}</div>
         `;
         container.appendChild(card);
+      }
+    } else if (tab === 'enemies') {
+      // 渲染敌人
+      var enemyTypes = cfg.ENEMIES;
+      if (enemyTypes) {
+        for (var key in enemyTypes) {
+          var e = enemyTypes[key];
+          var card = document.createElement('div');
+          card.className = 'codex-card';
+          card.style.borderColor = (e.color || '#fff') + '44';
+          card.innerHTML =
+            '<div class="codex-card-icon" style="color:' + (e.color || '#fff') + '">●</div>' +
+            '<div class="codex-card-name" style="color:' + (e.color || '#fff') + '">' + (e.name || key) + '</div>' +
+            '<div class="codex-card-desc">' + (e.ai ? '行为: ' + e.ai : '') + '</div>' +
+            '<div class="codex-card-stats">HP:' + e.hp + ' 速度:' + e.speed + ' 伤害:' + e.damage + '</div>' +
+            '<div class="codex-card-stats">分数:' + e.score + ' 经验:' + e.xp + '</div>';
+          container.appendChild(card);
+        }
+      }
+    } else if (tab === 'bosses') {
+      // 渲染Boss
+      var bossTypes = cfg.BOSSES;
+      if (bossTypes) {
+        for (var key in bossTypes) {
+          var b = bossTypes[key];
+          var card = document.createElement('div');
+          card.className = 'codex-card codex-card-boss';
+          card.style.borderColor = (b.color || '#ff4444') + '66';
+          var phaseHtml = '';
+          if (b.phases) {
+            phaseHtml = '<div class="codex-card-phases">';
+            for (var p = 0; p < b.phases.length; p++) {
+              var ph = b.phases[p];
+              phaseHtml += '<div class="codex-phase">' +
+                '<span class="codex-phase-hp">HP≤' + Math.round(ph.hpThreshold * 100) + '%</span> ' +
+                '<span class="codex-phase-name">' + (ph.name || '阶段' + (p + 1)) + '</span>' +
+                '</div>';
+            }
+            phaseHtml += '</div>';
+          }
+          card.innerHTML =
+            '<div class="codex-card-icon" style="font-size:32px">' + (b.icon || '💀') + '</div>' +
+            '<div class="codex-card-name" style="color:' + (b.color || '#ff4444') + ';font-size:14px">' + (b.name || key) + '</div>' +
+            '<div class="codex-card-desc">' + (b.description || '') + '</div>' +
+            '<div class="codex-card-stats">HP:' + b.baseHp + ' 伤害:' + b.baseDamage + ' 分数:' + b.score + '</div>' +
+            phaseHtml;
+          container.appendChild(card);
+        }
       }
     }
   }

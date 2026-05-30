@@ -19,7 +19,7 @@ const GAME_CONFIG = {
     PLAYER_INVINCIBLE_MS: 2000,
     PLAYER_HITBOX_RADIUS: 8,
     XP_PER_KILL_BASE: 10,
-    XP_CURVE: [0, 80, 180, 320, 500, 750, 1050, 1400, 1850, 2400, 3050, 3800, 4700, 5750, 7000, 8500, 10200, 12200, 14600, 17500,
+    XP_CURVE: [0, 40, 90, 160, 250, 375, 525, 700, 925, 1200, 3050, 3800, 4700, 5750, 7000, 8500, 10200, 12200, 14600, 17500,
       21000, 25000, 30000, 36000, 43000, 51000, 60000, 70000, 82000, 96000, 112000, 130000, 150000, 172000, 197000, 225000,
       256000, 290000, 328000, 370000, 416000, 466000, 520000, 580000, 645000, 715000, 790000, 870000, 955000, 1045000
     ],
@@ -31,6 +31,11 @@ const GAME_CONFIG = {
     ENEMY_BULLET_DAMAGE: 10,
     COLLISION_DAMAGE: 15,
     ITEM_DROP_CHANCE: 0.15,
+    EARLY_GAME_DURATION: 300000, // 5分钟
+    EARLY_ITEM_DROP_RATE: 0.30,  // 前期掉率30%
+    NORMAL_ITEM_DROP_RATE: 0.15, // 正常掉率15%
+    LOW_HP_THRESHOLD: 0.3,       // 低血量阈值
+    LOW_HP_DROP_BONUS: 0.20,     // 低血量掉率加成
     ITEM_LIFETIME: 10000,
     SCREEN_SHAKE_DECAY: 0.9,
     MAX_PARTICLES: 300,
@@ -38,6 +43,40 @@ const GAME_CONFIG = {
     BOSS_INTERVAL_SCORE: 20000,
     COMBO_TIMEOUT: 3000,
     COMBO_MULTIPLIER: 0.1,
+
+    // ============ 难度曲线配置 ============
+    // 前期(0-5分钟)：轻松上手
+    EARLY_PHASE_END: 300000,       // 前期结束时间(ms) = 5分钟
+    EARLY_HP_MULTIPLIER: 0.8,      // 前期敌人HP×0.8
+    EARLY_XP_MULTIPLIER: 1.2,      // 前期经验×1.2
+    EARLY_DROP_MULTIPLIER: 1.5,    // 前期掉率×1.5
+    // 中期(5-15分钟)：标准难度，无额外修正
+    MID_PHASE_END: 900000,         // 中期结束时间(ms) = 15分钟
+    // 后期(15分钟+)：难度逐渐提升
+    LATE_DIFFICULTY_SCALE: 0.08,   // 后期每分钟额外难度系数
+    // Boss难度递增
+    BOSS_FIRST_HP_SCALE: 0.7,      // 第一个Boss HP×0.7(简单)
+    BOSS_SCALING_PER_KILL: 0.12,   // 每击败一个Boss，后续Boss难度+12%
+
+    // ============ 性能优化配置 ============
+    // 对象池扩容
+    POOL_BULLETS: 300,
+    POOL_ENEMIES: 60,
+    POOL_PARTICLES: 250,
+
+    // 碰撞网格配置 (4x4空间网格)
+    COLLISION_GRID_COLS: 4,
+    COLLISION_GRID_ROWS: 4,
+
+    // 低性能检测阈值
+    LOW_FPS_THRESHOLD: 30,         // 帧率阈值
+    LOW_FPS_DURATION: 3000,        // 持续时间(毫秒)
+    LOW_FPS_CHECK_INTERVAL: 500,   // 检测间隔(毫秒)
+
+    // 低性能模式限制
+    LOW_PERF_PARTICLE_REDUCTION: 0.5,  // 粒子减少50%
+    LOW_PERF_MAX_ENEMIES: 25,          // 敌人上限
+    LOW_PERF_MAX_BULLETS: 120,         // 子弹上限
   },
 
   // ============ SCENES ============
@@ -48,6 +87,21 @@ const GAME_CONFIG = {
     LEVEL_UP: 'levelUp',
     GAME_OVER: 'gameOver',
     LEADERBOARD: 'leaderboard',
+  },
+
+  // ============ SHOP (波次间商店) ============
+  SHOP: {
+    items: [
+      { id: 'healthSmall', name: '小血包', cost: 30, icon: '❤️', description: '恢复30HP' },
+      { id: 'healthMedium', name: '中血包', cost: 80, icon: '💗', description: '恢复80HP' },
+      { id: 'healthLarge', name: '大血包', cost: 200, icon: '💖', description: '恢复全部HP' },
+      { id: 'fusionCore', name: '融合核心', cost: 150, icon: '🔮', description: '用于武器融合的稀有材料' },
+      { id: 'attackBoost', name: '攻击强化', cost: 100, icon: '⚔️', description: '攻击力+15%' },
+      { id: 'speedBoost', name: '速度强化', cost: 80, icon: '💨', description: '移动速度+10%' },
+    ],
+    refreshCost: 50,
+    waveInterval: 5,
+    displayCount: 3,
   },
 
   // ============ FACTIONS (10) ============
@@ -171,6 +225,108 @@ const GAME_CONFIG = {
       description: '操纵时间，减速世界加速自身',
       baseStats: { attackSpeed: 0.9, attack: 0.85, hp: 100, speed: 285, timeSlowAmount: 0.3, timeSlowDuration: 3000, cooldownReduction: 0.2 },
       icon: '⏳'
+    },
+    fury: {
+      id: 'fury', name: '💢 狂怒流', color: '#ff0044',
+      description: '低血加攻，绝地反击',
+      baseStats: { attackSpeed: 0.8, attack: 1.3, hp: 80, speed: 310, lowHpBonus: 0.5, rageThreshold: 0.3 },
+      icon: '💢'
+    },
+    luck: {
+      id: 'luck', name: '🍀 幸运流', color: '#44ff44',
+      description: '概率提升，运气爆棚',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 100, speed: 280, luckBonus: 0.2, critRate: 0.1, dropRateBonus: 0.15 },
+      icon: '🍀'
+    },
+    sonic: {
+      id: 'sonic', name: '🔊 音波流', color: '#ff88ff',
+      description: '音波脉冲，震荡全场',
+      baseStats: { attackSpeed: 1.0, attack: 0.85, hp: 100, speed: 285, sonicPulseInterval: 10, sonicDamage: 0.5, sonicRadius: 120 },
+      icon: '🔊'
+    },
+    minion: {
+      id: 'minion', name: '👹 魔仆流', color: '#ff4488',
+      description: '鲜血收集，魔仆助战',
+      baseStats: { attackSpeed: 1.0, attack: 0.8, hp: 110, speed: 275, minionCount: 0, minionDamage: 0.4, bloodOrbDrop: 0.15 },
+      icon: '👹'
+    },
+    data: {
+      id: 'data', name: '📊 数据流', color: '#00ffcc',
+      description: '弱点扫描，精准打击',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 95, speed: 285, weakPointChance: 0.15, weakPointBonus: 0.5, scanRange: 200 },
+      icon: '📊'
+    },
+    nature: {
+      id: 'nature', name: '🌿 自然流', color: '#44ff88',
+      description: '自然恢复，生生不息',
+      baseStats: { attackSpeed: 1.0, attack: 0.85, hp: 130, speed: 265, regenRate: 0.003, thornDamage: 0.2, vineRoot: 0.1 },
+      icon: '🌿'
+    },
+    psychic: {
+      id: 'psychic', name: '🧠 心灵流', color: '#ff44ff',
+      description: '心灵标记，预判增伤',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 90, speed: 290, markChance: 0.2, markBonus: 0.4, predictRange: 250 },
+      icon: '🧠'
+    },
+    explosive: {
+      id: 'explosive', name: '💥 爆破流', color: '#ff8800',
+      description: '爆炸范围，连锁反应',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 85, speed: 285, explosionBonus: 0.3, explosionRadius: 70, chainExplosion: 0.1 },
+      icon: '💥'
+    },
+    mech: {
+      id: 'mech', name: '🤖 机械流', color: '#88aaff',
+      description: '机器人军团，自动作战',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 115, speed: 270, robotCount: 0, robotDamage: 0.35, repairRate: 0.01 },
+      icon: '🤖'
+    },
+    rune: {
+      id: 'rune', name: '🔮 符文流', color: '#ffaa44',
+      description: '符文印记，触发效果',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 100, speed: 280, runeDrop: 0.15, runeDuration: 5000, runeEffect: 0.3 },
+      icon: '🔮'
+    },
+    star: {
+      id: 'star', name: '⭐ 星辰流', color: '#ffffaa',
+      description: '星能蓄力，满层爆发',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, starCharge: 0, maxStarCharge: 100, chargeRate: 5 },
+      icon: '⭐'
+    },
+    darkGold: {
+      id: 'darkGold', name: '💰 暗金流', color: '#ffcc00',
+      description: '击杀额外金币，提升经济',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 100, speed: 280, goldBonus: 0.3, goldOnHit: 1, goldMagnet: 100 },
+      icon: '💰'
+    },
+    storm: {
+      id: 'storm', name: '🌪️ 风暴流', color: '#88ffcc',
+      description: '风墙护体，龙卷攻击',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 100, speed: 290, windWallRadius: 80, windPushForce: 100, tornadoChance: 0.08 },
+      icon: '🌪️'
+    },
+    soul: {
+      id: 'soul', name: '👻 灵魂流', color: '#cc88ff',
+      description: '收集灵魂，提升属性',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 100, speed: 280, soulCollect: 0, maxSouls: 50, soulBonus: 0.02 },
+      icon: '👻'
+    },
+    genesis: {
+      id: 'genesis', name: '🌌 创世流', color: '#ffffff',
+      description: '随机增益，混沌创世',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, randomBuffInterval: 60000, buffDuration: 30000 },
+      icon: '🌌'
+    },
+    tech: {
+      id: 'tech', name: '⚙️ 科技流', color: '#44ddff',
+      description: '技术强化，冷却缩减',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, skillBoost: 0.15, cooldownReduction: 0.1, nanoRepair: 0.005 },
+      icon: '⚙️'
+    },
+    chaos: {
+      id: 'chaos', name: '🎭 混沌流', color: '#ff44aa',
+      description: '随机元素，混沌之力',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, randomEffectChance: 0.15, chaosMultiplier: 0.2 },
+      icon: '🎭'
     },
   },
 
@@ -358,6 +514,38 @@ const GAME_CONFIG = {
     { id: 'bg_piercing', name: '穿透弹幕', faction: 'barrage', type: 'passive', rarity: 'rare',
       effects: [{ stat: 'pierceCount', op: 'add', value: 2 }] },
 
+    // --- Fury Exclusive Skills ---
+    { id: 'fr_berserk', name: '狂暴', faction: 'fury', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'attack', op: 'multiply', value: 0.15 }] },
+    { id: 'fr_lastStand', name: '绝地反击', faction: 'fury', type: 'conditional', rarity: 'rare',
+      effects: [{ stat: 'attack', op: 'multiply', value: 0.4, condition: 'lowHp' }, { stat: 'attackSpeed', op: 'multiply', value: -0.2, condition: 'lowHp' }] },
+    { id: 'fr_rage', name: '怒火燃烧', faction: 'fury', type: 'passive', rarity: 'uncommon',
+      effects: [{ stat: 'lowHpBonus', op: 'add', value: 0.15 }] },
+
+    // --- Luck Exclusive Skills ---
+    { id: 'lk_fortune', name: '福星高照', faction: 'luck', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'dropRateBonus', op: 'add', value: 0.1 }] },
+    { id: 'lk_jackpot', name: '头奖', faction: 'luck', type: 'passive', rarity: 'rare',
+      effects: [{ stat: 'luckBonus', op: 'add', value: 0.2 }, { stat: 'critRate', op: 'add', value: 0.08 }] },
+    { id: 'lk_miracle', name: '奇迹', faction: 'luck', type: 'conditional', rarity: 'epic',
+      effects: [{ stat: 'reviveCount', op: 'add', value: 1 }, { stat: 'luckBonus', op: 'add', value: 0.1 }] },
+
+    // --- Minion Exclusive Skills ---
+    { id: 'mn_bloodOrb', name: '鲜血宝珠', faction: 'minion', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'bloodOrbDrop', op: 'add', value: 0.1 }] },
+    { id: 'mn_minionDmg', name: '魔仆强化', faction: 'minion', type: 'passive', rarity: 'uncommon',
+      effects: [{ stat: 'minionDamage', op: 'multiply', value: 0.3 }] },
+    { id: 'mn_minionCount', name: '魔仆召唤', faction: 'minion', type: 'passive', rarity: 'rare',
+      effects: [{ stat: 'minionCount', op: 'add', value: 1 }] },
+
+    // --- Data Exclusive Skills ---
+    { id: 'dt_weakScan', name: '弱点扫描', faction: 'data', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'weakPointChance', op: 'add', value: 0.1 }] },
+    { id: 'dt_critBonus', name: '精准打击', faction: 'data', type: 'passive', rarity: 'uncommon',
+      effects: [{ stat: 'weakPointBonus', op: 'multiply', value: 0.4 }] },
+    { id: 'dt_scanRange', name: '全域扫描', faction: 'data', type: 'passive', rarity: 'rare',
+      effects: [{ stat: 'scanRange', op: 'multiply', value: 0.5 }, { stat: 'weakPointChance', op: 'add', value: 0.05 }] },
+
     // --- More Generic Skills ---
     { id: 'dodge_1', name: '闪避提升 I', faction: 'any', type: 'passive', rarity: 'common',
       effects: [{ stat: 'dodgeChance', op: 'add', value: 0.06 }] },
@@ -529,6 +717,66 @@ const GAME_CONFIG = {
       effects: [{ action: 'paradox', doubleCastChance: 0.3 }] },
     { id: 'tm_chronosphere', name: '时空领域', faction: 'time', type: 'active', rarity: 'legendary',
       cooldown: 50000, effects: [{ action: 'chronosphere', timeSlow: 0.3, duration: 5000, speedBoost: 1.5, cooldownReset: true }] },
+
+    // ============ NEW: Sonic Faction Skills (5) ============
+    { id: 'sn_wave', name: '音波扩散', faction: 'sonic', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'sonicRadius', op: 'add', value: 30 }, { stat: 'sonicDamage', op: 'add', value: 0.1 }] },
+    { id: 'sn_echo', name: '回声共鸣', faction: 'sonic', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'sonicEcho', damage: 20, radius: 150, echoCount: 2 }] },
+    { id: 'sn_resonance', name: '共振', faction: 'sonic', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'sonicResonance', damage: 35, duration: 4000, radius: 200, stunDuration: 1000 }] },
+    { id: 'sn_amplify', name: '增幅', faction: 'sonic', type: 'passive', rarity: 'epic',
+      effects: [{ stat: 'sonicDamage', op: 'multiply', value: 0.5 }, { stat: 'attack', op: 'multiply', value: 0.1 }] },
+    { id: 'sn_sonicBoom', name: '音爆', faction: 'sonic', type: 'active', rarity: 'legendary',
+      cooldown: 45000, effects: [{ action: 'sonicBoom', damage: 60, duration: 5000, radius: 350, pushForce: 200, stunDuration: 2000 }] },
+
+    // ============ NEW: Nature Faction Skills (5) ============
+    { id: 'nt_regeneration', name: '自然恢复', faction: 'nature', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'regenRate', op: 'add', value: 0.003 }, { stat: 'hp', op: 'multiply', value: 0.1 }] },
+    { id: 'nt_thorns', name: '荆棘护体', faction: 'nature', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'thornStrike', damage: 25, radius: 100 }] },
+    { id: 'nt_vineRoot', name: '藤蔓缠绕', faction: 'nature', type: 'active', rarity: 'rare',
+      cooldown: 15000, effects: [{ action: 'vineRoot', duration: 3000, radius: 180, slowAmount: 0.6 }] },
+    { id: 'nt_photosynthesis', name: '光合作用', faction: 'nature', type: 'passive', rarity: 'epic',
+      effects: [{ stat: 'regenRate', op: 'multiply', value: 1.0 }, { stat: 'attack', op: 'multiply', value: 0.15 }] },
+    { id: 'nt_bloom', name: '生命绽放', faction: 'nature', type: 'active', rarity: 'legendary',
+      cooldown: 40000, effects: [{ action: 'bloom', healAmount: 50, duration: 6000, radius: 250, regenBoost: 0.01 }] },
+
+    // ============ NEW: Psychic Faction Skills (5) ============
+    { id: 'ps_mark', name: '心灵标记', faction: 'psychic', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'markChance', op: 'add', value: 0.15 }, { stat: 'markBonus', op: 'add', value: 0.1 }] },
+    { id: 'ps_predict', name: '预判射击', faction: 'psychic', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'predictShot', bonusDamage: 30, predictRange: 300 }] },
+    { id: 'ps_burst', name: '心灵爆破', faction: 'psychic', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'psychicBurst', damage: 55, radius: 200, markAll: true }] },
+    { id: 'ps_telekinesis', name: '念力掌控', faction: 'psychic', type: 'passive', rarity: 'epic',
+      effects: [{ stat: 'bulletRepelChance', op: 'add', value: 0.25 }, { stat: 'markBonus', op: 'multiply', value: 0.5 }] },
+    { id: 'ps_mindControl', name: '精神控制', faction: 'psychic', type: 'active', rarity: 'legendary',
+      cooldown: 50000, effects: [{ action: 'mindControl', duration: 4000, radius: 200, convertDamage: 1.5 }] },
+
+    // ============ NEW: Rune Faction Skills (3) ============
+    { id: 'rn_mark', name: '符文印记', faction: 'rune', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'runeDrop', op: 'add', value: 0.1 }, { stat: 'runeDuration', op: 'add', value: 1000 }] },
+    { id: 'rn_chain', name: '符文连锁', faction: 'rune', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onRuneTrigger', effects: [{ action: 'runeChain', damage: 30, radius: 180, chainCount: 2 }] },
+    { id: 'rn_explosion', name: '符文爆破', faction: 'rune', type: 'active', rarity: 'rare',
+      cooldown: 15000, effects: [{ action: 'runeExplosion', damage: 50, radius: 250, runeEffectBoost: 0.5 }] },
+
+    // ============ NEW: Star Faction Skills (3) ============
+    { id: 'st_charge', name: '星能蓄力', faction: 'star', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'chargeRate', op: 'add', value: 2 }, { stat: 'maxStarCharge', op: 'add', value: 20 }] },
+    { id: 'st_burst', name: '星辰爆发', faction: 'star', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onMaxCharge', effects: [{ action: 'starBurst', damage: 80, radius: 300, chargeReset: true }] },
+    { id: 'st_shower', name: '流星雨', faction: 'star', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'starShower', damage: 40, count: 8, duration: 3000, radius: 250 }] },
+
+    // ============ NEW: DarkGold Faction Skills (3) ============
+    { id: 'dg_goldRush', name: '淘金热', faction: 'darkGold', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'goldBonus', op: 'add', value: 0.15 }, { stat: 'goldOnHit', op: 'add', value: 1 }] },
+    { id: 'dg_midas', name: '点金术', faction: 'darkGold', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'midas', goldMultiplier: 2.0, duration: 3000 }] },
+    { id: 'dg_magnet', name: '金币磁石', faction: 'darkGold', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'goldMagnet', radius: 400, duration: 5000, goldPerSecond: 5 }] },
 
     // ============ NEW: General Active/Visual Skills (50) ============
     // --- Meteor / Fire ---
@@ -809,6 +1057,68 @@ const GAME_CONFIG = {
       waveAmplitude: 4, waveFrequency: 0.05, bulletsPerWave: 4, explosionRadius: 55,
       bulletColor: '#44ffaa', trailColor: '#22cc66',
     },
+
+    // ============ NEW: 10 Special Weapons ============
+    flameThrower: {
+      id: 'flameThrower', name: '火焰喷射器', icon: '🔥', rarity: 'rare',
+      description: '近程扇形火焰，附加燃烧',
+      pattern: 'flameThrower', fireRate: 80, damage: 5, bulletSpeed: 400, bulletSize: 10,
+      flameAngle: 50, flameCount: 5, burnDamage: 6, burnDuration: 2000, bulletColor: '#ff6600', trailColor: '#ff3300',
+    },
+    frostCannon: {
+      id: 'frostCannon', name: '冰霜炮', icon: '❄️', rarity: 'rare',
+      description: '单发冰弹，附加减速',
+      pattern: 'frostCannon', fireRate: 600, damage: 20, bulletSpeed: 450, bulletSize: 5,
+      slowAmount: 0.5, slowDuration: 3000, bulletColor: '#88ddff', trailColor: '#4499cc',
+    },
+    lightningGun: {
+      id: 'lightningGun', name: '闪电枪', icon: '⚡', rarity: 'epic',
+      description: '连锁电弧弹射多个敌人',
+      pattern: 'lightningGun', fireRate: 500, damage: 15, bulletSpeed: 1000, bulletSize: 3,
+      chainCount: 5, chainRange: 200, bulletColor: '#ffff44', trailColor: '#ffaa00',
+    },
+    rocketLauncher: {
+      id: 'rocketLauncher', name: '火箭筒', icon: '🚀', rarity: 'epic',
+      description: '单发重型火箭，大范围爆炸',
+      pattern: 'rocketLauncher', fireRate: 800, damage: 45, bulletSpeed: 350, bulletSize: 8,
+      explosionRadius: 100, bulletColor: '#ff4444', trailColor: '#cc0000',
+    },
+    mineLayer: {
+      id: 'mineLayer', name: '地雷投放器', icon: '💣', rarity: 'rare',
+      description: '移动布雷，敌人触碰爆炸',
+      pattern: 'mineLayer', fireRate: 400, damage: 30, bulletSpeed: 200, bulletSize: 4,
+      explosionRadius: 80, mineCount: 3, bulletColor: '#ff8844', trailColor: '#cc4400',
+    },
+    energyWhip: {
+      id: 'energyWhip', name: '能量鞭', icon: '🌀', rarity: 'rare',
+      description: '360度旋转近程能量鞭',
+      pattern: 'energyWhip', fireRate: 300, damage: 12, bulletSpeed: 500, bulletSize: 3,
+      whipCount: 8, bulletColor: '#44ffcc', trailColor: '#22cc88',
+    },
+    sawBlade: {
+      id: 'sawBlade', name: '飞锯', icon: '⚙️', rarity: 'uncommon',
+      description: '弹射旋转锯片穿透多次',
+      pattern: 'sawBlade', fireRate: 400, damage: 15, bulletSpeed: 450, bulletSize: 6,
+      spinSpeed: 12, pierceCount: 6, bulletColor: '#cccccc', trailColor: '#888888',
+    },
+    venomGun: {
+      id: 'venomGun', name: '毒液枪', icon: '☠️', rarity: 'uncommon',
+      description: '毒雾弹持续伤害区域',
+      pattern: 'venomGun', fireRate: 350, damage: 6, bulletSpeed: 350, bulletSize: 8,
+      pierceCount: 2, burnDamage: 4, burnDuration: 3000, bulletColor: '#88ff44', trailColor: '#44cc00',
+    },
+    magnetGun: {
+      id: 'magnetGun', name: '磁力枪', icon: '🧲', rarity: 'rare',
+      description: '磁力弹吸引附近敌人',
+      pattern: 'magnetGun', fireRate: 500, damage: 8, bulletSpeed: 300, bulletSize: 6,
+      wellRadius: 150, pullForce: 120, bulletColor: '#ff44ff', trailColor: '#cc22cc',
+    },
+    blackHoleGen: {
+      id: 'blackHoleGen', name: '黑洞发生器', icon: '🕳️', rarity: 'legendary',
+      description: '发射黑洞吸入并伤害敌人',
+      pattern: 'blackHoleGen', fireRate: 1200, damage: 10, bulletSpeed: 200, bulletSize: 8,
+      wellRadius: 200, pullForce: 150, wellDamage: 15, executeThreshold: 0.15, bulletColor: '#6600aa', trailColor: '#440066',
+    },
   },
 
   // ============ WEAPON UPGRADES ============
@@ -876,6 +1186,38 @@ const GAME_CONFIG = {
       { id: 'w_photonNeedle', ingredientA: 'photonBeam', ingredientB: 'needle', result: 'photonNeedle',
         name: '光子针', icon: '💡', description: '光子束 + 针弹 = 超高速光子穿透针',
         colorA: '#ffffff', colorB: '#aaffff' },
+
+      // ---- 新增融合配方 (10种) ----
+      { id: 'w_venomFlame', ingredientA: 'flame', ingredientB: 'lightningBolt', result: 'venomFlame',
+        name: '雷焰喷射', icon: '🔥', description: '火焰喷射 + 雷电 = 闪电灼烧火焰',
+        colorA: '#ff6600', colorB: '#ffff44' },
+      { id: 'w_frostStorm', ingredientA: 'iceShard', ingredientB: 'shuriken', result: 'frostStorm',
+        name: '冰霜风暴', icon: '❄️', description: '冰晶 + 手里剑 = 冰冻旋转飞刃',
+        colorA: '#88ddff', colorB: '#aaaacc' },
+      { id: 'w_thunderShock', ingredientA: 'arc', ingredientB: 'wave', result: 'thunderShock',
+        name: '雷霆冲击', icon: '⚡', description: '电弧链 + 波动炮 = 链式电弧波动',
+        colorA: '#88ffff', colorB: '#44ff88' },
+      { id: 'w_holyLight', ingredientA: 'homing', ingredientB: 'pierce', result: 'holyLight',
+        name: '圣光洗礼', icon: '✨', description: '追踪弹 + 穿甲弹 = 追踪穿透圣光',
+        colorA: '#ff44ff', colorB: '#ffffff' },
+      { id: 'w_shadowNeedle', ingredientA: 'shuriken', ingredientB: 'needle', result: 'shadowNeedle',
+        name: '暗影飞针', icon: '🌑', description: '手里剑 + 针弹 = 高速暗影飞针',
+        colorA: '#aaaacc', colorB: '#aaffff' },
+      { id: 'w_electricWave', ingredientA: 'wave', ingredientB: 'lightningBolt', result: 'electricWave',
+        name: '电磁波', icon: '🌊', description: '波动炮 + 雷电 = 电磁波动冲击',
+        colorA: '#44ff88', colorB: '#ffff44' },
+      { id: 'w_napalm', ingredientA: 'explosive', ingredientB: 'flame', result: 'napalm',
+        name: '凝固汽油弹', icon: '💥', description: '爆破弹 + 火焰喷射 = 燃烧爆炸弹',
+        colorA: '#ff4444', colorB: '#ff6600' },
+      { id: 'w_photonTracker', ingredientA: 'homing', ingredientB: 'laser', result: 'photonTracker',
+        name: '光子追踪', icon: '🎯', description: '追踪弹 + 激光炮 = 自动追踪激光',
+        colorA: '#ff44ff', colorB: '#00ffff' },
+      { id: 'w_scatterSatellite', ingredientA: 'spread', ingredientB: 'orbital', result: 'scatterSatellite',
+        name: '散射卫星', icon: '🛰️', description: '散射弹 + 浮游炮 = 散射浮游炮',
+        colorA: '#ff8844', colorB: '#88ddff' },
+      { id: 'w_piercingExplosive', ingredientA: 'pierce', ingredientB: 'explosive', result: 'piercingExplosive',
+        name: '穿甲爆弹', icon: '🗡️', description: '穿甲弹 + 爆破弹 = 穿透后爆炸',
+        colorA: '#ffffff', colorB: '#ff4444' },
     ],
     skills: [
       { id: 's_plagueBlizzard', ingredientA: 'ps_venom', ingredientB: 'ic_blizzard', result: 'fusion_plagueBlizzard',
@@ -1262,6 +1604,56 @@ const GAME_CONFIG = {
         { hpThreshold: 0.1, name: '末日审判', attackPattern: 'doomsday', bulletCount: 30, spreadAngle: 360, fireRate: 150, bulletSpeed: 400, allElements: true },
       ],
     },
+    steelColossus: {
+      id: 'steelColossus', name: '钢铁巨像', icon: '🦾', color: '#666688',
+      description: '重型Boss，砸地冲击波+导弹齐射',
+      baseHp: 10000, baseDamage: 45, size: 70, score: 12000, xp: 900,
+      phases: [
+        { hpThreshold: 0.7, name: '重锤阶段', attackPattern: 'groundSlam', bulletCount: 10, spreadAngle: 180, fireRate: 900, bulletSpeed: 200, shockwaveRadius: 180, shockwaveDamage: 30 },
+        { hpThreshold: 0.4, name: '导弹齐射', attackPattern: 'missileBarrage', bulletCount: 16, spreadAngle: 360, fireRate: 500, bulletSpeed: 260, missileTracking: true, missileCount: 6 },
+        { hpThreshold: 0.15, name: '钢铁风暴', attackPattern: 'steelTempest', bulletCount: 24, spreadAngle: 360, fireRate: 300, bulletSpeed: 340, armorUp: true, damageReduction: 0.5, shockwaveRadius: 250 },
+      ],
+    },
+    shadowAssassin: {
+      id: 'shadowAssassin', name: '暗影刺客', icon: '🗡️', color: '#333355',
+      description: '隐身Boss，瞬移背刺+暗影分身',
+      baseHp: 6500, baseDamage: 50, size: 42, score: 11000, xp: 850,
+      phases: [
+        { hpThreshold: 0.7, name: '潜行阶段', attackPattern: 'stealthStrike', bulletCount: 6, spreadAngle: 45, fireRate: 600, bulletSpeed: 350, stealth: true, stealthDuration: 2000, backstabDamage: 80 },
+        { hpThreshold: 0.4, name: '影分身', attackPattern: 'shadowClone', bulletCount: 10, spreadAngle: 360, fireRate: 400, bulletSpeed: 300, cloneCount: 2, cloneHp: 1000, teleportCooldown: 2000 },
+        { hpThreshold: 0.15, name: '暗影乱舞', attackPattern: 'shadowFrenzy', bulletCount: 16, spreadAngle: 360, fireRate: 200, bulletSpeed: 380, multiTeleport: true, teleportCount: 3, backstabDamage: 120 },
+      ],
+    },
+    elementLord: {
+      id: 'elementLord', name: '元素领主', icon: '🌀', color: '#cc44ff',
+      description: '切换元素形态(火/冰/雷)',
+      baseHp: 8500, baseDamage: 35, size: 55, score: 13000, xp: 950,
+      phases: [
+        { hpThreshold: 0.7, name: '烈焰形态', attackPattern: 'fireElement', bulletCount: 12, spreadAngle: 360, fireRate: 500, bulletSpeed: 280, element: 'fire', burnDamage: 12, burnDuration: 2500, fireRing: true },
+        { hpThreshold: 0.4, name: '寒冰形态', attackPattern: 'iceElement', bulletCount: 14, spreadAngle: 360, fireRate: 450, bulletSpeed: 250, element: 'ice', freezeChance: 0.25, slowAmount: 0.6, iceShardBurst: true },
+        { hpThreshold: 0.15, name: '雷霆形态', attackPattern: 'thunderElement', bulletCount: 18, spreadAngle: 360, fireRate: 300, bulletSpeed: 340, element: 'thunder', chainLightning: true, chainCount: 5, stunChance: 0.2 },
+      ],
+    },
+    hiveMother: {
+      id: 'hiveMother', name: '虫巢母体', icon: '🐛', color: '#668833',
+      description: '召唤虫群+毒雾+产卵',
+      baseHp: 9000, baseDamage: 20, size: 60, score: 11500, xp: 880,
+      phases: [
+        { hpThreshold: 0.7, name: '虫群召唤', attackPattern: 'swarmSummon', bulletCount: 8, spreadAngle: 360, fireRate: 700, bulletSpeed: 180, summonType: 'swarm', summonCount: 5, summonInterval: 3000 },
+        { hpThreshold: 0.4, name: '毒雾弥漫', attackPattern: 'toxicFog', bulletCount: 12, spreadAngle: 360, fireRate: 500, bulletSpeed: 200, poisonRadius: 220, poisonDamage: 15, spawnMinions: true, minionCount: 3 },
+        { hpThreshold: 0.15, name: '虫巢爆发', attackPattern: 'hiveExplosion', bulletCount: 20, spreadAngle: 360, fireRate: 300, bulletSpeed: 260, eggCount: 4, eggHp: 800, eggSpawnType: 'elite', poisonRadius: 280 },
+      ],
+    },
+    timeLord: {
+      id: 'timeLord', name: '时间领主', icon: '⏳', color: '#ffcc00',
+      description: '减速区域+时间倒流+瞬移',
+      baseHp: 7500, baseDamage: 30, size: 50, score: 14000, xp: 1000,
+      phases: [
+        { hpThreshold: 0.7, name: '时间扭曲', attackPattern: 'timeWarp', bulletCount: 10, spreadAngle: 360, fireRate: 600, bulletSpeed: 240, slowField: true, slowRadius: 200, slowAmount: 0.5, slowDuration: 3000 },
+        { hpThreshold: 0.4, name: '时间倒流', attackPattern: 'timeRewind', bulletCount: 14, spreadAngle: 360, fireRate: 400, bulletSpeed: 300, rewindHp: 0.15, rewindCooldown: 15000, teleportCooldown: 2500 },
+        { hpThreshold: 0.15, name: '时间终结', attackPattern: 'timeEnd', bulletCount: 22, spreadAngle: 360, fireRate: 200, bulletSpeed: 360, timeStop: true, timeStopDuration: 1500, timeStopCooldown: 8000, bulletTime: true },
+      ],
+    },
   },
 
   // ============ PERMANENT_UPGRADES (5) ============
@@ -1447,6 +1839,56 @@ const GAME_CONFIG = {
       color: '#882222', shape: 'cross', size: 14, weight: 14, dropText: 'VULNERABLE!' },
     { id: 'gravity_trap', name: '重力陷阱', type: 'debuff', effect: 'gravityTrap', value: 0.4, duration: 5000,
       color: '#6644aa', shape: 'circle', size: 16, weight: 12, dropText: 'TRAPPED!' },
+
+    // --- NEW: 恢复系 (4) ---
+    { id: 'small_health', name: '小回复药', type: 'buff', effect: 'healPercent', value: 0.12, duration: 0,
+      color: '#44ff44', shape: 'cross', size: 12, weight: 30, dropText: '+12% HP' },
+    { id: 'medium_health', name: '中回复药', type: 'buff', effect: 'healPercent', value: 0.28, duration: 0,
+      color: '#22dd22', shape: 'cross', size: 14, weight: 20, dropText: '+28% HP' },
+    { id: 'large_health', name: '大回复药', type: 'buff', effect: 'healPercent', value: 0.55, duration: 0,
+      color: '#00cc00', shape: 'cross', size: 16, weight: 12, dropText: '+55% HP' },
+    { id: 'full_health', name: '满血药剂', type: 'buff', effect: 'healPercent', value: 1.0, duration: 0,
+      color: '#00ff88', shape: 'star', size: 18, weight: 5, dropText: 'FULL HP!' },
+
+    // --- NEW: 增益系 (4) ---
+    { id: 'attack_boost', name: '攻击强化', type: 'buff', effect: 'damageUp', value: 1.2, duration: 30000,
+      color: '#ff6600', shape: 'star', size: 14, weight: 16, dropText: 'ATK +20%!' },
+    { id: 'swift_boost', name: '疾风之靴', type: 'buff', effect: 'speedUp', value: 1.25, duration: 30000,
+      color: '#00ccff', shape: 'diamond', size: 14, weight: 16, dropText: 'SPD +25%!' },
+    { id: 'shield_boost', name: '能量护盾', type: 'buff', effect: 'shield', value: 1, duration: 0,
+      color: '#4488ff', shape: 'circle', size: 16, weight: 14, dropText: 'SHIELD +1!' },
+    { id: 'invincibility', name: '神圣庇护', type: 'buff', effect: 'invincible', value: 1, duration: 3000,
+      color: '#ffff88', shape: 'star', size: 18, weight: 5, dropText: 'INVINCIBLE!' },
+
+    // --- NEW: 元素系 (4) ---
+    { id: 'fire_enchant', name: '火焰附魔', type: 'buff', effect: 'fireEnchant', value: 1.0, duration: 15000,
+      color: '#ff4400', shape: 'star', size: 14, weight: 12, dropText: 'FIRE ENCHANT!' },
+    { id: 'ice_enchant', name: '冰霜附魔', type: 'buff', effect: 'iceEnchant', value: 1.0, duration: 15000,
+      color: '#88ddff', shape: 'diamond', size: 14, weight: 12, dropText: 'ICE ENCHANT!' },
+    { id: 'thunder_enchant', name: '雷电附魔', type: 'buff', effect: 'thunderEnchant', value: 1.0, duration: 15000,
+      color: '#ffff00', shape: 'star', size: 14, weight: 12, dropText: 'THUNDER ENCHANT!' },
+    { id: 'poison_enchant', name: '毒素附魔', type: 'buff', effect: 'poisonEnchant', value: 1.0, duration: 15000,
+      color: '#88ff44', shape: 'diamond', size: 14, weight: 12, dropText: 'POISON ENCHANT!' },
+
+    // --- NEW: 特殊系 (5) ---
+    { id: 'fusion_core', name: '融合核心', type: 'buff', effect: 'fusionCore', value: 1.0, duration: 0,
+      color: '#ff88ff', shape: 'star', size: 18, weight: 5, dropText: 'FUSION CORE!' },
+    { id: 'overload_core', name: '超载核心', type: 'buff', effect: 'overloadCore', value: 1.0, duration: 0,
+      color: '#ff2222', shape: 'star', size: 18, weight: 4, dropText: 'OVERLOAD!' },
+    { id: 'exp_boost', name: '经验加速', type: 'buff', effect: 'xpBoost', value: 2.0, duration: 60000,
+      color: '#aa66ff', shape: 'diamond', size: 16, weight: 10, dropText: 'XP x2!' },
+    { id: 'gold_magnet', name: '金币磁铁', type: 'buff', effect: 'goldMagnet', value: 200, duration: 30000,
+      color: '#ffcc00', shape: 'circle', size: 16, weight: 12, dropText: 'GOLD MAGNET!' },
+    { id: 'revive_coin', name: '复活币', type: 'buff', effect: 'revive', value: 1, duration: 0,
+      color: '#ffdd88', shape: 'diamond', size: 18, weight: 3, dropText: 'REVIVE!' },
+
+    // --- NEW: 减益系 (3) ---
+    { id: 'slow_trap', name: '减速陷阱', type: 'debuff', effect: 'speedDown', value: 0.4, duration: 6000,
+      color: '#6666aa', shape: 'circle', size: 14, weight: 14, dropText: 'SLOW TRAP!' },
+    { id: 'confuse_trap', name: '混乱陷阱', type: 'debuff', effect: 'confusion', value: 1, duration: 5000,
+      color: '#ff66ff', shape: 'circle', size: 14, weight: 12, dropText: 'CONFUSED!' },
+    { id: 'weaken_trap', name: '虚弱陷阱', type: 'debuff', effect: 'damageDown', value: 0.5, duration: 6000,
+      color: '#884488', shape: 'diamond', size: 14, weight: 14, dropText: 'WEAKENED!' },
   ],
 
   // ============ ENEMY TYPES ============
@@ -1576,6 +2018,280 @@ const GAME_CONFIG = {
       ai: 'kamikaze', fireRate: 0, bulletSpeed: 0, bulletDamage: 0, bulletColor: '#ff2222',
       dropRate: 0.05,
       explodeDamage: 40, explodeRadius: 80,
+    },
+    // ============ 30种新敌人 ============
+    // --- 元素系 ---
+    fireElement: {
+      type: 'fireElement', name: '火元素',
+      hp: 55, speed: 85, damage: 15, score: 180, xp: 30,
+      size: 14, color: '#ff4400',
+      ai: 'follow', fireRate: 2200, bulletSpeed: 260, bulletDamage: 12, bulletColor: '#ff6600',
+      bulletCount: 3, spreadAngle: 20,
+      dropRate: 0.2,
+      burnOnHit: true, burnDamage: 5, burnDuration: 2000,
+    },
+    iceElement: {
+      type: 'iceElement', name: '冰元素',
+      hp: 60, speed: 70, damage: 12, score: 180, xp: 30,
+      size: 14, color: '#44ccff',
+      ai: 'follow', fireRate: 2500, bulletSpeed: 240, bulletDamage: 10, bulletColor: '#66ddff',
+      bulletCount: 2, spreadAngle: 15,
+      dropRate: 0.2,
+      slowOnHit: true, slowAmount: 0.4, slowDuration: 2000,
+    },
+    thunderElement: {
+      type: 'thunderElement', name: '雷元素',
+      hp: 45, speed: 110, damage: 18, score: 200, xp: 35,
+      size: 12, color: '#ffee00',
+      ai: 'follow', fireRate: 1800, bulletSpeed: 350, bulletDamage: 14, bulletColor: '#ffff44',
+      bulletCount: 1, spreadAngle: 0,
+      dropRate: 0.22,
+      chainLightning: true, chainCount: 3, chainRange: 120,
+    },
+    poisonElement: {
+      type: 'poisonElement', name: '毒元素',
+      hp: 50, speed: 75, damage: 10, score: 180, xp: 30,
+      size: 13, color: '#44ff44',
+      ai: 'follow', fireRate: 2800, bulletSpeed: 200, bulletDamage: 8, bulletColor: '#66ff66',
+      bulletCount: 4, spreadAngle: 30,
+      dropRate: 0.2,
+      poisonOnHit: true, poisonDamage: 6, poisonDuration: 3000,
+    },
+    // --- 精英系 ---
+    berserker: {
+      type: 'berserker', name: '狂战士',
+      hp: 150, speed: 90, damage: 28, score: 400, xp: 65,
+      size: 18, color: '#ff2200',
+      ai: 'follow', fireRate: 1000, bulletSpeed: 300, bulletDamage: 14, bulletColor: '#ff4422',
+      bulletCount: 3, spreadAngle: 25,
+      dropRate: 0.35,
+      aiBehavior: 'aggressive', berserkThreshold: 0.3, berserkSpeedBoost: 1.8, berserkFireRateBoost: 0.5,
+    },
+    guardian: {
+      type: 'guardian', name: '守卫者',
+      hp: 180, speed: 50, damage: 15, score: 350, xp: 55,
+      size: 20, color: '#4488ff',
+      ai: 'follow', fireRate: 2200, bulletSpeed: 220, bulletDamage: 10, bulletColor: '#6699ff',
+      bulletCount: 3, spreadAngle: 20,
+      dropRate: 0.3,
+      shieldHp: 100, shieldRegenDelay: 4000, shieldRegenRate: 25, shieldColor: '#88bbff',
+    },
+    healer: {
+      type: 'healer', name: '治愈者',
+      hp: 80, speed: 60, damage: 8, score: 300, xp: 50,
+      size: 13, color: '#44ff88',
+      ai: 'healer', fireRate: 3000, bulletSpeed: 180, bulletDamage: 6, bulletColor: '#88ffaa',
+      bulletCount: 2, spreadAngle: 15,
+      dropRate: 0.3,
+      healAmount: 5, healInterval: 2000, healRange: 200,
+    },
+    summoner: {
+      type: 'summoner', name: '召唤师',
+      hp: 120, speed: 40, damage: 12, score: 400, xp: 70,
+      size: 18, color: '#aa44ff',
+      ai: 'spawner', fireRate: 2500, bulletSpeed: 200, bulletDamage: 8, bulletColor: '#cc66ff',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.35,
+      spawnInterval: 5000, spawnType: 'small', maxMinions: 3,
+    },
+    // --- 特殊系 ---
+    invisible: {
+      type: 'invisible', name: '隐身者',
+      hp: 70, speed: 95, damage: 20, score: 350, xp: 55,
+      size: 12, color: '#aaaacc',
+      ai: 'invisible', fireRate: 2000, bulletSpeed: 280, bulletDamage: 12, bulletColor: '#ccccff',
+      bulletCount: 2, spreadAngle: 15,
+      dropRate: 0.3,
+      invisibleInterval: 3000, invisibleDuration: 2000,
+    },
+    splitMaster: {
+      type: 'splitMaster', name: '多级分裂者',
+      hp: 80, speed: 75, damage: 15, score: 250, xp: 45,
+      size: 16, color: '#ff66aa',
+      ai: 'splitMaster', fireRate: 3000, bulletSpeed: 220, bulletDamage: 8, bulletColor: '#ff88bb',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.25,
+      splitCount: 3, splitType: 'splitter', splitLevels: 2,
+    },
+    parasite: {
+      type: 'parasite', name: '寄生者',
+      hp: 60, speed: 120, damage: 15, score: 280, xp: 45,
+      size: 10, color: '#cc44cc',
+      ai: 'parasite', fireRate: 0, bulletSpeed: 0, bulletDamage: 0, bulletColor: '#cc44cc',
+      dropRate: 0.25,
+      latchDamage: 8, latchInterval: 1000, latchRange: 50,
+    },
+    devourer: {
+      type: 'devourer', name: '吞噬者',
+      hp: 100, speed: 65, damage: 20, score: 350, xp: 60,
+      size: 18, color: '#884400',
+      ai: 'devourer', fireRate: 2500, bulletSpeed: 200, bulletDamage: 10, bulletColor: '#aa6622',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.3,
+      growPerKill: 2, maxSize: 40, damagePerGrow: 3,
+    },
+    // --- 远程系 ---
+    marksman: {
+      type: 'marksman', name: '神射手',
+      hp: 70, speed: 45, damage: 12, score: 320, xp: 55,
+      size: 13, color: '#ffaa00',
+      ai: 'sniperElite', fireRate: 2500, bulletSpeed: 500, bulletDamage: 22, bulletColor: '#ffcc44',
+      bulletCount: 1, spreadAngle: 0,
+      dropRate: 0.3,
+      targetY: 60,
+    },
+    turret: {
+      type: 'turret', name: '炮塔',
+      hp: 200, speed: 0, damage: 18, score: 280, xp: 50,
+      size: 18, color: '#888888',
+      ai: 'sniperElite', fireRate: 1500, bulletSpeed: 350, bulletDamage: 12, bulletColor: '#aaaaaa',
+      bulletCount: 2, spreadAngle: 10,
+      dropRate: 0.25,
+      targetY: 40,
+    },
+    missileCar: {
+      type: 'missileCar', name: '导弹车',
+      hp: 90, speed: 55, damage: 15, score: 300, xp: 50,
+      size: 16, color: '#ff8844',
+      ai: 'follow', fireRate: 3000, bulletSpeed: 200, bulletDamage: 18, bulletColor: '#ffaa66',
+      bulletCount: 2, spreadAngle: 30,
+      dropRate: 0.28,
+      homing: true, homingStrength: 0.03,
+    },
+    laserTower: {
+      type: 'laserTower', name: '激光塔',
+      hp: 160, speed: 0, damage: 20, score: 350, xp: 60,
+      size: 16, color: '#ff0088',
+      ai: 'laserTower', fireRate: 4000, bulletSpeed: 600, bulletDamage: 25, bulletColor: '#ff44aa',
+      bulletCount: 1, spreadAngle: 0,
+      dropRate: 0.3,
+      targetY: 50, laserWidth: 4, laserDuration: 800,
+    },
+    // --- 飞行系 ---
+    flyingSwarm: {
+      type: 'flyingSwarm', name: '飞行蜂群',
+      hp: 15, speed: 130, damage: 6, score: 40, xp: 6,
+      size: 6, color: '#aaff44',
+      ai: 'swarmer', fireRate: 5000, bulletSpeed: 130, bulletDamage: 5, bulletColor: '#ccff66',
+      dropRate: 0.04,
+      groupSize: 8, movementPattern: 'sineWave', patternAmplitude: 120,
+    },
+    bat: {
+      type: 'bat', name: '蝙蝠',
+      hp: 25, speed: 150, damage: 10, score: 80, xp: 12,
+      size: 8, color: '#664488',
+      ai: 'cross', fireRate: 3500, bulletSpeed: 200, bulletDamage: 7, bulletColor: '#8866aa',
+      dropRate: 0.1,
+      movementPattern: 'zigzag', patternAmplitude: 100,
+    },
+    ghost: {
+      type: 'ghost', name: '幽灵',
+      hp: 40, speed: 80, damage: 12, score: 200, xp: 35,
+      size: 14, color: '#88ffcc',
+      ai: 'ghost', fireRate: 2500, bulletSpeed: 220, bulletDamage: 10, bulletColor: '#aaffdd',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.22,
+      phaseThrough: true, phaseChance: 0.3,
+    },
+    dragon: {
+      type: 'dragon', name: '飞龙',
+      hp: 250, speed: 60, damage: 25, score: 500, xp: 90,
+      size: 24, color: '#ff8800',
+      ai: 'follow', fireRate: 2000, bulletSpeed: 280, bulletDamage: 15, bulletColor: '#ffaa44',
+      bulletCount: 4, spreadAngle: 30,
+      dropRate: 0.4,
+      movementPattern: 'sineWave', patternAmplitude: 150, fireBreathOnPhase: true,
+    },
+    // --- 重型系 ---
+    titan: {
+      type: 'titan', name: '泰坦',
+      hp: 800, speed: 20, damage: 40, score: 600, xp: 120,
+      size: 35, color: '#664422',
+      ai: 'tank', fireRate: 3000, bulletSpeed: 150, bulletDamage: 18, bulletColor: '#886644',
+      bulletCount: 5, spreadAngle: 35,
+      dropRate: 0.45,
+    },
+    colossus: {
+      type: 'colossus', name: '巨像',
+      hp: 1000, speed: 15, damage: 45, score: 700, xp: 140,
+      size: 40, color: '#555566',
+      ai: 'tank', fireRate: 3500, bulletSpeed: 140, bulletDamage: 20, bulletColor: '#7777aa',
+      bulletCount: 4, spreadAngle: 30,
+      dropRate: 0.5,
+      shieldHp: 200, shieldRegenDelay: 6000, shieldRegenRate: 15, shieldColor: '#8888cc',
+    },
+    fortress: {
+      type: 'fortress', name: '堡垒',
+      hp: 600, speed: 0, damage: 30, score: 500, xp: 100,
+      size: 30, color: '#777777',
+      ai: 'sniperElite', fireRate: 1200, bulletSpeed: 300, bulletDamage: 14, bulletColor: '#999999',
+      bulletCount: 4, spreadAngle: 15,
+      dropRate: 0.4,
+      targetY: 35,
+    },
+    hive: {
+      type: 'hive', name: '蜂巢',
+      hp: 400, speed: 25, damage: 10, score: 450, xp: 85,
+      size: 26, color: '#aa8844',
+      ai: 'spawner', fireRate: 4000, bulletSpeed: 150, bulletDamage: 8, bulletColor: '#ccaa66',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.4,
+      spawnInterval: 3500, spawnType: 'flyingSwarm', maxMinions: 6,
+    },
+    // --- 其他特殊系 ---
+    phantom: {
+      type: 'phantom', name: '幻影',
+      hp: 55, speed: 100, damage: 14, score: 250, xp: 40,
+      size: 12, color: '#ccccff',
+      ai: 'phantom', fireRate: 2200, bulletSpeed: 260, bulletDamage: 10, bulletColor: '#ddddff',
+      bulletCount: 2, spreadAngle: 15,
+      dropRate: 0.25,
+      afterimageInterval: 2500, afterimageDuration: 1500, afterimageDamage: 8,
+    },
+    mirror: {
+      type: 'mirror', name: '镜像',
+      hp: 90, speed: 65, damage: 12, score: 280, xp: 45,
+      size: 14, color: '#dddddd',
+      ai: 'mirror', fireRate: 2500, bulletSpeed: 240, bulletDamage: 10, bulletColor: '#eeeeee',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.25,
+      reflectChance: 0.25, reflectDamage: 0.5,
+    },
+    magnet: {
+      type: 'magnet', name: '磁铁',
+      hp: 85, speed: 55, damage: 12, score: 260, xp: 42,
+      size: 15, color: '#ff4488',
+      ai: 'magnet', fireRate: 2800, bulletSpeed: 220, bulletDamage: 10, bulletColor: '#ff66aa',
+      bulletCount: 2, spreadAngle: 20,
+      dropRate: 0.25,
+      pullStrength: 80, pullRange: 250,
+    },
+    time: {
+      type: 'time', name: '时间者',
+      hp: 75, speed: 70, damage: 10, score: 300, xp: 50,
+      size: 14, color: '#8888ff',
+      ai: 'time', fireRate: 2500, bulletSpeed: 200, bulletDamage: 10, bulletColor: '#aaaaff',
+      bulletCount: 3, spreadAngle: 25,
+      dropRate: 0.28,
+      slowFieldRange: 180, slowFieldAmount: 0.35,
+    },
+    voidEnemy: {
+      type: 'voidEnemy', name: '虚空者',
+      hp: 65, speed: 90, damage: 16, score: 320, xp: 52,
+      size: 13, color: '#220044',
+      ai: 'voidEnemy', fireRate: 2000, bulletSpeed: 280, bulletDamage: 12, bulletColor: '#4422aa',
+      bulletCount: 3, spreadAngle: 30,
+      dropRate: 0.28,
+      teleportInterval: 3500, warpRadius: 100,
+    },
+    chaos: {
+      type: 'chaos', name: '混沌者',
+      hp: 70, speed: 85, damage: 14, score: 300, xp: 48,
+      size: 14, color: '#ff44ff',
+      ai: 'chaos', fireRate: 2200, bulletSpeed: 250, bulletDamage: 11, bulletColor: '#ff88ff',
+      bulletCount: 3, spreadAngle: 25,
+      dropRate: 0.26,
+      chaosInterval: 3000,
     },
     // --- Boss Types ---
     boss: {
@@ -2116,6 +2832,36 @@ const GAME_CONFIG = {
         { name: '空间撕裂', hpThreshold: 0.66, bulletPattern: 'spiral', bulletCount: 10, spreadAngle: 60, fireRate: 300, bulletSpeed: 300, bulletDamage: 25, specialAttack: 'riftSlash', riftCount: 3, riftDamage: 40, riftDuration: 3000 },
         { name: '黑洞坍缩', hpThreshold: 0.33, bulletPattern: 'spiral', bulletCount: 14, spreadAngle: 60, fireRate: 200, bulletSpeed: 350, bulletDamage: 30, specialAttack: 'blackHoleCollapse', pullForce: 150, explosionDamage: 100, explosionRadius: 300 },
         { name: '终焉', hpThreshold: 0.1, bulletPattern: 'chaos', bulletCount: 20, spreadAngle: 360, fireRate: 150, bulletSpeed: 400, bulletDamage: 35, enrage: true, enrageSpeedMult: 1.8 },
+      ], dropGuaranteed: ['weaponCrate', 'fusionCore', 'overloadCore', 'timeCrystal'] },
+    boss_steelColossus: { id: 'boss_steelColossus', name: '钢铁巨像', icon: '🦾', color: '#666688', size: 70, baseHp: 10000, baseDamage: 45, baseSpeed: 15, score: 12000, xp: 900,
+      phases: [
+        { name: '重锤阶段', hpThreshold: 1.0, bulletPattern: 'cone', bulletCount: 10, spreadAngle: 180, fireRate: 900, bulletSpeed: 200, bulletDamage: 20, specialAttack: 'groundSlam', shockwaveRadius: 180, shockwaveDamage: 30 },
+        { name: '导弹齐射', hpThreshold: 0.6, bulletPattern: 'circle', bulletCount: 16, spreadAngle: 360, fireRate: 500, bulletSpeed: 260, bulletDamage: 22, specialAttack: 'missileBarrage', missileTracking: true, missileCount: 6 },
+        { name: '钢铁风暴', hpThreshold: 0.3, bulletPattern: 'circle', bulletCount: 24, spreadAngle: 360, fireRate: 300, bulletSpeed: 340, bulletDamage: 28, enrage: true, enrageSpeedMult: 1.3, armorUp: true, damageReduction: 0.5 },
+      ], dropGuaranteed: ['weaponCrate', 'fusionCore'] },
+    boss_shadowAssassin: { id: 'boss_shadowAssassin', name: '暗影刺客', icon: '🗡️', color: '#333355', size: 42, baseHp: 6500, baseDamage: 50, baseSpeed: 55, score: 11000, xp: 850,
+      phases: [
+        { name: '潜行阶段', hpThreshold: 1.0, bulletPattern: 'cone', bulletCount: 6, spreadAngle: 45, fireRate: 600, bulletSpeed: 350, bulletDamage: 25, specialAttack: 'stealth', stealthDuration: 2000, backstabDamage: 80 },
+        { name: '影分身', hpThreshold: 0.5, bulletPattern: 'circle', bulletCount: 10, spreadAngle: 360, fireRate: 400, bulletSpeed: 300, bulletDamage: 22, specialAttack: 'shadowClone', cloneCount: 2, cloneHp: 1000, teleportCooldown: 2000 },
+        { name: '暗影乱舞', hpThreshold: 0.25, bulletPattern: 'circle', bulletCount: 16, spreadAngle: 360, fireRate: 200, bulletSpeed: 380, bulletDamage: 28, specialAttack: 'shadowFrenzy', multiTeleport: true, teleportCount: 3 },
+      ], dropGuaranteed: ['weaponCrate', 'fusionCore', 'overloadCore'] },
+    boss_elementLord: { id: 'boss_elementLord', name: '元素领主', icon: '🌀', color: '#cc44ff', size: 55, baseHp: 8500, baseDamage: 35, baseSpeed: 30, score: 13000, xp: 950,
+      phases: [
+        { name: '烈焰形态', hpThreshold: 1.0, bulletPattern: 'circle', bulletCount: 12, spreadAngle: 360, fireRate: 500, bulletSpeed: 280, bulletDamage: 18, specialAttack: 'fireElement', element: 'fire', burnDamage: 12, burnDuration: 2500 },
+        { name: '寒冰形态', hpThreshold: 0.5, bulletPattern: 'circle', bulletCount: 14, spreadAngle: 360, fireRate: 450, bulletSpeed: 250, bulletDamage: 20, specialAttack: 'iceElement', element: 'ice', freezeChance: 0.25, slowAmount: 0.6 },
+        { name: '雷霆形态', hpThreshold: 0.25, bulletPattern: 'circle', bulletCount: 18, spreadAngle: 360, fireRate: 300, bulletSpeed: 340, bulletDamage: 25, specialAttack: 'thunderElement', element: 'thunder', chainLightning: true, chainCount: 5 },
+      ], dropGuaranteed: ['weaponCrate', 'fusionCore', 'overloadCore'] },
+    boss_hiveMother: { id: 'boss_hiveMother', name: '虫巢母体', icon: '🐛', color: '#668833', size: 60, baseHp: 9000, baseDamage: 20, baseSpeed: 18, score: 11500, xp: 880,
+      phases: [
+        { name: '虫群召唤', hpThreshold: 1.0, bulletPattern: 'circle', bulletCount: 8, spreadAngle: 360, fireRate: 700, bulletSpeed: 180, bulletDamage: 12, specialAttack: 'swarmSummon', summonType: 'swarm', summonCount: 5, summonInterval: 3000 },
+        { name: '毒雾弥漫', hpThreshold: 0.5, bulletPattern: 'circle', bulletCount: 12, spreadAngle: 360, fireRate: 500, bulletSpeed: 200, bulletDamage: 15, specialAttack: 'toxicFog', poisonRadius: 220, poisonDamage: 15, spawnMinions: true },
+        { name: '虫巢爆发', hpThreshold: 0.25, bulletPattern: 'circle', bulletCount: 20, spreadAngle: 360, fireRate: 300, bulletSpeed: 260, bulletDamage: 20, specialAttack: 'hiveExplosion', eggCount: 4, eggHp: 800, eggSpawnType: 'elite' },
+      ], dropGuaranteed: ['weaponCrate', 'fusionCore'] },
+    boss_timeLord: { id: 'boss_timeLord', name: '时间领主', icon: '⏳', color: '#ffcc00', size: 50, baseHp: 7500, baseDamage: 30, baseSpeed: 35, score: 14000, xp: 1000,
+      phases: [
+        { name: '时间扭曲', hpThreshold: 1.0, bulletPattern: 'circle', bulletCount: 10, spreadAngle: 360, fireRate: 600, bulletSpeed: 240, bulletDamage: 15, specialAttack: 'timeWarp', slowField: true, slowRadius: 200, slowAmount: 0.5, slowDuration: 3000 },
+        { name: '时间倒流', hpThreshold: 0.5, bulletPattern: 'circle', bulletCount: 14, spreadAngle: 360, fireRate: 400, bulletSpeed: 300, bulletDamage: 20, specialAttack: 'timeRewind', rewindHp: 0.15, rewindCooldown: 15000, teleportCooldown: 2500 },
+        { name: '时间终结', hpThreshold: 0.25, bulletPattern: 'circle', bulletCount: 22, spreadAngle: 360, fireRate: 200, bulletSpeed: 360, bulletDamage: 28, specialAttack: 'timeEnd', timeStop: true, timeStopDuration: 1500, timeStopCooldown: 8000 },
       ], dropGuaranteed: ['weaponCrate', 'fusionCore', 'overloadCore', 'timeCrystal'] },
   },
 

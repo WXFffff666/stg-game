@@ -116,6 +116,101 @@
       bulletColor: '#ffffff', trailColor: '#ccccff',
     };
   }
+
+  // ---- 新增融合武器配置 (10种) ----
+  if (!W.venomFlame) {
+    W.venomFlame = {
+      id: 'venomFlame', name: '雷焰喷射', icon: '🔥', rarity: 'legendary', fused: true,
+      description: '闪电灼烧火焰',
+      pattern: 'venomFlame', fireRate: 55, damage: 6, bulletSpeed: 380, bulletSize: 7,
+      flameLength: 200, flameAngle: 35, burnDamage: 8, burnDuration: 2500,
+      chainCount: 2, chainRange: 100,
+      bulletColor: '#ff8800', trailColor: '#ffaa44',
+    };
+  }
+  if (!W.frostStorm) {
+    W.frostStorm = {
+      id: 'frostStorm', name: '冰霜风暴', icon: '❄️', rarity: 'legendary', fused: true,
+      description: '冰冻旋转飞刃',
+      pattern: 'frostStorm', fireRate: 500, damage: 14, bulletSpeed: 420, bulletSize: 5,
+      spinSpeed: 7, pierceCount: 3, slowAmount: 0.45, slowDuration: 2500,
+      shatterDamage: 30, shatterRadius: 80,
+      bulletColor: '#aaddff', trailColor: '#88bbee',
+    };
+  }
+  if (!W.thunderShock) {
+    W.thunderShock = {
+      id: 'thunderShock', name: '雷霆冲击', icon: '⚡', rarity: 'legendary', fused: true,
+      description: '链式电弧波动',
+      pattern: 'thunderShock', fireRate: 650, damage: 20, bulletSpeed: 500, bulletSize: 4,
+      chainCount: 3, chainRange: 140, waveAmplitude: 3, waveFrequency: 0.05,
+      stunDuration: 500,
+      bulletColor: '#88ffaa', trailColor: '#44dd88',
+    };
+  }
+  if (!W.holyLight) {
+    W.holyLight = {
+      id: 'holyLight', name: '圣光洗礼', icon: '✨', rarity: 'legendary', fused: true,
+      description: '追踪穿透圣光',
+      pattern: 'holyLight', fireRate: 400, damage: 18, bulletSpeed: 600, bulletSize: 4,
+      homingStrength: 0.06, homingRange: 400, pierceCount: 3,
+      bulletColor: '#ffffcc', trailColor: '#ffeeaa',
+    };
+  }
+  if (!W.shadowNeedle) {
+    W.shadowNeedle = {
+      id: 'shadowNeedle', name: '暗影飞针', icon: '🌑', rarity: 'legendary', fused: true,
+      description: '高速暗影飞针',
+      pattern: 'shadowNeedle', fireRate: 100, damage: 6, bulletSpeed: 1000, bulletSize: 2,
+      bulletCount: 4, pierceCount: 3, spinSpeed: 6,
+      bulletColor: '#8888cc', trailColor: '#6666aa',
+    };
+  }
+  if (!W.electricWave) {
+    W.electricWave = {
+      id: 'electricWave', name: '电磁波', icon: '🌊', rarity: 'legendary', fused: true,
+      description: '电磁波动冲击',
+      pattern: 'electricWave', fireRate: 550, damage: 16, bulletSpeed: 480, bulletSize: 4,
+      waveAmplitude: 4, waveFrequency: 0.06, chainCount: 2, chainRange: 120,
+      bulletColor: '#66ffaa', trailColor: '#44dd88',
+    };
+  }
+  if (!W.napalm) {
+    W.napalm = {
+      id: 'napalm', name: '凝固汽油弹', icon: '💥', rarity: 'legendary', fused: true,
+      description: '燃烧爆炸弹',
+      pattern: 'napalm', fireRate: 800, damage: 32, bulletSpeed: 350, bulletSize: 7,
+      explosionRadius: 80, burnDamage: 10, burnDuration: 3000, flamePoolRadius: 50,
+      bulletColor: '#ff6644', trailColor: '#ff4400',
+    };
+  }
+  if (!W.photonTracker) {
+    W.photonTracker = {
+      id: 'photonTracker', name: '光子追踪', icon: '🎯', rarity: 'legendary', fused: true,
+      description: '自动追踪激光',
+      pattern: 'photonTracker', fireRate: 350, damage: 12, bulletSpeed: 800, bulletSize: 3,
+      homingStrength: 0.07, homingRange: 450, beamWidth: 4,
+      bulletColor: '#ff88ff', trailColor: '#cc66cc',
+    };
+  }
+  if (!W.scatterSatellite) {
+    W.scatterSatellite = {
+      id: 'scatterSatellite', name: '散射卫星', icon: '🛰️', rarity: 'legendary', fused: true,
+      description: '散射浮游炮',
+      pattern: 'scatterSatellite', fireRate: 500, damage: 7, bulletSpeed: 450, bulletSize: 3,
+      orbitRadius: 75, orbitSpeed: 2.5, orbitCount: 3, bulletCount: 3, spreadAngle: 20,
+      bulletColor: '#ddbb88', trailColor: '#bb9966',
+    };
+  }
+  if (!W.piercingExplosive) {
+    W.piercingExplosive = {
+      id: 'piercingExplosive', name: '穿甲爆弹', icon: '🗡️', rarity: 'legendary', fused: true,
+      description: '穿透后爆炸',
+      pattern: 'piercingExplosive', fireRate: 750, damage: 25, bulletSpeed: 550, bulletSize: 5,
+      pierceCount: 2, explosionRadius: 70, explosionDamage: 20,
+      bulletColor: '#ffcccc', trailColor: '#ff8888',
+    };
+  }
 })();
 
 class WeaponManager {
@@ -184,6 +279,10 @@ class WeaponManager {
 
     // Standard weapons: accumulate timer and fire when ready
     var effectiveFireRate = cfg.fireRate * (stats.attackSpeed || 1);
+    // Time faction: cooldown reduction
+    if (stats.cooldownReduction && stats.cooldownReduction > 0) {
+      effectiveFireRate *= (1 - Math.min(stats.cooldownReduction, 0.9)); // cap at 90%
+    }
     // Apply weapon upgrade fire rate multiplier (lower = faster)
     var skillMgr = this._getSkillManager();
     if (skillMgr) {
@@ -256,6 +355,14 @@ class WeaponManager {
 
     var B = window.BulletPatterns;
     var angleUp = -Math.PI / 2; // -90 degrees = straight up
+
+    // 自动瞄准：触摸模式下朝最近敌人射击
+    if (this.player && this.player._autoShootTarget) {
+      var tgt = this.player._autoShootTarget;
+      if (tgt.active) {
+        angleUp = Math.atan2(tgt.y - y, tgt.x - x);
+      }
+    }
 
     switch (cfg.pattern) {
 
@@ -403,6 +510,47 @@ class WeaponManager {
       case 'photonNeedle':
         if (B) B.photonNeedle(x, y, angleUp, spd, dmg, cfg.bulletCount || 3, cfg.pierceCount || 4, color, trail);
         break;
+
+      // ---- New Special Weapon Patterns (10) ----
+      case 'flameThrower':
+        if (B) B.flameThrower(x, y, angleUp, spd, dmg, cfg.flameAngle || 50, cfg.flameCount || 5, cfg.burnDamage || 6, cfg.burnDuration || 2000, color, trail);
+        break;
+
+      case 'frostCannon':
+        if (B) B.frostCannon(x, y, angleUp, spd, dmg, cfg.slowAmount || 0.5, cfg.slowDuration || 3000, color, trail);
+        break;
+
+      case 'lightningGun':
+        if (B) B.lightningGun(x, y, angleUp, spd, dmg, cfg.chainCount || 5, cfg.chainRange || 200, color, trail);
+        break;
+
+      case 'rocketLauncher':
+        if (B) B.rocketLauncher(x, y, angleUp, spd, dmg, cfg.explosionRadius || 100, color, trail);
+        break;
+
+      case 'mineLayer':
+        if (B) B.mineLayer(x, y, angleUp, spd, dmg, cfg.explosionRadius || 80, cfg.mineCount || 3, color, trail);
+        break;
+
+      case 'energyWhip':
+        if (B) B.energyWhip(x, y, angleUp, spd, dmg, cfg.whipCount || 8, color, trail);
+        break;
+
+      case 'sawBlade':
+        if (B) B.sawBlade(x, y, angleUp, spd, dmg, cfg.spinSpeed || 12, cfg.pierceCount || 6, color, trail);
+        break;
+
+      case 'venomGun':
+        if (B) B.venomGun(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, cfg.burnDamage || 4, cfg.burnDuration || 3000, color, trail);
+        break;
+
+      case 'magnetGun':
+        if (B) B.magnetGun(x, y, angleUp, spd, dmg, cfg.wellRadius || 150, cfg.pullForce || 120, color, trail);
+        break;
+
+      case 'blackHoleGen':
+        if (B) B.blackHoleGen(x, y, angleUp, spd, dmg, cfg.wellRadius || 200, cfg.pullForce || 150, cfg.wellDamage || 15, cfg.executeThreshold || 0.15, color, trail);
+        break;
     }
 
     // Extra bullets from stats (dual-wield style spread)
@@ -524,6 +672,10 @@ class WeaponManager {
       // Independent fire timer
       drone.fireTimer += dtMs;
       var droneFireRate = drone.cfg.fireRate * (stats.attackSpeed || 1);
+      // Time faction: cooldown reduction
+      if (stats.cooldownReduction && stats.cooldownReduction > 0) {
+        droneFireRate *= (1 - Math.min(stats.cooldownReduction, 0.9));
+      }
       // Apply weapon upgrade fire rate multiplier
       var skillMgr = this._getSkillManager();
       if (skillMgr) {

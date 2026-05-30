@@ -338,6 +338,220 @@ class AudioManager {
     }
   }
 
+  // ─── SFX: 流派终极技能音效 ──────────────────────────────────
+  /**
+   * 播放流派专属终极技能音效
+   * @param {string} factionId - 流派ID
+   */
+  playFactionUltimate(factionId) {
+    switch (factionId) {
+      case 'gravity':
+        // 重力流：深沉低频轰鸣 + 下降音调
+        this._playTone('sine', 120, 30, 0.8, 0.15);
+        this._playTone('triangle', 80, 20, 0.6, 0.1);
+        this._playNoise(0.3, 0.08, 200);
+        break;
+      case 'void':
+        // 虚空流：空灵回响 + 诡异嗡鸣
+        this._playTone('sine', 200, 180, 1.0, 0.12);
+        this._playTone('sine', 300, 280, 0.8, 0.08);
+        this._playNoise(0.5, 0.06, 400);
+        break;
+      case 'thunder':
+        // 雷电流：雷电劈裂声
+        this._playNoise(0.15, 0.18, 6000);
+        this._playTone('sawtooth', 1500, 100, 0.2, 0.12);
+        this._playTone('square', 800, 50, 0.15, 0.1);
+        break;
+      case 'wind':
+        // 风之流：疾风呼啸
+        this._playNoise(0.6, 0.1, 2000);
+        this._playTone('sine', 600, 1200, 0.4, 0.06);
+        break;
+      case 'shadow':
+        // 暗影流：暗影低语
+        this._playTone('sine', 150, 100, 0.5, 0.1);
+        this._playTone('triangle', 200, 150, 0.4, 0.08);
+        this._playNoise(0.3, 0.04, 800);
+        break;
+      case 'holy':
+        // 圣光流：圣洁钟声和弦
+        this._playTone('sine', 523, 523, 0.6, 0.12); // C5
+        this._playTone('sine', 659, 659, 0.5, 0.1);  // E5
+        this._playTone('sine', 784, 784, 0.4, 0.08);  // G5
+        break;
+      case 'blood':
+        // 血祭流：血红脉冲
+        this._playTone('sawtooth', 100, 80, 0.4, 0.12);
+        this._playTone('sine', 60, 40, 0.6, 0.15);
+        this._playNoise(0.2, 0.08, 1500);
+        break;
+      case 'magnet':
+        // 磁力流：电磁嗡鸣
+        this._playTone('sine', 180, 220, 0.5, 0.1);
+        this._playTone('triangle', 360, 440, 0.4, 0.08);
+        this._playTone('square', 90, 110, 0.3, 0.06);
+        break;
+      case 'mirror':
+        // 镜之流：玻璃碎裂 + 反射回音
+        this._playNoise(0.15, 0.14, 8000);
+        this._playTone('sine', 1200, 800, 0.3, 0.1);
+        this._playTone('sine', 800, 1200, 0.25, 0.08);
+        break;
+      case 'time':
+        // 时之流：时空扭曲
+        this._playTone('sine', 400, 200, 0.7, 0.1);
+        this._playTone('triangle', 600, 300, 0.5, 0.08);
+        this._playTone('sine', 300, 600, 0.4, 0.06);
+        break;
+      case 'fury':
+        // 狂怒流：怒吼爆发
+        this._playTone('sawtooth', 200, 80, 0.4, 0.15);
+        this._playNoise(0.3, 0.12, 3000);
+        this._playTone('square', 150, 60, 0.3, 0.1);
+        break;
+      case 'luck':
+        // 幸运流：幸运叮当声
+        this._playTone('sine', 800, 1200, 0.15, 0.1);
+        this._playTone('sine', 1000, 1500, 0.12, 0.08);
+        this._playTone('sine', 1200, 1800, 0.1, 0.06);
+        break;
+      case 'sonic':
+        // 音波流：音爆冲击
+        this._playNoise(0.2, 0.15, 5000);
+        this._playTone('sine', 1000, 200, 0.3, 0.12);
+        this._playTone('square', 500, 100, 0.25, 0.1);
+        break;
+      case 'minion':
+        // 魔仆流：魔仆召唤
+        this._playTone('sawtooth', 150, 300, 0.4, 0.1);
+        this._playTone('triangle', 200, 400, 0.35, 0.08);
+        this._playNoise(0.2, 0.06, 2000);
+        break;
+      case 'data':
+        // 数据流：数据流脉冲
+        this._playTone('square', 800, 1200, 0.1, 0.08);
+        this._playTone('square', 1000, 1500, 0.08, 0.06);
+        this._playTone('sine', 600, 900, 0.15, 0.1);
+        break;
+    }
+  },
+
+  // ─── SFX: 新武器射击音效 ────────────────────────────────────
+  /**
+   * 播放武器专属射击音效
+   * @param {string} weaponId - 武器ID
+   */
+  playWeaponShoot(weaponId) {
+    switch (weaponId) {
+      case 'missile':
+        // 导弹：推进器点火
+        this._playNoise(0.15, 0.1, 2000);
+        this._playTone('sawtooth', 200, 100, 0.12, 0.08);
+        break;
+      case 'needle':
+        // 针弹：极速穿刺
+        this._playTone('sine', 2000, 1500, 0.04, 0.06);
+        break;
+      case 'gravityWell':
+        // 重力井：引力波
+        this._playTone('sine', 150, 80, 0.3, 0.1);
+        this._playTone('triangle', 100, 50, 0.25, 0.08);
+        break;
+      case 'flame':
+        // 火焰喷射：灼烧声
+        this._playNoise(0.1, 0.08, 3000);
+        this._playTone('sawtooth', 300, 200, 0.08, 0.06);
+        break;
+      case 'shuriken':
+        // 手里剑：旋转飞出
+        this._playTone('square', 600, 400, 0.08, 0.07);
+        this._playNoise(0.05, 0.05, 4000);
+        break;
+      case 'voidRift':
+        // 虚空裂隙：空间撕裂
+        this._playTone('sine', 100, 200, 0.2, 0.1);
+        this._playNoise(0.15, 0.08, 1000);
+        this._playTone('triangle', 80, 160, 0.18, 0.06);
+        break;
+      case 'lightningBolt':
+        // 雷电：电击声
+        this._playNoise(0.08, 0.12, 7000);
+        this._playTone('square', 1200, 400, 0.06, 0.1);
+        break;
+      case 'iceShard':
+        // 冰晶：冰冻碎裂
+        this._playTone('sine', 1500, 800, 0.1, 0.08);
+        this._playNoise(0.06, 0.06, 6000);
+        break;
+      case 'rocketBarrage':
+        // 火箭弹幕：多发火箭齐射
+        this._playNoise(0.2, 0.12, 1500);
+        this._playTone('sawtooth', 300, 100, 0.18, 0.1);
+        this._playTone('square', 200, 80, 0.15, 0.08);
+        break;
+      case 'photonBeam':
+        // 光子束：高频能量束
+        this._playTone('sine', 1800, 2000, 0.08, 0.06);
+        this._playTone('triangle', 1200, 1400, 0.06, 0.05);
+        break;
+      default:
+        this.playShoot();
+        break;
+    }
+  },
+
+  // ─── SFX: Boss出场音效 ──────────────────────────────────────
+  /**
+   * 播放Boss出场音效
+   * @param {string} bossId - Boss ID
+   */
+  playBossEntrance(bossId) {
+    this._ensureContext();
+    if (this._muted) return;
+    const ctx = this._ctx;
+    const now = ctx.currentTime;
+
+    switch (bossId) {
+      case 'boss_tank':
+        // 钢铁巨兽：沉重脚步 + 金属撞击
+        this._playTone('sine', 60, 40, 0.8, 0.15);
+        this._playNoise(0.4, 0.12, 500);
+        this._playTone('triangle', 100, 60, 0.6, 0.1);
+        break;
+      case 'boss_summoner':
+        // 召唤之主：魔法阵启动 + 召唤光环
+        this._playTone('sine', 300, 600, 0.5, 0.1);
+        this._playTone('triangle', 400, 800, 0.4, 0.08);
+        this._playTone('sine', 500, 1000, 0.3, 0.06);
+        this._playNoise(0.3, 0.06, 2000);
+        break;
+      case 'boss_dragon':
+        // 龙王：龙啸 + 火焰呼吸
+        this._playTone('sawtooth', 150, 80, 0.6, 0.15);
+        this._playNoise(0.5, 0.12, 1500);
+        this._playTone('sawtooth', 200, 100, 0.4, 0.1);
+        break;
+      case 'boss_phantom':
+        // 幽灵领主：幽灵低语 + 空间扭曲
+        this._playTone('sine', 200, 150, 0.7, 0.1);
+        this._playTone('triangle', 150, 100, 0.6, 0.08);
+        this._playNoise(0.4, 0.06, 800);
+        break;
+      case 'boss_void':
+        // 虚空领主：虚空坍缩 + 次元撕裂
+        this._playTone('sine', 80, 30, 1.0, 0.18);
+        this._playTone('triangle', 120, 40, 0.8, 0.12);
+        this._playNoise(0.6, 0.1, 600);
+        this._playTone('sawtooth', 200, 50, 0.5, 0.1);
+        break;
+      default:
+        // 通用Boss出场
+        this.playBossWarning();
+        break;
+    }
+  },
+
   // ─── RESUME (user gesture recovery) ─────────────────────────
   resume() {
     if (this._ctx && this._ctx.state === 'suspended') {

@@ -797,7 +797,7 @@ var UnlockManager = {
    * @returns {boolean}
    */
   isFactionUnlocked: function (factionId) {
-    return !!this.load().factions[factionId];
+    return true; // 所有流派默认解锁
   },
 
   /**
@@ -819,7 +819,7 @@ var UnlockManager = {
    * @returns {boolean}
    */
   isCharacterUnlocked: function (characterId) {
-    return !!this.load().characters[characterId];
+    return true; // 所有角色默认解锁
   },
 
   /**

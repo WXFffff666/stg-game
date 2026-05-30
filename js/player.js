@@ -678,6 +678,606 @@ var ShipDesigns = {
     ctx.beginPath();
     ctx.arc(0, 0, s * 0.1, 0, Math.PI * 2);
     ctx.fill();
+  },
+
+  // 21. fury: Aggressive angular shape with rage flames
+  fury: function(ctx, s, color, time) {
+    // Aggressive angular hull
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.2);
+    ctx.lineTo(-s * 0.3, -s * 0.4);
+    ctx.lineTo(-s * 0.9, -s * 0.2);
+    ctx.lineTo(-s * 0.4, s * 0.1);
+    ctx.lineTo(-s * 0.7, s * 0.7);
+    ctx.lineTo(0, s * 0.4);
+    ctx.lineTo(s * 0.7, s * 0.7);
+    ctx.lineTo(s * 0.4, s * 0.1);
+    ctx.lineTo(s * 0.9, -s * 0.2);
+    ctx.lineTo(s * 0.3, -s * 0.4);
+    ctx.closePath();
+    ctx.fill();
+    // Rage flame effect at tips
+    var flameFlicker = 0.6 + Math.sin(time * 12) * 0.2 + Math.sin(time * 18) * 0.15;
+    ctx.fillStyle = 'rgba(255,0,68,' + flameFlicker + ')';
+    for (var i = 0; i < 3; i++) {
+      var fx = (i - 1) * s * 0.35;
+      var fy = s * 0.7 + Math.sin(time * 8 + i * 2) * s * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(fx - s * 0.08, fy);
+      ctx.quadraticCurveTo(fx, fy + s * 0.2, fx + s * 0.08, fy);
+      ctx.fill();
+    }
+    // Central rage core
+    var corePulse = 0.7 + Math.sin(time * 6) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + corePulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 22. luck: Four-leaf clover shape with sparkle
+  luck: function(ctx, s, color, time) {
+    // Four-leaf clover shape
+    ctx.fillStyle = color;
+    var leafSize = s * 0.55;
+    for (var i = 0; i < 4; i++) {
+      var angle = (i / 4) * Math.PI * 2 - Math.PI / 2;
+      var lx = Math.cos(angle) * s * 0.35;
+      var ly = Math.sin(angle) * s * 0.35;
+      ctx.beginPath();
+      ctx.arc(lx, ly, leafSize * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Center connector
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Stem
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.2);
+    ctx.quadraticCurveTo(s * 0.15, s * 0.6, 0, s * 0.9);
+    ctx.stroke();
+    // Sparkle effect
+    ctx.fillStyle = '#ffffff';
+    for (var j = 0; j < 5; j++) {
+      var sparkAngle = time * 3 + j * 1.26;
+      var sparkR = s * 0.7 + Math.sin(time * 4 + j) * s * 0.15;
+      var sx = Math.cos(sparkAngle) * sparkR;
+      var sy = Math.sin(sparkAngle) * sparkR;
+      var sparkSize = s * 0.06 + Math.sin(time * 8 + j * 2) * s * 0.03;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Lucky star in center
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 23. sonic: Sound wave emitter with concentric rings
+  sonic: function(ctx, s, color, time) {
+    // Central speaker body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    // Inner cone
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Sound wave rings (expanding outward)
+    for (var i = 0; i < 3; i++) {
+      var wavePhase = (time * 3 + i * 2.1) % (Math.PI * 2);
+      var waveRadius = s * 0.5 + Math.sin(wavePhase) * s * 0.35;
+      var waveAlpha = 0.4 - (i * 0.1) + Math.sin(wavePhase) * 0.2;
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = Math.max(0, waveAlpha);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, waveRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // Wing fins (left and right)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.4, -s * 0.15);
+    ctx.lineTo(-s * 1.0, -s * 0.5);
+    ctx.lineTo(-s * 1.1, s * 0.2);
+    ctx.lineTo(-s * 0.5, s * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.4, -s * 0.15);
+    ctx.lineTo(s * 1.0, -s * 0.5);
+    ctx.lineTo(s * 1.1, s * 0.2);
+    ctx.lineTo(s * 0.5, s * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    // Nose tip
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.8);
+    ctx.lineTo(-s * 0.12, -s * 0.45);
+    ctx.lineTo(s * 0.12, -s * 0.45);
+    ctx.closePath();
+    ctx.fill();
+  },
+
+  // 24. nature: Organic leaf shape with vine tendrils
+  nature: function(ctx, s, color, time) {
+    // Main leaf body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.1);
+    ctx.quadraticCurveTo(-s * 0.8, -s * 0.3, -s * 0.5, s * 0.3);
+    ctx.quadraticCurveTo(-s * 0.2, s * 0.6, 0, s * 0.9);
+    ctx.quadraticCurveTo(s * 0.2, s * 0.6, s * 0.5, s * 0.3);
+    ctx.quadraticCurveTo(s * 0.8, -s * 0.3, 0, -s * 1.1);
+    ctx.fill();
+    // Leaf vein (center line)
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.9);
+    ctx.lineTo(0, s * 0.7);
+    ctx.stroke();
+    // Side veins
+    for (var i = 0; i < 3; i++) {
+      var vy = -s * 0.5 + i * s * 0.4;
+      var vx = s * 0.3 + i * s * 0.05;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, vy);
+      ctx.quadraticCurveTo(vx * 0.5, vy - s * 0.1, vx, vy - s * 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, vy);
+      ctx.quadraticCurveTo(-vx * 0.5, vy - s * 0.1, -vx, vy - s * 0.15);
+      ctx.stroke();
+    }
+    // Vine tendrils (animated)
+    for (var j = 0; j < 2; j++) {
+      var side = j === 0 ? -1 : 1;
+      var tendrilPhase = time * 2 + j * 1.5;
+      var tx = side * s * 0.6 + Math.sin(tendrilPhase) * s * 0.15;
+      var ty = s * 0.3 + Math.cos(tendrilPhase) * s * 0.1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(side * s * 0.4, s * 0.1);
+      ctx.quadraticCurveTo(tx, ty, tx + side * s * 0.2, ty + s * 0.15);
+      ctx.stroke();
+    }
+    // Life glow core
+    var glowPulse = 0.6 + Math.sin(time * 3) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + glowPulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.3, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 25. psychic: Ethereal eye shape with orbiting marks
+  psychic: function(ctx, s, color, time) {
+    // Eye-shaped hull
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.9);
+    ctx.quadraticCurveTo(-s * 0.9, -s * 0.2, -s * 0.8, s * 0.1);
+    ctx.quadraticCurveTo(-s * 0.5, s * 0.6, 0, s * 0.8);
+    ctx.quadraticCurveTo(s * 0.5, s * 0.6, s * 0.8, s * 0.1);
+    ctx.quadraticCurveTo(s * 0.9, -s * 0.2, 0, -s * 0.9);
+    ctx.fill();
+    // Inner iris
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Pupil
+    ctx.fillStyle = '#220022';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    // Psychic marks (orbiting symbols)
+    for (var i = 0; i < 4; i++) {
+      var markAngle = time * 2 + (i / 4) * Math.PI * 2;
+      var markR = s * 0.65 + Math.sin(time * 3 + i) * s * 0.1;
+      var mx = Math.cos(markAngle) * markR;
+      var my = Math.sin(markAngle) * markR;
+      var markPulse = 0.5 + Math.sin(time * 5 + i * 1.5) * 0.3;
+      ctx.fillStyle = 'rgba(255,68,255,' + markPulse + ')';
+      ctx.beginPath();
+      // Small diamond marks
+      ctx.moveTo(mx, my - s * 0.1);
+      ctx.lineTo(mx + s * 0.07, my);
+      ctx.lineTo(mx, my + s * 0.1);
+      ctx.lineTo(mx - s * 0.07, my);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Psychic aura rings
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.3 + Math.sin(time * 4) * 0.15;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.9 + Math.sin(time * 2) * s * 0.1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  },
+
+  // 27. minion: Demon horned shape with orbiting minions
+  minion: function(ctx, s, color, time) {
+    // Main demon body with horns
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.5);
+    ctx.lineTo(-s * 0.35, -s * 0.2);
+    ctx.lineTo(-s * 0.5, -s * 0.7);
+    ctx.lineTo(-s * 0.25, -s * 0.3);
+    ctx.lineTo(-s * 0.7, s * 0.1);
+    ctx.lineTo(-s * 0.2, s * 0.0);
+    ctx.lineTo(-s * 0.4, s * 0.7);
+    ctx.lineTo(0, s * 0.4);
+    ctx.lineTo(s * 0.4, s * 0.7);
+    ctx.lineTo(s * 0.2, s * 0.0);
+    ctx.lineTo(s * 0.7, s * 0.1);
+    ctx.lineTo(s * 0.25, -s * 0.3);
+    ctx.lineTo(s * 0.5, -s * 0.7);
+    ctx.lineTo(s * 0.35, -s * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    // Demon horns
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.3, -s * 0.4);
+    ctx.lineTo(-s * 0.55, -s * 0.95);
+    ctx.lineTo(-s * 0.15, -s * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.3, -s * 0.4);
+    ctx.lineTo(s * 0.55, -s * 0.95);
+    ctx.lineTo(s * 0.15, -s * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // Blood orb glow
+    var orbPulse = 0.5 + Math.sin(time * 5) * 0.3;
+    ctx.fillStyle = 'rgba(255,68,136,' + orbPulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.05, s * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    // Orbiting minion spirits
+    for (var i = 0; i < 3; i++) {
+      var ang = time * 2.5 + (i / 3) * Math.PI * 2;
+      var ox = Math.cos(ang) * s * 0.85;
+      var oy = Math.sin(ang) * s * 0.85;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(ox, oy, s * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  // 28. data: Hexagonal scanner with data streams
+  data: function(ctx, s, color, time) {
+    // Hexagonal body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < 6; i++) {
+      var angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      var hx = Math.cos(angle) * s * 0.7;
+      var hy = Math.sin(angle) * s * 0.7;
+      if (i === 0) ctx.moveTo(hx, hy);
+      else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Inner hexagon (darker)
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    for (var j = 0; j < 6; j++) {
+      var innerAngle = (j / 6) * Math.PI * 2 - Math.PI / 2;
+      var ix = Math.cos(innerAngle) * s * 0.45;
+      var iy = Math.sin(innerAngle) * s * 0.45;
+      if (j === 0) ctx.moveTo(ix, iy);
+      else ctx.lineTo(ix, iy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Scanning line (rotating)
+    var scanAngle = time * 4;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(scanAngle) * s * 0.65, Math.sin(scanAngle) * s * 0.65);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // Data stream particles
+    for (var k = 0; k < 4; k++) {
+      var streamAngle = time * 3 + (k / 4) * Math.PI * 2;
+      var sr = s * 0.3 + Math.sin(time * 5 + k) * s * 0.15;
+      var sx = Math.cos(streamAngle) * sr;
+      var sy = Math.sin(streamAngle) * sr;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(sx, sy, s * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Center data core
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 24. rune: Mystical rune-carved hull with glowing symbols
+  rune: function(ctx, s, color, time) {
+    // Octagonal rune hull
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < 8; i++) {
+      var angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+      var r = (i % 2 === 0) ? s * 1.0 : s * 0.7;
+      var px = Math.cos(angle) * r;
+      var py = Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Rune symbol lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.2;
+    // Inner triangle
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.45);
+    ctx.lineTo(-s * 0.35, s * 0.2);
+    ctx.lineTo(s * 0.35, s * 0.2);
+    ctx.closePath();
+    ctx.stroke();
+    // Cross bars
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.25, -s * 0.1);
+    ctx.lineTo(s * 0.25, -s * 0.1);
+    ctx.moveTo(0, -s * 0.45);
+    ctx.lineTo(0, s * 0.2);
+    ctx.stroke();
+    // Pulsing rune glow
+    var runeGlow = 0.4 + Math.sin(time * 5) * 0.3;
+    ctx.fillStyle = 'rgba(255,170,68,' + runeGlow + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 25. star: Star-shaped hull with radiating points
+  star: function(ctx, s, color, time) {
+    // Five-pointed star shape
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+      var angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+      var r = (i % 2 === 0) ? s * 1.1 : s * 0.5;
+      var px = Math.cos(angle) * r;
+      var py = Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Inner star detail
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    for (var j = 0; j < 10; j++) {
+      var a2 = (j / 10) * Math.PI * 2 - Math.PI / 2;
+      var r2 = (j % 2 === 0) ? s * 0.6 : s * 0.25;
+      var px2 = Math.cos(a2) * r2;
+      var py2 = Math.sin(a2) * r2;
+      if (j === 0) ctx.moveTo(px2, py2);
+      else ctx.lineTo(px2, py2);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Radiating glow
+    var starPulse = 0.5 + Math.sin(time * 4) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,170,' + starPulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Orbiting sparkle
+    var sparkAngle = time * 3;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(Math.cos(sparkAngle) * s * 0.8, Math.sin(sparkAngle) * s * 0.8, s * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 26. darkGold: Coin-shaped hull with golden shimmer
+  darkGold: function(ctx, s, color, time) {
+    // Circular coin body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    // Inner ring
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.65, 0, Math.PI * 2);
+    ctx.stroke();
+    // Dollar sign / gold symbol
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = 'bold ' + Math.round(s * 0.9) + 'px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('$', 0, 0);
+    // Rotating golden shimmer
+    var shimmerAngle = time * 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.05, shimmerAngle, shimmerAngle + Math.PI * 0.6);
+    ctx.stroke();
+    // Wing fins for propulsion
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.7, s * 0.3);
+    ctx.lineTo(-s * 1.2, s * 0.8);
+    ctx.lineTo(-s * 0.5, s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.7, s * 0.3);
+    ctx.lineTo(s * 1.2, s * 0.8);
+    ctx.lineTo(s * 0.5, s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+  },
+
+  // 29. storm: Swirling spiral shape with wind trails
+  storm: function(ctx, s, color, time) {
+    // Spiral wind hull
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    var spiralPoints = 8;
+    for (var i = 0; i < spiralPoints; i++) {
+      var angle = (i / spiralPoints) * Math.PI * 2 + time * 3;
+      var r = s * (0.4 + (i / spiralPoints) * 0.6);
+      var px = Math.cos(angle) * r * 0.6;
+      var py = Math.sin(angle) * r - s * 0.3;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Central vortex core
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.2, s * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    // Wind trail lines (animated)
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1;
+    for (var j = 0; j < 4; j++) {
+      var trailAngle = time * 4 + (j / 4) * Math.PI * 2;
+      var trailR = s * 0.8 + Math.sin(time * 3 + j) * s * 0.2;
+      var tx = Math.cos(trailAngle) * trailR * 0.5;
+      var ty = Math.sin(trailAngle) * trailR * 0.5 + s * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      var curve = Math.sin(time * 5 + j * 1.5) * s * 0.3;
+      ctx.quadraticCurveTo(tx + curve, ty + s * 0.2, tx, ty + s * 0.5);
+      ctx.stroke();
+    }
+    // Nose glow
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.7, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 30. soul: Ghostly ethereal shape with floating soul orbs
+  soul: function(ctx, s, color, time) {
+    // Ghostly translucent hull
+    var ghostAlpha = 0.6 + Math.sin(time * 3) * 0.15;
+    ctx.globalAlpha = ghostAlpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.9);
+    ctx.quadraticCurveTo(-s * 0.8, -s * 0.3, -s * 0.6, s * 0.2);
+    ctx.quadraticCurveTo(-s * 0.7, s * 0.6, -s * 0.3, s * 0.85);
+    ctx.quadraticCurveTo(0, s * 0.6, s * 0.3, s * 0.85);
+    ctx.quadraticCurveTo(s * 0.7, s * 0.6, s * 0.6, s * 0.2);
+    ctx.quadraticCurveTo(s * 0.8, -s * 0.3, 0, -s * 0.9);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Soul core (glowing orb)
+    var corePulse = 0.6 + Math.sin(time * 4) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + corePulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.1, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Orbiting soul orbs
+    for (var i = 0; i < 5; i++) {
+      var orbAngle = time * 2 + (i / 5) * Math.PI * 2;
+      var orbR = s * 0.7 + Math.sin(time * 3 + i * 1.2) * s * 0.15;
+      var ox = Math.cos(orbAngle) * orbR;
+      var oy = Math.sin(orbAngle) * orbR * 0.6;
+      var orbAlpha = 0.4 + Math.sin(time * 5 + i * 2) * 0.3;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = orbAlpha;
+      ctx.beginPath();
+      ctx.arc(ox, oy, s * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  // 31. genesis: Cosmic nebula shape with random particle effects
+  genesis: function(ctx, s, color, time) {
+    // Nebula cloud body
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    for (var i = 0; i < 12; i++) {
+      var angle = (i / 12) * Math.PI * 2;
+      var r = s * (0.6 + Math.sin(time * 2 + i * 0.8) * 0.25);
+      var px = Math.cos(angle) * r;
+      var py = Math.sin(angle) * r - s * 0.1;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Inner cosmos layers
+    for (var j = 0; j < 3; j++) {
+      var layerAlpha = 0.3 - j * 0.08;
+      var layerR = s * (0.5 - j * 0.12);
+      var layerAngle = time * (1.5 + j * 0.5);
+      ctx.fillStyle = j === 0 ? '#ffffff' : (j === 1 ? '#aaaaff' : '#ffaaaa');
+      ctx.globalAlpha = layerAlpha;
+      ctx.beginPath();
+      ctx.arc(Math.cos(layerAngle) * s * 0.1, Math.sin(layerAngle) * s * 0.1 - s * 0.1, layerR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Random sparkle particles
+    for (var k = 0; k < 8; k++) {
+      var sparkAngle = time * 3 + k * 0.8;
+      var sparkR = s * 0.9 + Math.sin(time * 4 + k * 1.5) * s * 0.3;
+      var sx = Math.cos(sparkAngle) * sparkR;
+      var sy = Math.sin(sparkAngle) * sparkR;
+      var sparkSize = s * 0.04 + Math.sin(time * 6 + k * 2) * s * 0.02;
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.5 + Math.sin(time * 5 + k) * 0.3;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Central creation core
+    var coreGlow = 0.7 + Math.sin(time * 3) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + coreGlow + ')';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.1, s * 0.18, 0, Math.PI * 2);
+    ctx.fill();
   }
 };
 
@@ -734,6 +1334,14 @@ class Player {
 
     // SkillManager reference (set via linkSkillManager)
     this._skillManager = null;
+
+    // 触摸跟随模式
+    this._touchActive = false;
+    this._touchX = 0;
+    this._touchY = 0;
+
+    // 自动瞄准目标（触摸时设置）
+    this._autoShootTarget = null;
   }
 
   // ====================================================================
@@ -741,22 +1349,51 @@ class Player {
   // ====================================================================
 
   update(dt) {
-    // --- Smooth pointer follow ---
-    // lerp factor ~0.15 gives responsive but not-teleport movement.
-    // Scale by speed ratio so faster factions feel snappier.
-    var lerp = 0.15;
-    var speedRatio = this.speed / GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED;
-
     var prevX = this.x;
     var prevY = this.y;
 
-    this.x += (game.mouseX - this.x) * lerp * speedRatio;
-    this.y += (game.mouseY - this.y) * lerp * speedRatio;
+    // --- 触摸跟随模式 ---
+    if (this._touchActive && this._touchX !== undefined) {
+      this.x = this._touchX;
+      this.y = this._touchY - 50; // 手指上方50px，避免遮挡
+      // 边界检查
+      var r = this.hitboxRadius;
+      this.x = Math.max(r, Math.min(game.width - r, this.x));
+      this.y = Math.max(r, Math.min(game.height - r, this.y));
 
-    // Clamp inside canvas bounds (hitbox radius keeps ship fully visible)
-    var r = this.hitboxRadius;
-    this.x = Math.max(r, Math.min(game.width - r, this.x));
-    this.y = Math.max(r, Math.min(game.height - r, this.y));
+      // 自动瞄准：找最近敌人
+      var nearest = null;
+      var minDist = Infinity;
+      for (var i = 0; i < game.enemies.length; i++) {
+        var e = game.enemies[i];
+        if (!e.active) continue;
+        var dx = e.x - this.x;
+        var dy = e.y - this.y;
+        var dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = e;
+        }
+      }
+      this._autoShootTarget = nearest;
+    } else {
+      // --- Smooth pointer follow（桌面端） ---
+      // lerp factor ~0.15 gives responsive but not-teleport movement.
+      // Scale by speed ratio so faster factions feel snappier.
+      var lerp = 0.15;
+      var speedRatio = this.speed / GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED;
+
+      this.x += (game.mouseX - this.x) * lerp * speedRatio;
+      this.y += (game.mouseY - this.y) * lerp * speedRatio;
+
+      // Clamp inside canvas bounds (hitbox radius keeps ship fully visible)
+      var r = this.hitboxRadius;
+      this.x = Math.max(r, Math.min(game.width - r, this.x));
+      this.y = Math.max(r, Math.min(game.height - r, this.y));
+
+      // 非触摸模式清除自动瞄准
+      this._autoShootTarget = null;
+    }
 
     // --- Engine trail particles (spawn when moving) ---
     var dx = this.x - prevX;
@@ -802,6 +1439,81 @@ class Player {
       }
     }
 
+    // --- 狂怒流派: 低血加攻效果 ---
+    if (this.stats.lowHpBonus && this.stats.rageThreshold) {
+      var hpPct = this.hp / Math.max(this.maxHp, 1);
+      var threshold = this.stats.rageThreshold;
+      if (hpPct <= threshold && !this._furyActive) {
+        // 进入狂怒状态：临时增加攻击力
+        this._furyActive = true;
+        this._furyMod = { stat: 'attack', op: 'multiply', value: this.stats.lowHpBonus };
+        this._addModifier(this._furyMod);
+        // 狂怒视觉效果
+        if (window.ParticleSystem) {
+          window.ParticleSystem.damageNumber(this.x, this.y - 30, '💢 狂怒!', '#ff0044');
+        }
+      } else if (hpPct > threshold && this._furyActive) {
+        // 退出狂怒状态：移除临时加成
+        this._furyActive = false;
+        if (this._furyMod) {
+          this._removeModifier(this._furyMod);
+          this._furyMod = null;
+        }
+      }
+    }
+
+    // --- 幸运流派: 掉落率加成 ---
+    if (this.stats.dropRateBonus && !this._luckApplied) {
+      this._luckApplied = true;
+      this._luckMod = { stat: 'dropRate', op: 'add', value: this.stats.dropRateBonus };
+      this._addModifier(this._luckMod);
+    }
+
+    // --- 血祭流派: HP再生 ---
+    if (this.stats.hpRegen && this.stats.hpRegen > 0) {
+      if (!this._hpRegenTimer) this._hpRegenTimer = 0;
+      this._hpRegenTimer += dt;
+      if (this._hpRegenTimer >= 1.0) { // heal every 1 second
+        this._hpRegenTimer = 0;
+        if (this.hp < this.maxHp) {
+          this.heal(this.stats.hpRegen);
+        }
+      }
+    }
+
+    // --- 血祭流派: 低血量攻击力加成 (bloodRage) ---
+    if (this.stats.bloodRageThreshold && this.stats.bloodRageDamage) {
+      var _bloodHpPct = this.hp / Math.max(this.maxHp, 1);
+      if (_bloodHpPct <= this.stats.bloodRageThreshold && !this._bloodRageActive) {
+        this._bloodRageActive = true;
+        this._bloodRageMod = { stat: 'attack', op: 'multiply', value: this.stats.bloodRageDamage };
+        this._addModifier(this._bloodRageMod);
+        if (window.ParticleSystem) {
+          window.ParticleSystem.damageNumber(this.x, this.y - 30, '🩸 血怒!', '#cc0000');
+        }
+      } else if (_bloodHpPct > this.stats.bloodRageThreshold && this._bloodRageActive) {
+        this._bloodRageActive = false;
+        if (this._bloodRageMod) {
+          this._removeModifier(this._bloodRageMod);
+          this._bloodRageMod = null;
+        }
+      }
+    }
+
+    // --- 暗影流派: 隐身机制 (受击后触发) ---
+    if (this.stats.stealthDuration && this.stats.stealthCooldown) {
+      if (this._stealthCooldownTimer > 0) {
+        this._stealthCooldownTimer -= dt * 1000;
+      }
+      if (this._stealthActive) {
+        this._stealthTimer -= dt * 1000;
+        if (this._stealthTimer <= 0) {
+          this._stealthActive = false;
+          this._stealthDamageMult = 1;
+        }
+      }
+    }
+
     // --- Visual time accumulator ---
     this._visualTime += dt;
   }
@@ -819,6 +1531,11 @@ class Player {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.scale(invPulse, invPulse);
+
+    // --- Shadow stealth visual (semi-transparent when stealthed) ---
+    if (this._stealthActive) {
+      ctx.globalAlpha = 0.4 + Math.sin(this._visualTime * 6) * 0.1;
+    }
 
     // --- Shield visual (translucent circle behind ship) ---
     if (this.shield > 0) {
@@ -1008,6 +1725,33 @@ class Player {
     this._recalculateStats();
   }
 
+  /**
+   * Add a single modifier and recalculate stats.
+   * @param {Object} mod - { stat, op: 'multiply'|'add', value }
+   */
+  _addModifier(mod) {
+    if (!mod) return;
+    if (!this._modifiers[mod.stat]) {
+      this._modifiers[mod.stat] = [];
+    }
+    this._modifiers[mod.stat].push(mod);
+    this._recalculateStats();
+  }
+
+  /**
+   * Remove a specific modifier and recalculate stats.
+   * @param {Object} mod - The exact mod object to remove
+   */
+  _removeModifier(mod) {
+    if (!mod || !this._modifiers[mod.stat]) return;
+    var mods = this._modifiers[mod.stat];
+    var idx = mods.indexOf(mod);
+    if (idx !== -1) {
+      mods.splice(idx, 1);
+    }
+    this._recalculateStats();
+  }
+
   // Rebuild `this.stats` from base + modifiers, then update derived properties
   _recalculateStats() {
     // Start with a clone of base stats
@@ -1090,6 +1834,32 @@ class Player {
   takeDamage(amount) {
     if (this.invincibleTimer > 0) return true;
     if (amount <= 0) return this.hp > 0;
+
+    // Counter: defense damage reduction
+    if (this.stats.defense && this.stats.defense > 0) {
+      amount = Math.floor(amount * (1 - Math.min(this.stats.defense, 0.8))); // cap at 80%
+    }
+
+    // Mirror: damage redirect - chance to redirect damage away
+    if (this.stats.damageRedirect && Math.random() < this.stats.damageRedirect) {
+      amount = Math.floor(amount * 0.5); // redirect halves damage
+      if (window.ParticleSystem) {
+        ParticleSystem.spark(this.x, this.y);
+      }
+    }
+
+    // Shadow: stealth trigger on hit (enter stealth when taking damage)
+    if (this.stats.stealthDuration && this.stats.stealthCooldown) {
+      if (!this._stealthActive && this._stealthCooldownTimer <= 0) {
+        this._stealthActive = true;
+        this._stealthTimer = this.stats.stealthDuration;
+        this._stealthCooldownTimer = this.stats.stealthCooldown;
+        this._stealthDamageMult = this.stats.stealthDamageBonus || 1.5;
+        if (window.ParticleSystem) {
+          ParticleSystem.damageNumber(this.x, this.y - 30, '🌑 隐身!', '#111166');
+        }
+      }
+    }
 
     var wasShieldActive = this.shield > 0;
 

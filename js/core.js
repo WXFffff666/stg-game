@@ -54,6 +54,55 @@ class ObjectPool {
 // Expose globally so other modules can use it
 window.ObjectPool = ObjectPool;
 
+// ============================================================
+//  EVENT EMITTER
+// ============================================================
+
+/**
+ * 简单事件发射器，为流派效果系统提供事件驱动架构。
+ * 支持 on/off/emit 基本事件订阅与触发。
+ */
+class EventEmitter {
+  constructor() {
+    this._listeners = {};
+  }
+
+  /**
+   * 订阅事件
+   * @param {string} event - 事件名称
+   * @param {Function} callback - 回调函数
+   */
+  on(event, callback) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(callback);
+  }
+
+  /**
+   * 取消订阅事件
+   * @param {string} event - 事件名称
+   * @param {Function} callback - 要移除的回调函数
+   */
+  off(event, callback) {
+    if (!this._listeners[event]) return;
+    this._listeners[event] = this._listeners[event].filter(function(cb) { return cb !== callback; });
+  }
+
+  /**
+   * 触发事件
+   * @param {string} event - 事件名称
+   * @param {*} data - 事件数据
+   */
+  emit(event, data) {
+    if (!this._listeners[event]) return;
+    for (var i = 0; i < this._listeners[event].length; i++) {
+      this._listeners[event][i](data);
+    }
+  }
+}
+
+// Expose globally
+window.EventEmitter = EventEmitter;
+
 class Game {
   constructor() {
     this.canvas = null;
@@ -92,6 +141,9 @@ class Game {
     this.isPointerDown = false;
     this.pointerActive = false;
 
+    // 设备检测：宽度<768px判定为手机
+    this.isMobile = window.innerWidth < 768;
+
     // Entity pools
     this.entities = [];
     this.pendingAdd = [];
@@ -112,11 +164,11 @@ class Game {
     this.enemyPool = [];
     this.damageNumberPool = [];
 
-    // Entity limits per category
+    // Entity limits per category (从配置读取)
     this.ENTITY_LIMITS = {
-      enemies: 40,
-      bullets: 200,
-      particles: 150,
+      enemies: GAME_CONFIG.BALANCE.POOL_ENEMIES,
+      bullets: GAME_CONFIG.BALANCE.POOL_BULLETS,
+      particles: GAME_CONFIG.BALANCE.POOL_PARTICLES,
       items: 30,
     };
 
@@ -322,7 +374,12 @@ class Game {
     if (this._poolsInitialized) return;
     this._poolsInitialized = true;
 
-    // Bullet pool: 200 pre-allocated
+    // 对象池大小从配置读取
+    var poolBullets = GAME_CONFIG.BALANCE.POOL_BULLETS;
+    var poolParticles = GAME_CONFIG.BALANCE.POOL_PARTICLES;
+    var poolEnemies = GAME_CONFIG.BALANCE.POOL_ENEMIES;
+
+    // Bullet pool: 从配置读取
     this.bulletPool = new ObjectPool(function() {
       if (typeof Bullet !== 'undefined') {
         var b = new Bullet();
@@ -330,15 +387,15 @@ class Game {
         return b;
       }
       return { active: false };
-    }, 200);
+    }, poolBullets);
 
-    // Particle pool: 150 pre-allocated
+    // Particle pool: 从配置读取
     this.particlePool = new ObjectPool(function() {
       if (typeof Particle !== 'undefined') return new Particle();
       return { active: false };
-    }, 150);
+    }, poolParticles);
 
-    // Enemy pool: 40 pre-allocated
+    // Enemy pool: 从配置读取
     this.enemyPool = new ObjectPool(function() {
       if (typeof Enemy !== 'undefined' && typeof GAME_CONFIG !== 'undefined') {
         var template = GAME_CONFIG.ENEMIES.small;
@@ -347,7 +404,7 @@ class Game {
         return e;
       }
       return { active: false, category: 'enemy' };
-    }, 40);
+    }, poolEnemies);
 
     // Item pool: 30 pre-allocated
     this.itemPool = new ObjectPool(function() {
@@ -370,6 +427,190 @@ class Game {
       ', enemies=' + this.enemyPool.length +
       ', items=' + this.itemPool.length +
       ', damageNumbers=' + this.damageNumberPool.length);
+
+    // 初始化空间网格
+    this._initSpatialGrid();
+
+    // 初始化低性能检测
+    this._initLowPerfDetection();
+  }
+
+  // ===== 空间网格碰撞检测 (4x4网格优化) =====
+  _initSpatialGrid() {
+    var cols = GAME_CONFIG.BALANCE.COLLISION_GRID_COLS;
+    var rows = GAME_CONFIG.BALANCE.COLLISION_GRID_ROWS;
+    this.gridCols = cols;
+    this.gridRows = rows;
+    this.gridCellW = this.width / cols;
+    this.gridCellH = this.height / rows;
+    this.collisionGrid = [];
+    for (var i = 0; i < cols * rows; i++) {
+      this.collisionGrid.push([]);
+    }
+  }
+
+  /**
+   * 将实体分配到空间网格
+   * @param {Array} entities - 实体数组
+   */
+  _buildCollisionGrid(entities) {
+    // 清空网格
+    for (var i = 0; i < this.collisionGrid.length; i++) {
+      this.collisionGrid[i].length = 0;
+    }
+    // 将活跃实体分配到对应网格
+    for (var j = 0; j < entities.length; j++) {
+      var entity = entities[j];
+      if (!entity.active) continue;
+      var col = Math.floor(entity.x / this.gridCellW);
+      var row = Math.floor(entity.y / this.gridCellH);
+      // 边界检查
+      if (col < 0) col = 0;
+      if (col >= this.gridCols) col = this.gridCols - 1;
+      if (row < 0) row = 0;
+      if (row >= this.gridRows) row = this.gridRows - 1;
+      var gridIndex = row * this.gridCols + col;
+      this.collisionGrid[gridIndex].push(entity);
+    }
+  }
+
+  /**
+   * 获取指定网格及相邻网格中的实体
+   * @param {number} col - 网格列
+   * @param {number} row - 网格行
+   * @returns {Array} 相邻网格中的实体
+   */
+  _getNearbyEntities(col, row) {
+    var result = [];
+    for (var dr = -1; dr <= 1; dr++) {
+      for (var dc = -1; dc <= 1; dc++) {
+        var r = row + dr;
+        var c = col + dc;
+        if (r < 0 || r >= this.gridRows || c < 0 || c >= this.gridCols) continue;
+        var gridIndex = r * this.gridCols + c;
+        var cell = this.collisionGrid[gridIndex];
+        for (var i = 0; i < cell.length; i++) {
+          result.push(cell[i]);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 使用空间网格优化的碰撞检测
+   * @param {Object} entity - 要检测碰撞的实体
+   * @param {Array} targets - 目标实体数组
+   * @returns {Array} 碰撞的目标实体列表
+   */
+  checkCollisionWithGrid(entity, targets) {
+    if (!entity.active) return [];
+    var col = Math.floor(entity.x / this.gridCellW);
+    var row = Math.floor(entity.y / this.gridCellH);
+    if (col < 0) col = 0;
+    if (col >= this.gridCols) col = this.gridCols - 1;
+    if (row < 0) row = 0;
+    if (row >= this.gridRows) row = this.gridRows - 1;
+    var nearby = this._getNearbyEntities(col, row);
+    var hits = [];
+    for (var i = 0; i < nearby.length; i++) {
+      var target = nearby[i];
+      if (!target.active) continue;
+      if (this.checkCollision(entity, target)) {
+        hits.push(target);
+      }
+    }
+    return hits;
+  }
+
+  // ===== 低性能模式检测 =====
+  _initLowPerfDetection() {
+    this.lowPerfMode = false;
+    this._fpsBuffer = [];
+    this._fpsBufferTime = 0;
+    this._lowFpsStartTime = 0;
+    this._lowFpsDetected = false;
+  }
+
+  /**
+   * 检测并更新低性能模式状态
+   * @param {number} rawDt - 原始帧间隔(毫秒)
+   */
+  _checkLowPerformance(rawDt) {
+    var now = this.gameTime;
+    var fps = rawDt > 0 ? 1000 / rawDt : 60;
+
+    // 收集FPS样本
+    this._fpsBuffer.push(fps);
+    this._fpsBufferTime += rawDt;
+
+    // 每隔一段时间检查一次
+    var checkInterval = GAME_CONFIG.BALANCE.LOW_FPS_CHECK_INTERVAL;
+    if (this._fpsBufferTime < checkInterval) return;
+    this._fpsBufferTime = 0;
+
+    // 计算平均FPS
+    var sum = 0;
+    for (var i = 0; i < this._fpsBuffer.length; i++) {
+      sum += this._fpsBuffer[i];
+    }
+    var avgFps = sum / this._fpsBuffer.length;
+    this._fpsBuffer.length = 0;
+
+    var threshold = GAME_CONFIG.BALANCE.LOW_FPS_THRESHOLD;
+    var duration = GAME_CONFIG.BALANCE.LOW_FPS_DURATION;
+
+    if (avgFps < threshold) {
+      if (!this._lowFpsDetected) {
+        this._lowFpsDetected = true;
+        this._lowFpsStartTime = now;
+      } else if (now - this._lowFpsStartTime >= duration) {
+        // 连续低帧率超过阈值，启用低性能模式
+        if (!this.lowPerfMode) {
+          this._enableLowPerfMode();
+        }
+      }
+    } else {
+      // 帧率恢复正常，重置检测
+      this._lowFpsDetected = false;
+      this._lowFpsStartTime = 0;
+    }
+  }
+
+  /**
+   * 启用低性能模式
+   */
+  _enableLowPerfMode() {
+    this.lowPerfMode = true;
+    console.log('低性能模式已启用：粒子减少50%，敌人上限25，子弹上限120');
+
+    // 更新实体限制
+    this.ENTITY_LIMITS.enemies = GAME_CONFIG.BALANCE.LOW_PERF_MAX_ENEMIES;
+    this.ENTITY_LIMITS.bullets = GAME_CONFIG.BALANCE.LOW_PERF_MAX_BULLETS;
+    this.ENTITY_LIMITS.particles = Math.floor(this.ENTITY_LIMITS.particles * GAME_CONFIG.BALANCE.LOW_PERF_PARTICLE_REDUCTION);
+
+    // 触发事件通知其他系统
+    if (window.eventBus) {
+      window.eventBus.emit('lowPerfMode', { enabled: true });
+    }
+  }
+
+  /**
+   * 禁用低性能模式（可选，供调试用）
+   */
+  disableLowPerfMode() {
+    if (!this.lowPerfMode) return;
+    this.lowPerfMode = false;
+    console.log('低性能模式已禁用');
+
+    // 恢复实体限制
+    this.ENTITY_LIMITS.enemies = GAME_CONFIG.BALANCE.POOL_ENEMIES;
+    this.ENTITY_LIMITS.bullets = GAME_CONFIG.BALANCE.POOL_BULLETS;
+    this.ENTITY_LIMITS.particles = GAME_CONFIG.BALANCE.POOL_PARTICLES;
+
+    if (window.eventBus) {
+      window.eventBus.emit('lowPerfMode', { enabled: false });
+    }
   }
 
   // ===== SCREEN SHAKE =====
@@ -399,6 +640,11 @@ class Game {
 
     // Cap delta time to prevent spiral of death
     const dt = Math.min(rawDt, 50) * 0.001 * this.timeScale;
+
+    // 低性能检测（仅在游戏运行时检测）
+    if (!this.isPaused && this.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
+      this._checkLowPerformance(rawDt);
+    }
 
     if (!this.isPaused) {
       this.gameTime += rawDt;
@@ -437,6 +683,21 @@ class Game {
     if (this._purgeCounter >= 60) {
       this._purgeCounter = 0;
       this._purgeCategoryArrays();
+    }
+
+    // 构建空间网格（用于碰撞检测优化）
+    this._buildCollisionGrid(this.enemies);
+    // 也将子弹加入网格（用于子弹vs敌人碰撞）
+    for (var bi = 0; bi < this.playerBullets.length; bi++) {
+      var bullet = this.playerBullets[bi];
+      if (!bullet.active) continue;
+      var col = Math.floor(bullet.x / this.gridCellW);
+      var row = Math.floor(bullet.y / this.gridCellH);
+      if (col < 0) col = 0;
+      if (col >= this.gridCols) col = this.gridCols - 1;
+      if (row < 0) row = 0;
+      if (row >= this.gridRows) row = this.gridRows - 1;
+      this.collisionGrid[row * this.gridCols + col].push(bullet);
     }
 
     // Update combo timer
@@ -530,6 +791,18 @@ class Game {
 
   // ===== EVENT HANDLERS =====
   _onResize() {
+    // 更新设备检测
+    this.isMobile = window.innerWidth < 768;
+
+    // 手机端使用竖屏canvas尺寸
+    if (this.isMobile) {
+      this.canvasW = 720;
+      this.canvasH = 1280;
+    } else {
+      this.canvasW = 1280;
+      this.canvasH = 720;
+    }
+
     const container = this.canvas.parentElement || document.body;
     const vpW = container.clientWidth || window.innerWidth;
     const vpH = container.clientHeight || window.innerHeight;
@@ -583,6 +856,11 @@ class Game {
     const pos = this.canvasToGame(clientX, clientY);
     this.mouseX = pos.x;
     this.mouseY = pos.y;
+    // 触摸跟随：更新玩家触摸坐标
+    if (e.touches && this.player) {
+      this.player._touchX = pos.x;
+      this.player._touchY = pos.y;
+    }
   }
 
   _onPointerDown(e) {
@@ -594,11 +872,21 @@ class Game {
     const pos = this.canvasToGame(clientX, clientY);
     this.mouseX = pos.x;
     this.mouseY = pos.y;
+    // 触摸跟随：激活触摸模式
+    if (e.touches && this.player) {
+      this.player._touchActive = true;
+      this.player._touchX = pos.x;
+      this.player._touchY = pos.y;
+    }
   }
 
   _onPointerUp(e) {
     e.preventDefault();
     this.isPointerDown = false;
+    // 触摸跟随：停用触摸模式
+    if (e.changedTouches && this.player) {
+      this.player._touchActive = false;
+    }
   }
 
   _onKeyDown(e) {
@@ -647,3 +935,6 @@ class Game {
 
 // Singleton instance
 window.game = new Game();
+
+// 全局事件总线，供流派效果系统使用
+window.eventBus = new EventEmitter();

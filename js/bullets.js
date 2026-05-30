@@ -1979,6 +1979,247 @@ var BulletPatterns = {
       bullets.push(bullet);
     }
     return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N1. flameThrower — Wide cone flame burst with burn
+  // ----------------------------------------------------------
+  flameThrower: function(x, y, angle, speed, damage, flameAngle, flameCount, burnDamage, burnDuration, color, trailColor) {
+    var bullets = [];
+    var halfAngle = (flameAngle || 50) * Math.PI / 180 / 2;
+    var count = flameCount || 5;
+    for (var i = 0; i < count; i++) {
+      var spread = -halfAngle + (i / (count - 1)) * (halfAngle * 2);
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle + spread) * speed,
+        vy: Math.sin(angle + spread) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 10,
+        hitRadius: 8,
+        lifetime: 0.45,
+        pierceCount: 1,
+        burnDamage: burnDamage || 6,
+        burnDuration: burnDuration || 2000
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N2. frostCannon — Single large frost bullet with slow
+  // ----------------------------------------------------------
+  frostCannon: function(x, y, angle, speed, damage, slowAmount, slowDuration, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 3,
+      slowAmount: slowAmount || 0.5,
+      slowDuration: slowDuration || 3000
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N3. lightningGun — Chain lightning bolt
+  // ----------------------------------------------------------
+  lightningGun: function(x, y, angle, speed, damage, chainCount, chainRange, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 1.5,
+      chainCount: chainCount || 5,
+      chainRange: chainRange || 200
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N4. rocketLauncher — Single heavy rocket with big explosion
+  // ----------------------------------------------------------
+  rocketLauncher: function(x, y, angle, speed, damage, explosionRadius, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 8,
+      hitRadius: 6,
+      lifetime: 4,
+      explosionRadius: explosionRadius || 100
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N5. mineLayer — Drops stationary mines that explode
+  // ----------------------------------------------------------
+  mineLayer: function(x, y, angle, speed, damage, explosionRadius, mineCount, color, trailColor) {
+    var bullets = [];
+    var count = mineCount || 3;
+    for (var i = 0; i < count; i++) {
+      var spread = (i - (count - 1) / 2) * 0.5;
+      var a = angle + spread;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 4,
+        hitRadius: 3,
+        lifetime: 5,
+        explosionRadius: explosionRadius || 80
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N6. energyWhip — 360° radial burst (short range)
+  // ----------------------------------------------------------
+  energyWhip: function(x, y, angle, speed, damage, whipCount, color, trailColor) {
+    var bullets = [];
+    var count = whipCount || 8;
+    for (var i = 0; i < count; i++) {
+      var a = (Math.PI * 2 * i) / count;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 3,
+        hitRadius: 2.5,
+        lifetime: 0.5,
+        pierceCount: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N7. sawBlade — Spinning saw with high pierce
+  // ----------------------------------------------------------
+  sawBlade: function(x, y, angle, speed, damage, spinSpeed, pierceCount, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 6,
+      hitRadius: 5,
+      lifetime: 3,
+      pierceCount: pierceCount || 6,
+      rotationSpeed: spinSpeed || 12
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N8. venomGun — Large toxic bullet with poison DOT
+  // ----------------------------------------------------------
+  venomGun: function(x, y, angle, speed, damage, pierceCount, burnDamage, burnDuration, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 8,
+      hitRadius: 6,
+      lifetime: 1.5,
+      pierceCount: pierceCount || 2,
+      burnDamage: burnDamage || 4,
+      burnDuration: burnDuration || 3000
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N9. magnetGun — Gravity well bullet that pulls enemies
+  // ----------------------------------------------------------
+  magnetGun: function(x, y, angle, speed, damage, wellRadius, pullForce, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 6,
+      hitRadius: 5,
+      lifetime: 3,
+      wellRadius: wellRadius || 150,
+      pullForce: pullForce || 120
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N10. blackHoleGen — Slow singularity with gravity + execute
+  // ----------------------------------------------------------
+  blackHoleGen: function(x, y, angle, speed, damage, wellRadius, pullForce, wellDamage, executeThreshold, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 8,
+      hitRadius: 6,
+      lifetime: 4,
+      wellRadius: wellRadius || 200,
+      pullForce: pullForce || 150,
+      wellDamage: wellDamage || 15,
+      executeThreshold: executeThreshold || 0.15
+    });
+    return [bullet];
   }
 
 };

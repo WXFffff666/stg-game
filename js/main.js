@@ -26,6 +26,11 @@
   let bossDefeatedThisRun = false;
   let bossKillsThisRun = 0;
 
+  // 波次间商店状态
+  let waveShopLastWave = 0;
+  let waveShopCurrentItems = [];
+  let waveShopRefreshCount = 0;
+
   // ============ INITIALIZATION ============
   function init() {
     game.init('game-canvas');
@@ -464,6 +469,104 @@
     inRunGold += Math.floor(amount);
   }
 
+  // ============ WAVE SHOP (波次间商店) ============
+  function getRandomShopItems(count) {
+    var allItems = cfg.SHOP.items;
+    var shuffled = allItems.slice().sort(function() { return 0.5 - Math.random(); });
+    return shuffled.slice(0, count);
+  }
+
+  function showWaveShop() {
+    var wave = waveSpawner ? waveSpawner.waveNumber : 0;
+    if (wave % cfg.SHOP.waveInterval !== 0 || wave === waveShopLastWave) return;
+
+    waveShopLastWave = wave;
+    waveShopRefreshCount = 0;
+    waveShopCurrentItems = getRandomShopItems(cfg.SHOP.displayCount);
+
+    game.pause();
+    ui.showWaveShop(waveShopCurrentItems, inRunGold, purchaseWaveShopItem, refreshWaveShopItems, hideWaveShop);
+  }
+
+  function hideWaveShop() {
+    ui.hideWaveShop();
+    game.resume();
+  }
+
+  function refreshWaveShopItems() {
+    var cost = cfg.SHOP.refreshCost;
+    if (inRunGold < cost) {
+      ui.showToast('金币不足！', '#ff4444');
+      return;
+    }
+    inRunGold -= cost;
+    waveShopRefreshCount++;
+    waveShopCurrentItems = getRandomShopItems(cfg.SHOP.displayCount);
+    ui.showWaveShop(waveShopCurrentItems, inRunGold, purchaseWaveShopItem, refreshWaveShopItems, hideWaveShop);
+  }
+
+  function purchaseWaveShopItem(itemId) {
+    var item = null;
+    for (var i = 0; i < cfg.SHOP.items.length; i++) {
+      if (cfg.SHOP.items[i].id === itemId) { item = cfg.SHOP.items[i]; break; }
+    }
+    if (!item) return;
+    if (inRunGold < item.cost) {
+      ui.showToast('金币不足！', '#ff4444');
+      return;
+    }
+
+    inRunGold -= item.cost;
+
+    // 应用商品效果
+    switch (item.id) {
+      case 'healthSmall':
+        if (playerEntity) playerEntity.heal(30);
+        ui.showToast('恢复30HP', '#44ff44');
+        break;
+      case 'healthMedium':
+        if (playerEntity) playerEntity.heal(80);
+        ui.showToast('恢复80HP', '#44ff44');
+        break;
+      case 'healthLarge':
+        if (playerEntity) playerEntity.heal(playerEntity.maxHp);
+        ui.showToast('恢复全部HP', '#44ff44');
+        break;
+      case 'fusionCore':
+        if (!window._fusionCores) window._fusionCores = 0;
+        window._fusionCores++;
+        ui.showToast('获得融合核心！', '#aa66ff');
+        break;
+      case 'attackBoost':
+        if (playerEntity) {
+          playerEntity.applyStatModifiers([{ stat: 'attack', op: 'multiply', value: 0.15 }]);
+        }
+        ui.showToast('攻击力+15%', '#ff8800');
+        break;
+      case 'speedBoost':
+        if (playerEntity) {
+          playerEntity.applyStatModifiers([{ stat: 'speed', op: 'multiply', value: 0.10 }]);
+        }
+        ui.showToast('移动速度+10%', '#88ffff');
+        break;
+    }
+
+    // 从当前商品列表移除已购买项
+    for (var j = 0; j < waveShopCurrentItems.length; j++) {
+      if (waveShopCurrentItems[j].id === itemId) {
+        waveShopCurrentItems.splice(j, 1);
+        break;
+      }
+    }
+
+    // 刷新商店UI
+    if (waveShopCurrentItems.length > 0) {
+      ui.showWaveShop(waveShopCurrentItems, inRunGold, purchaseWaveShopItem, refreshWaveShopItems, hideWaveShop);
+    } else {
+      hideWaveShop();
+    }
+  }
+
   // ============ COUNTDOWN ============
   function showCountdown(onComplete) {
     var overlay = document.getElementById('countdown-overlay');
@@ -678,6 +781,10 @@
     game.difficulty = 0;
     game.timeScale = 1.0;
     game.shakeIntensity = 0;
+    game.hpMultiplier = 1;
+    game.xpMultiplier = 1;
+    game.dropMultiplier = 1;
+    game.bossHpMultiplier = 1;
     gameOverShown = false;
     lastBossScore = 0;
 
@@ -691,6 +798,11 @@
       critChance: 0,
       pickupRange: 0,
     };
+
+    // Reset wave shop
+    waveShopLastWave = 0;
+    waveShopCurrentItems = [];
+    waveShopRefreshCount = 0;
 
     // Clear all entities
     game.clearAllEntities();
@@ -740,6 +852,13 @@
     skillManager.onLevelUp = function(choices) {
       game.pause();
 
+      // 降低BGM音量至30%
+      if (window.audio && window.audio._bgmNodes) {
+        window.audio._bgmNodes.forEach(function(n) {
+          if (n.gain) n.gain.value = window.audio._bgmVolume * 0.3;
+        });
+      }
+
       // Tutorial: advance on level up
       onTutorialLevelUp();
 
@@ -764,6 +883,14 @@
           skillManager.learnSkill(selectedItem._data.id);
         }
         ui.hideLevelUp();
+        // 设置1.5秒恢复缓冲期
+        window._resumeTimer = 1.5;
+        // 恢复BGM音量
+        if (window.audio && window.audio._bgmNodes) {
+          window.audio._bgmNodes.forEach(function(n) {
+            if (n.gain) n.gain.value = window.audio._bgmVolume;
+          });
+        }
         // game.resume() handled by learnSkill/selectWeapon in skills.js
       });
 
@@ -784,6 +911,14 @@
             skillManager._showLevelUpChoices();
           } else {
             skillManager._isChoosing = false;
+            // 设置1.5秒恢复缓冲期
+            window._resumeTimer = 1.5;
+            // 恢复BGM音量
+            if (window.audio && window.audio._bgmNodes) {
+              window.audio._bgmNodes.forEach(function(n) {
+                if (n.gain) n.gain.value = window.audio._bgmVolume;
+              });
+            }
             game.resume();
           }
         });
@@ -978,16 +1113,62 @@
     originalUpdate(dt);
 
     if (game.scene !== cfg.SCENES.GAMEPLAY || game.isPaused) return;
+    // 恢复缓冲期计时
+    if (window._resumeTimer > 0) {
+      window._resumeTimer -= dt;
+      if (window._resumeTimer <= 0) {
+        window._resumeTimer = 0;
+      }
+      return; // 缓冲期内不更新游戏逻辑
+    }
     if (!playerEntity || !playerEntity.active) {
       if (!gameOverShown) endGame();
       return;
     }
 
-    // Update difficulty
-    game.difficulty = Math.floor(game.score / 5000) + Math.floor(game.gameTime / cfg.BALANCE.DIFFICULTY_INTERVAL);
+    // Update difficulty — 难度曲线：前期简单、后期有挑战
+    var baseDifficulty = Math.floor(game.score / 5000) + Math.floor(game.gameTime / cfg.BALANCE.DIFFICULTY_INTERVAL);
+
+    // 前期(0-5分钟)：降低难度，让玩家轻松上手
+    if (game.gameTime < cfg.BALANCE.EARLY_PHASE_END) {
+      game.difficulty = Math.max(0, baseDifficulty - 1);
+      game.hpMultiplier = cfg.BALANCE.EARLY_HP_MULTIPLIER;    // 敌人HP×0.8
+      game.xpMultiplier = cfg.BALANCE.EARLY_XP_MULTIPLIER;    // 经验×1.2
+      game.dropMultiplier = cfg.BALANCE.EARLY_DROP_MULTIPLIER; // 掉率×1.5
+    }
+    // 中期(5-15分钟)：标准难度
+    else if (game.gameTime < cfg.BALANCE.MID_PHASE_END) {
+      game.difficulty = baseDifficulty;
+      game.hpMultiplier = 1;
+      game.xpMultiplier = 1;
+      game.dropMultiplier = 1;
+    }
+    // 后期(15分钟+)：难度逐渐提升
+    else {
+      var lateMinutes = (game.gameTime - cfg.BALANCE.MID_PHASE_END) / 60000;
+      var lateBonus = Math.floor(lateMinutes * cfg.BALANCE.LATE_DIFFICULTY_SCALE * 10) / 10;
+      game.difficulty = baseDifficulty + lateBonus;
+      game.hpMultiplier = 1 + lateBonus * 0.05; // 后期敌人HP逐渐增加
+      game.xpMultiplier = 1;
+      game.dropMultiplier = 1;
+    }
+
+    // Boss难度递增：第一个Boss简单，后续逐渐变强
+    if (bossKillsThisRun === 0) {
+      game.bossHpMultiplier = cfg.BALANCE.BOSS_FIRST_HP_SCALE; // 第一个Boss HP×0.7
+    } else {
+      game.bossHpMultiplier = 1 + bossKillsThisRun * cfg.BALANCE.BOSS_SCALING_PER_KILL;
+    }
 
     // Update wave spawner
     if (waveSpawner) waveSpawner.update(dt);
+
+    // 波次间商店触发：每N波完成后显示商店
+    if (waveSpawner && waveSpawner.waveState === 'pause' &&
+        waveSpawner.waveNumber % cfg.SHOP.waveInterval === 0 &&
+        waveSpawner.waveNumber !== waveShopLastWave) {
+      showWaveShop();
+    }
 
     // Update weapon
     if (weaponManager) weaponManager.update(dt);
@@ -1004,6 +1185,103 @@
       if (game.comboTimer <= 0) {
         game.combo = 0;
         game.comboTimer = 0;
+      }
+    }
+
+    // Gravity faction: per-frame aura that slows enemies in range
+    if (playerEntity.stats.gravityRadius && playerEntity.stats.gravitySlow) {
+      var _gravRadius = playerEntity.stats.gravityRadius;
+      var _gravSlow = playerEntity.stats.gravitySlow;
+      var _gravDmg = playerEntity.stats.gravityDamage || 0;
+      for (var _gi = 0; _gi < game.enemies.length; _gi++) {
+        var _ge = game.enemies[_gi];
+        if (!_ge.active) continue;
+        var _gdx = _ge.x - playerEntity.x;
+        var _gdy = _ge.y - playerEntity.y;
+        var _gdist = Math.sqrt(_gdx * _gdx + _gdy * _gdy);
+        if (_gdist < _gravRadius) {
+          _ge.slowTimer = 300;
+          _ge.slowAmount = _gravSlow;
+          if (_gravDmg > 0) {
+            var _alive = _ge.takeDamage(_gravDmg * dt);
+            if (!_alive) handleEnemyKilled(_ge, false, _gravDmg);
+          }
+        }
+      }
+    }
+
+    // Sonic faction: periodic pulse that damages enemies in range
+    if (playerEntity.stats.sonicPulseInterval && playerEntity.stats.sonicDamage) {
+      if (!playerEntity._sonicPulseTimer) playerEntity._sonicPulseTimer = 0;
+      playerEntity._sonicPulseTimer += dt;
+      if (playerEntity._sonicPulseTimer >= playerEntity.stats.sonicPulseInterval) {
+        playerEntity._sonicPulseTimer = 0;
+        var _sonicRadius = playerEntity.stats.sonicRadius || 120;
+        var _sonicDmg = playerEntity.stats.sonicDamage;
+        // Visual: expanding ring nova
+        if (window.ParticleSystem) {
+          window.ParticleSystem.nova(playerEntity.x, playerEntity.y, '#ff88ff');
+        }
+        // Damage enemies in range
+        for (var _si = 0; _si < game.enemies.length; _si++) {
+          var _se = game.enemies[_si];
+          if (!_se.active) continue;
+          var _sdx = _se.x - playerEntity.x;
+          var _sdy = _se.y - playerEntity.y;
+          var _sdist = Math.sqrt(_sdx * _sdx + _sdy * _sdy);
+          if (_sdist < _sonicRadius) {
+            var _alive = _se.takeDamage(_sonicDmg * 10);
+            if (!_alive) handleEnemyKilled(_se, false, _sonicDmg);
+            // Stun if ultimate unlocked
+            if (playerEntity.stats.sonicStun) {
+              _se.frozenTimer = Math.max(_se.frozenTimer || 0, playerEntity.stats.sonicStun);
+            }
+          }
+        }
+      }
+    }
+
+    // Holy faction: heal aura that heals player when enemies are nearby
+    if (playerEntity.stats.healAuraAmount && playerEntity.stats.healAuraRadius) {
+      if (!playerEntity._healAuraTimer) playerEntity._healAuraTimer = 0;
+      playerEntity._healAuraTimer += dt;
+      if (playerEntity._healAuraTimer >= 1.0) { // heal every 1 second
+        playerEntity._healAuraTimer = 0;
+        var _holyRadius = playerEntity.stats.healAuraRadius;
+        var _nearbyEnemy = false;
+        for (var _hi = 0; _hi < game.enemies.length; _hi++) {
+          var _he = game.enemies[_hi];
+          if (!_he.active) continue;
+          var _hdx = _he.x - playerEntity.x;
+          var _hdy = _he.y - playerEntity.y;
+          if (Math.sqrt(_hdx * _hdx + _hdy * _hdy) < _holyRadius) {
+            _nearbyEnemy = true;
+            break;
+          }
+        }
+        if (_nearbyEnemy) {
+          playerEntity.heal(playerEntity.stats.healAuraAmount);
+        }
+      }
+    }
+
+    // Time faction: periodic time slow aura that slows all enemies
+    if (playerEntity.stats.timeSlowAmount && playerEntity.stats.timeSlowDuration) {
+      if (!playerEntity._timeSlowTimer) playerEntity._timeSlowTimer = 0;
+      playerEntity._timeSlowTimer += dt * 1000;
+      if (playerEntity._timeSlowTimer >= 5000) { // trigger every 5 seconds
+        playerEntity._timeSlowTimer = 0;
+        var _tsDur = playerEntity.stats.timeSlowDuration;
+        var _tsAmt = playerEntity.stats.timeSlowAmount;
+        for (var _ti = 0; _ti < game.enemies.length; _ti++) {
+          var _te = game.enemies[_ti];
+          if (!_te.active) continue;
+          _te.slowTimer = Math.max(_te.slowTimer || 0, _tsDur);
+          _te.slowAmount = Math.max(_te.slowAmount || 0, _tsAmt);
+        }
+        if (window.ParticleSystem) {
+          window.ParticleSystem.nova(playerEntity.x, playerEntity.y, '#ccbb88');
+        }
       }
     }
 
@@ -1034,6 +1312,18 @@
       for (let bi = 0; bi < maxCheck; bi++) {
         const bullet = game.enemyBullets[bi];
         if (!bullet.active) continue;
+        // Magnet: bullet repel - chance to deflect enemy bullets
+        if (playerEntity.stats.bulletRepelChance && Math.random() < playerEntity.stats.bulletRepelChance) {
+          var _repelRadius = playerEntity.stats.bulletRepelRadius || 120;
+          var _bdx = bullet.x - playerEntity.x;
+          var _bdy = bullet.y - playerEntity.y;
+          if (Math.sqrt(_bdx * _bdx + _bdy * _bdy) < _repelRadius) {
+            bullet.active = false;
+            game.removeEntity(bullet);
+            if (window.ParticleSystem) window.ParticleSystem.spark(bullet.x, bullet.y);
+            continue;
+          }
+        }
         if (game.checkCollision(bullet, playerEntity)) {
           handleEnemyBulletHitPlayer(bullet);
           break;
@@ -1054,10 +1344,22 @@
       }
     }
 
-    // Collision: items vs player
+    // Collision: items vs player (with magnet pickupRange attraction)
     if (itemSpawner) {
+      var _pickupRange = playerEntity.stats.pickupRange || 0;
       for (const item of game.items) {
         if (!item.active || item.collected) continue;
+        // Magnet: attract items within pickupRange
+        if (_pickupRange > 0) {
+          var _idx = item.x - playerEntity.x;
+          var _idy = item.y - playerEntity.y;
+          var _idist = Math.sqrt(_idx * _idx + _idy * _idy);
+          if (_idist < _pickupRange && _idist > 1) {
+            var _attractSpeed = 400 * dt;
+            item.x -= (_idx / _idist) * _attractSpeed;
+            item.y -= (_idy / _idist) * _attractSpeed;
+          }
+        }
         if (game.checkCollision(item, playerEntity)) {
           handleItemPickup(item);
         }
@@ -1087,6 +1389,11 @@
       damage *= playerEntity.stats.critMult || 1.5;
       window.ParticleSystem.spark(enemy.x, enemy.y);
       if (playerEntity.onCrit) playerEntity.onCrit();
+    }
+
+    // Shadow: stealth damage bonus
+    if (playerEntity._stealthActive && playerEntity._stealthDamageMult > 1) {
+      damage = Math.floor(damage * playerEntity._stealthDamageMult);
     }
 
     // Apply status effects + track applied elements for reaction system
@@ -1129,19 +1436,28 @@
     if (enemy._vulnerableTimer > 0 && enemy._vulnerableMult) {
       damage = Math.floor(damage * enemy._vulnerableMult);
     }
-    // Wind: push enemy away
-    if (playerEntity.stats.pushForce) {
+    // Holy: boss damage bonus
+    if (enemy.isBoss && playerEntity.stats.bossDamageBonus) {
+      damage = Math.floor(damage * (1 + playerEntity.stats.bossDamageBonus));
+    }
+    // Wind: push enemy away (支持 windPushForce 和 pushForce 两种命名)
+    var _pushForce = playerEntity.stats.windPushForce || playerEntity.stats.pushForce;
+    if (_pushForce) {
       const dx = enemy.x - playerEntity.x;
       const dy = enemy.y - playerEntity.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      enemy.x += (dx / dist) * playerEntity.stats.pushForce;
-      enemy.y += (dy / dist) * playerEntity.stats.pushForce;
+      enemy.x += (dx / dist) * _pushForce;
+      enemy.y += (dy / dist) * _pushForce;
     }
-    // Void: execute enemies below HP threshold
-    if (playerEntity.stats.executeThreshold && enemy.hp / enemy.maxHp < playerEntity.stats.executeThreshold) {
-      damage = 9999;
+    // Void: execute enemies below HP threshold (支持 voidExecuteThreshold 和 executeThreshold)
+    var _voidThreshold = playerEntity.stats.voidExecuteThreshold || playerEntity.stats.executeThreshold;
+    if (_voidThreshold && enemy.hp / enemy.maxHp < _voidThreshold) {
+      var _voidChance = playerEntity.stats.voidExecuteChance || 1.0;
+      if (Math.random() < _voidChance) {
+        damage = 9999;
+      }
     }
-    // Gravity: pull enemies toward bullet impact
+    // Gravity: pull enemies toward bullet impact (ultimate skill effect)
     if (playerEntity.stats.pullRadius && playerEntity.stats.pullForce) {
       for (const other of game.enemies) {
         if (!other.active || other === enemy) continue;
@@ -1170,6 +1486,9 @@
       damage = 9999;
     }
 
+    // 触发子弹命中事件（供流派效果系统使用）
+    if (window.eventBus) window.eventBus.emit('bulletHit', {enemy: enemy, bullet: bullet, damage: damage, isCrit: isCrit});
+
     // Apply damage
     const alive = enemy.takeDamage(damage);
 
@@ -1187,6 +1506,9 @@
   }
 
   function handleEnemyKilled(enemy, isCrit, damage) {
+    // 触发敌人击杀事件（供流派效果系统使用）
+    if (window.eventBus) window.eventBus.emit('enemyKilled', {enemy: enemy, isCrit: isCrit, damage: damage});
+
     // Particles
     if (enemy.isBoss) {
       window.ParticleSystem.bossExplosion(enemy.x, enemy.y);
@@ -1222,6 +1544,8 @@
 
     // XP
     let xpGain = enemy.xp;
+    // 难度曲线：前期经验加成
+    if (game.xpMultiplier && game.xpMultiplier > 1) xpGain = Math.floor(xpGain * game.xpMultiplier);
     if (playerEntity.stats.xpMultiplier) xpGain = Math.floor(xpGain * playerEntity.stats.xpMultiplier);
     if (buffManager && buffManager.getModifier('xpBoost') > 1) {
       xpGain = Math.floor(xpGain * buffManager.getModifier('xpBoost'));
@@ -1255,6 +1579,16 @@
       playerEntity.heal(playerEntity.stats.healOnKill);
     }
 
+    // 默认击杀回血2%（所有流派）
+    if (playerEntity && playerEntity.active) {
+      var healAmount = Math.floor(playerEntity.stats.maxHp * 0.02);
+      playerEntity.heal(healAmount);
+      // 显示回血飘字
+      if (window.ParticleSystem) {
+        window.ParticleSystem.damageNumber(playerEntity.x, playerEntity.y - 20, '+' + healAmount, '#44ff44');
+      }
+    }
+
     // On-kill effects
     if (playerEntity.onKill) playerEntity.onKill();
 
@@ -1263,9 +1597,20 @@
       window.ParticleSystem.explosion(enemy.x, enemy.y, 'small');
     }
 
-    // Item drop
+    // Item drop — 动态掉率：难度曲线加成 + 低血量加成
     var dropChanceMult = playerEntity.stats.dropRate || 1;
-    if (itemSpawner && Math.random() < cfg.BALANCE.ITEM_DROP_CHANCE * dropChanceMult) {
+    var dropChance = cfg.BALANCE.ITEM_DROP_CHANCE;
+    if (game.gameTime < cfg.BALANCE.EARLY_GAME_DURATION) {
+      dropChance = cfg.BALANCE.EARLY_ITEM_DROP_RATE;
+    }
+    // 难度曲线：前期掉率×1.5
+    if (game.dropMultiplier && game.dropMultiplier > 1) {
+      dropChance *= game.dropMultiplier;
+    }
+    if (playerEntity && playerEntity.hp / playerEntity.stats.maxHp < cfg.BALANCE.LOW_HP_THRESHOLD) {
+      dropChance += cfg.BALANCE.LOW_HP_DROP_BONUS;
+    }
+    if (itemSpawner && Math.random() < dropChance * dropChanceMult) {
       itemSpawner.spawnAt(enemy.x, enemy.y);
     }
 
@@ -1361,6 +1706,8 @@
   function handleEnemyBulletHitPlayer(bullet) {
     bullet.active = false;
     game.removeEntity(bullet);
+    // 触发玩家受击事件（供流派效果系统使用）
+    if (window.eventBus) window.eventBus.emit('playerHit', {damage: bullet.damage || cfg.BALANCE.ENEMY_BULLET_DAMAGE, source: 'bullet'});
     playerTakeDamage(bullet.damage || cfg.BALANCE.ENEMY_BULLET_DAMAGE);
   }
 
@@ -1376,6 +1723,8 @@
       const reflectDmg = Math.floor(cfg.BALANCE.COLLISION_DAMAGE * playerEntity.stats.shieldReflect);
       enemy.takeDamage(reflectDmg);
     }
+    // 触发玩家受击事件（供流派效果系统使用）
+    if (window.eventBus) window.eventBus.emit('playerHit', {damage: cfg.BALANCE.COLLISION_DAMAGE, source: 'body'});
     playerTakeDamage(cfg.BALANCE.COLLISION_DAMAGE);
   }
 
@@ -1417,6 +1766,9 @@
     item.collected = true;
     item.active = false;
     game.removeEntity(item);
+
+    // 触发道具拾取事件（供流派效果系统使用）
+    if (window.eventBus) window.eventBus.emit('itemPickup', {item: item});
 
     if (window.audio) {
       if (item.config.type === 'debuff') {
