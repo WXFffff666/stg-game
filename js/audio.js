@@ -435,7 +435,7 @@ class AudioManager {
         this._playTone('sine', 600, 900, 0.15, 0.1);
         break;
     }
-  },
+  }
 
   // ─── SFX: 新武器射击音效 ────────────────────────────────────
   /**
@@ -499,7 +499,7 @@ class AudioManager {
         this.playShoot();
         break;
     }
-  },
+  }
 
   // ─── SFX: Boss出场音效 ──────────────────────────────────────
   /**
@@ -550,7 +550,7 @@ class AudioManager {
         this.playBossWarning();
         break;
     }
-  },
+  }
 
   // ─── RESUME (user gesture recovery) ─────────────────────────
   resume() {
