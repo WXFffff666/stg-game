@@ -12,8 +12,8 @@ const GAME_CONFIG = {
 
   // ============ BALANCE ============
   BALANCE: {
-    CANVAS_WIDTH: 600,
-    CANVAS_HEIGHT: 900,
+    CANVAS_WIDTH: 1280,
+    CANVAS_HEIGHT: 720,
     PLAYER_BASE_HP: 100,
     PLAYER_BASE_SPEED: 280,
     PLAYER_INVINCIBLE_MS: 2000,
@@ -753,6 +753,38 @@ const GAME_CONFIG = {
       effects: [{ stat: 'bulletRepelChance', op: 'add', value: 0.25 }, { stat: 'markBonus', op: 'multiply', value: 0.5 }] },
     { id: 'ps_mindControl', name: '精神控制', faction: 'psychic', type: 'active', rarity: 'legendary',
       cooldown: 50000, effects: [{ action: 'mindControl', duration: 4000, radius: 200, convertDamage: 1.5 }] },
+
+    // ============ NEW: Explosive Faction Skills (3) ============
+    { id: 'ex_explosiveAmmo', name: '爆破弹药', faction: 'explosive', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'explosionBonus', op: 'add', value: 0.15 }, { stat: 'explosionRadius', op: 'add', value: 20 }] },
+    { id: 'ex_chainReaction', name: '连锁反应', faction: 'explosive', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'explosion', damage: 30, radius: 120 }] },
+    { id: 'ex_bigBang', name: '大爆炸', faction: 'explosive', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'bigBang', damage: 120, radius: 300, chainExplosionBonus: 0.3 }] },
+
+    // ============ NEW: Mech Faction Skills (3) ============
+    { id: 'mc_repairKit', name: '维修套件', faction: 'mech', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'repairRate', op: 'add', value: 0.01 }, { stat: 'maxHp', op: 'add', value: 20 }] },
+    { id: 'mc_robotArm', name: '机械臂强化', faction: 'mech', type: 'passive', rarity: 'uncommon',
+      effects: [{ stat: 'robotDamage', op: 'add', value: 0.15 }] },
+    { id: 'mc_deploy', name: '紧急部署', faction: 'mech', type: 'active', rarity: 'rare',
+      cooldown: 25000, effects: [{ action: 'deployRobot', count: 2, duration: 8000, damage: 20 }] },
+
+    // ============ NEW: Tech Faction Skills (3) ============
+    { id: 'tc_cooldown', name: '冷却优化', faction: 'tech', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.08 }] },
+    { id: 'tc_skillBoost', name: '技能强化', faction: 'tech', type: 'passive', rarity: 'uncommon',
+      effects: [{ stat: 'skillBoost', op: 'add', value: 0.1 }] },
+    { id: 'tc_nanoField', name: '纳米修复场', faction: 'tech', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'nanoField', healPerSec: 8, duration: 5000, radius: 180, cooldownBoost: 0.2 }] },
+
+    // ============ NEW: Chaos Faction Skills (3) ============
+    { id: 'ch_randomShot', name: '混沌射击', faction: 'chaos', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'randomEffectChance', op: 'add', value: 0.1 }, { stat: 'chaosMultiplier', op: 'add', value: 0.1 }] },
+    { id: 'ch_chaosOrb', name: '混沌法球', faction: 'chaos', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'chaosOrb', damage: 35, radius: 140, randomEffect: true }] },
+    { id: 'ch_wildMagic', name: '狂乱魔法', faction: 'chaos', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'wildMagic', damage: 60, radius: 220, chaosMultiplierBoost: 0.5 }] },
 
     // ============ NEW: Rune Faction Skills (3) ============
     { id: 'rn_mark', name: '符文印记', faction: 'rune', type: 'passive', rarity: 'common',

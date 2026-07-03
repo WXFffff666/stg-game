@@ -257,6 +257,54 @@ var FACTION_SYSTEM = {
       description: '混沌创世之力觉醒，随机增益变为三倍',
       effects: [{ stat: 'randomBuffInterval', op: 'multiply', value: -0.5 }, { stat: 'buffDuration', op: 'multiply', value: 2.0 }, { stat: 'genesisMultiBuff', op: 'set', value: 3 }],
       visualColor: '#ffffff', visualType: 'holy' }
+  },
+  nature: {
+    corePassive: { effects: [{ stat: 'regenRate', op: 'add', value: 0.003 }, { stat: 'thornDamage', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['nt_regeneration', 'nt_thorns', 'nt_vineRoot'],
+    ultimate: { id: 'ut_nature', name: '🌿 自然之怒', faction: 'nature', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '自然之力完全觉醒，万物复苏生生不息',
+      effects: [{ stat: 'regenRate', op: 'multiply', value: 2.0 }, { stat: 'thornDamage', op: 'multiply', value: 2.0 }, { stat: 'vineRootChance', op: 'set', value: 0.5 }],
+      visualColor: '#44ff88', visualType: 'holy' }
+  },
+  psychic: {
+    corePassive: { effects: [{ stat: 'markChance', op: 'add', value: 0.1 }, { stat: 'markBonus', op: 'add', value: 0.2 }] },
+    exclusiveSkills: ['ps_mark', 'ps_predict', 'ps_burst'],
+    ultimate: { id: 'ut_psychic', name: '🧠 心灵风暴', faction: 'psychic', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '心灵之力完全释放，标记所有敌人',
+      effects: [{ stat: 'markChance', op: 'set', value: 1.0 }, { stat: 'markBonus', op: 'multiply', value: 2.0 }, { stat: 'predictCrit', op: 'set', value: true }],
+      visualColor: '#ff44ff', visualType: 'holy' }
+  },
+  explosive: {
+    corePassive: { effects: [{ stat: 'explosionBonus', op: 'add', value: 0.15 }, { stat: 'explosionRadius', op: 'add', value: 30 }] },
+    exclusiveSkills: ['ex_explosiveAmmo', 'ex_chainReaction', 'ex_bigBang'],
+    ultimate: { id: 'ut_explosive', name: '💥 核爆终焉', faction: 'explosive', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '终极爆破之力，核爆毁灭一切',
+      effects: [{ stat: 'explosionBonus', op: 'multiply', value: 2.0 }, { stat: 'explosionRadius', op: 'multiply', value: 1.5 }, { stat: 'explosionChainCount', op: 'set', value: 3 }],
+      visualColor: '#ff8800', visualType: 'fire' }
+  },
+  mech: {
+    corePassive: { effects: [{ stat: 'repairRate', op: 'add', value: 0.01 }, { stat: 'robotDamage', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['mc_repairKit', 'mc_robotArm', 'mc_deploy'],
+    ultimate: { id: 'ut_mech', name: '🤖 机械天网', faction: 'mech', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '机械军团全面觉醒，钢铁洪流席卷战场',
+      effects: [{ stat: 'robotCount', op: 'add', value: 2 }, { stat: 'robotDamage', op: 'multiply', value: 1.5 }, { stat: 'repairRate', op: 'multiply', value: 2.0 }],
+      visualColor: '#88aaff', visualType: 'lightning' }
+  },
+  tech: {
+    corePassive: { effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.05 }, { stat: 'skillBoost', op: 'add', value: 0.08 }] },
+    exclusiveSkills: ['tc_cooldown', 'tc_skillBoost', 'tc_nanoField'],
+    ultimate: { id: 'ut_tech', name: '⚙️ 科技巅峰', faction: 'tech', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '科技之力达到巅峰，技能无冷却',
+      effects: [{ stat: 'cooldownReduction', op: 'add', value: 0.75 }, { stat: 'skillBoost', op: 'multiply', value: 2.0 }, { stat: 'nanoRepair', op: 'multiply', value: 2.0 }],
+      visualColor: '#44ddff', visualType: 'ice' }
+  },
+  chaos: {
+    corePassive: { effects: [{ stat: 'randomEffectChance', op: 'add', value: 0.1 }, { stat: 'chaosMultiplier', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['ch_randomShot', 'ch_chaosOrb', 'ch_wildMagic'],
+    ultimate: { id: 'ut_chaos', name: '🎭 混沌之源', faction: 'chaos', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '混沌本源觉醒，万物归于混沌',
+      effects: [{ stat: 'randomEffectChance', op: 'set', value: 1.0 }, { stat: 'chaosMultiplier', op: 'multiply', value: 3.0 }, { stat: 'chaosDoubleProc', op: 'set', value: true }],
+      visualColor: '#ff44aa', visualType: 'poison' }
   }
 };
 
@@ -1173,6 +1221,33 @@ class SkillManager {
         this._activeTimers.splice(i, 1);
       }
     }
+
+    // --- Star charge accumulation ---
+    var player = this.player;
+    if (player && player.stats) {
+      var chargeRate = player.stats.chargeRate || 0;
+      var maxCharge = player.stats.maxStarCharge || 0;
+      if (chargeRate > 0 && maxCharge > 0) {
+        // Accumulate charge over time
+        player.stats.starCharge = (player.stats.starCharge || 0) + chargeRate * dtMs / 1000;
+        if (player.stats.starCharge >= maxCharge) {
+          player.stats.starCharge = maxCharge;
+          this.onMaxCharge(player.x, player.y);
+        }
+      }
+    }
+
+    // --- Rune effect proc timer ---
+    if (player && player.stats && player.stats.runeDrop > 0) {
+      this._runeProcTimer = (this._runeProcTimer || 0) + dtMs;
+      // Proc rune effect every 3 seconds when rune stats are present
+      if (this._runeProcTimer >= 3000) {
+        this._runeProcTimer = 0;
+        if (player.stats.runeEffect && Math.random() < player.stats.runeEffect) {
+          this.onRuneTrigger(player.x, player.y);
+        }
+      }
+    }
   }
 
   // ====================================================================
@@ -1225,6 +1300,47 @@ class SkillManager {
    */
   onKillFrozen(x, y) {
     this._fireConditional('onKillFrozen', x, y);
+  }
+
+  /**
+   * Fire onStealthEnd trigger. Called when shadow stealth expires.
+   */
+  onStealthEnd() {
+    this._fireConditional('onStealthEnd');
+  }
+
+  /**
+   * Fire onRuneTrigger trigger. Called when a rune effect procs.
+   * @param {number} x - Event position X
+   * @param {number} y - Event position Y
+   */
+  onRuneTrigger(x, y) {
+    this._fireConditional('onRuneTrigger', x, y);
+  }
+
+  /**
+   * Fire onDecoyDestroy trigger. Called when a decoy is destroyed.
+   * @param {number} x - Destroy position X
+   * @param {number} y - Destroy position Y
+   */
+  onDecoyDestroy(x, y) {
+    this._fireConditional('onDecoyDestroy', x, y);
+  }
+
+  /**
+   * Fire onLethalDamage trigger. Called when the player would die.
+   */
+  onLethalDamage() {
+    this._fireConditional('onLethalDamage');
+  }
+
+  /**
+   * Fire onMaxCharge trigger. Called when star charge reaches maximum.
+   * @param {number} x - Player position X
+   * @param {number} y - Player position Y
+   */
+  onMaxCharge(x, y) {
+    this._fireConditional('onMaxCharge', x, y);
   }
 
   // ====================================================================
@@ -1425,6 +1541,159 @@ class SkillManager {
           break;
         case 'vampiricShield':
           this._doVampiricShield(fx.shieldAmount, fx.duration, fx.lifestealOnHit, fx.reflectDamage);
+          break;
+        // --- Meteor / Fire ---
+        case 'meteorShower':
+          this._doMeteorShower(x, y, fx.damage, fx.count, fx.duration, fx.radius, fx.fallRadius);
+          break;
+        case 'firePillar':
+          this._doFirePillar(x, y, fx.damage, fx.duration, fx.radius, fx.count);
+          break;
+        case 'pyroclasm':
+          this._doPyroclasm(x, y, fx.damage, fx.radius, fx.expanding, fx.duration);
+          break;
+        case 'inferno':
+          this._doInferno(x, y, fx.damage, fx.duration, fx.radius, fx.burnDamage, fx.burnDuration);
+          break;
+        case 'flameWave':
+          this._doFlameWave(x, y, fx.damage, fx.radius, fx.angle);
+          break;
+        // --- Ice / Frost ---
+        case 'frostNova':
+          this._doFrostNova(x, y, fx.damage, fx.radius, fx.freezeDuration);
+          break;
+        case 'iceWall':
+          this._doIceWall(x, y, fx.duration, fx.wallWidth, fx.hp, fx.blocksBullets);
+          break;
+        case 'hailstorm':
+          this._doHailstorm(x, y, fx.damage, fx.count, fx.duration, fx.radius, fx.slowAmount);
+          break;
+        case 'frostArmor':
+          this._doFrostArmor(fx.duration, fx.freezeAttackers, fx.freezeDuration, fx.defense);
+          break;
+        // --- Lightning / Thunder ---
+        case 'thunderbolt':
+          this._doThunderbolt(x, y, fx.damage, fx.radius, fx.stunDuration);
+          break;
+        case 'lightningDash':
+          this._doLightningDash(fx.damage, fx.trailDamage, fx.distance, fx.trailDuration);
+          break;
+        case 'staticField':
+          this._doStaticField(x, y, fx.damage, fx.duration, fx.radius, fx.tickRate);
+          break;
+        case 'thunderclap':
+          this._doThunderclap(x, y, fx.damage, fx.radius, fx.stunDuration);
+          break;
+        // --- Poison / Toxic ---
+        case 'poisonCloud':
+          this._doPoisonCloud(x, y, fx.damage, fx.duration, fx.radius, fx.poisonDamage, fx.poisonDuration);
+          break;
+        case 'toxicNova':
+          this._doToxicNova(x, y, fx.damage, fx.radius, fx.poisonDamage, fx.poisonDuration);
+          break;
+        case 'acidRain':
+          this._doAcidRain(x, y, fx.damage, fx.duration, fx.radius, fx.defenseShred);
+          break;
+        case 'venomStrike':
+          this._doVenomStrike(fx.damage, fx.poisonDamage, fx.poisonDuration, fx.singleTarget);
+          break;
+        // --- Summon / Minions ---
+        case 'summonTurret':
+          this._doSummonTurret(x, y, fx.damage, fx.duration, fx.fireRate, fx.count);
+          break;
+        case 'summonWolves':
+          this._doSummonWolves(x, y, fx.damage, fx.duration, fx.count, fx.speed);
+          break;
+        case 'landmine':
+          this._doLandmine(x, y, fx.damage, fx.radius, fx.count, fx.duration);
+          break;
+        case 'arcaneMissiles':
+          this._doArcaneMissiles(x, y, fx.damage, fx.count, fx.homing, fx.homingStrength);
+          break;
+        // --- Defense / Barrier ---
+        case 'barrier':
+          this._doBarrier(fx.shieldAmount, fx.duration, fx.radius);
+          break;
+        case 'phalanx':
+          this._doPhalanx(fx.shieldOrbs, fx.duration, fx.orbDamage, fx.blockBullets);
+          break;
+        case 'runicShield':
+          this._doRunicShield(fx.shieldAmount, fx.duration, fx.reflectDamage, fx.healOnBlock);
+          break;
+        case 'reverseBullets':
+          this._doReverseBullets(fx.duration, fx.radius, fx.reflectedDamage);
+          break;
+        // --- Mobility / Teleport ---
+        case 'teleport':
+          this._doTeleport(fx.range, fx.damage, fx.radius);
+          break;
+        case 'warpStrike':
+          this._doWarpStrike(fx.damage, fx.stunDuration, fx.teleportToEnemy);
+          break;
+        case 'smokeBomb':
+          this._doSmokeBomb(fx.duration, fx.radius, fx.stealth, fx.enemySlow);
+          break;
+        case 'phantomStrike':
+          this._doPhantomStrike(fx.damage, fx.count, fx.dashDistance, fx.slashRadius);
+          break;
+        // --- AOE / Explosion ---
+        case 'chainExplosion':
+          this._doChainExplosion(x, y, fx.damage, fx.radius, fx.chainCount, fx.chainRange);
+          break;
+        case 'doom':
+          this._doDoom(x, y, fx.damage, fx.radius, fx.delay, fx.screenShake);
+          break;
+        case 'earthquake':
+          this._doEarthquake(x, y, fx.damage, fx.duration, fx.radius, fx.tickRate, fx.stunChance);
+          break;
+        case 'plasmaBall':
+          this._doPlasmaBall(x, y, fx.damage, fx.speed, fx.radius, fx.duration, fx.pierce);
+          break;
+        // --- Special / Unique ---
+        case 'laserSweep':
+          this._doLaserSweep(x, y, fx.damage, fx.duration, fx.sweepAngle, fx.beamLength, fx.tickRate);
+          break;
+        case 'deathMark':
+          this._doDeathMark(fx.damageMultiplier, fx.duration, fx.targetCount);
+          break;
+        case 'bladeStorm':
+          this._doBladeStorm(x, y, fx.damage, fx.duration, fx.radius, fx.tickRate, fx.pierce);
+          break;
+        case 'sunburst':
+          this._doSunburst(x, y, fx.damage, fx.radius, fx.blindDuration, fx.healAmount);
+          break;
+        case 'avalanche':
+          this._doAvalanche(x, y, fx.damage, fx.duration, fx.radius, fx.pushForce, fx.slowAmount);
+          break;
+        case 'soulDrain':
+          this._doSoulDrain(x, y, fx.damage, fx.lifesteal, fx.duration, fx.radius);
+          break;
+        case 'voidSphere':
+          this._doVoidSphere(x, y, fx.damage, fx.speed, fx.radius, fx.duration, fx.pullForce);
+          break;
+        case 'enrage':
+          this._doEnrage(fx.attackBoost, fx.speedBoost, fx.duration, fx.takeMoreDamage);
+          break;
+        case 'healingWard':
+          this._doHealingWard(x, y, fx.healPerSec, fx.duration, fx.radius);
+          break;
+        case 'lightningRod':
+          this._doLightningRod(x, y, fx.damage, fx.duration, fx.radius, fx.strikeInterval, fx.targetRandomEnemy);
+          break;
+        case 'frozenComet':
+          this._doFrozenComet(x, y, fx.damage, fx.radius, fx.freezeDuration, fx.impactDamage, fx.splashRadius);
+          break;
+        case 'whirlwind':
+          this._doWhirlwind(x, y, fx.damage, fx.duration, fx.radius, fx.tickRate);
+          break;
+        case 'runeChain':
+          this._doRuneChain(x, y, fx.damage, fx.radius, fx.chainCount);
+          break;
+        case 'rewind':
+          this._doRewind(fx.healPercent);
+          break;
+        case 'starBurst':
+          this._doStarBurst(x, y, fx.damage, fx.radius, fx.chargeReset);
           break;
       }
     }
@@ -2032,6 +2301,7 @@ class SkillManager {
     count = count || 2;
     duration = duration || 8000;
     var player = this.player;
+    var skillManager = this; // Capture SkillManager for decoy destroy trigger
 
     for (var i = 0; i < count; i++) {
       var offsetX = (Math.random() - 0.5) * 80;
@@ -2046,10 +2316,15 @@ class SkillManager {
         _age: 0,
         _fireTimer: 0,
         _fireRate: 450,
+        _isDecoy: true,
 
         update: function(dt) {
           this._age += dt * 1000;
           if (this._age >= this.lifetime) {
+            // Fire onDecoyDestroy trigger before removing
+            if (skillManager && typeof skillManager.onDecoyDestroy === 'function') {
+              skillManager.onDecoyDestroy(this.x, this.y);
+            }
             window.game.removeEntity(this);
             return;
           }
@@ -2117,6 +2392,80 @@ class SkillManager {
     radius = radius || 120;
     duration = duration || 4000;
     this._doPlague(x, y, damage, duration, radius);
+  }
+
+  /**
+   * Rune Chain: chain lightning from rune source to nearby enemies.
+   */
+  _doRuneChain(x, y, damage, radius, chainCount) {
+    damage = damage || 30;
+    radius = radius || 180;
+    chainCount = chainCount || 2;
+    var enemies = window.game.enemies;
+    var hit = [];
+    var currentX = x;
+    var currentY = y;
+
+    for (var c = 0; c < chainCount; c++) {
+      var nearest = null;
+      var nearestDist = radius * radius;
+      for (var i = 0; i < enemies.length; i++) {
+        var e = enemies[i];
+        if (!e.active || hit.indexOf(e) !== -1) continue;
+        var dx = e.x - currentX;
+        var dy = e.y - currentY;
+        var d = dx * dx + dy * dy;
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = e;
+        }
+      }
+      if (!nearest) break;
+      nearest.takeDamage(damage);
+      hit.push(nearest);
+      // Lightning visual
+      if (window.ParticleSystem && window.ParticleSystem.lightning) {
+        window.ParticleSystem.lightning(currentX, currentY, nearest.x, nearest.y);
+      }
+      currentX = nearest.x;
+      currentY = nearest.y;
+    }
+  }
+
+  /**
+   * Rewind: heal the player by a percentage of max HP instead of dying.
+   */
+  _doRewind(healPercent) {
+    healPercent = healPercent || 0.3;
+    var player = this.player;
+    if (!player || player.hp <= 0) return;
+    var healAmount = Math.floor(player.maxHp * healPercent);
+    player.hp = Math.min(player.hp + healAmount, player.maxHp);
+    // Brief invincibility to prevent immediate re-death
+    player.invincibleTimer = Math.max(player.invincibleTimer || 0, 1500);
+    if (window.ui) {
+      window.ui.showToast('⏳ 时间倒流! 恢复 ' + healAmount + ' HP', 2000, '#44ddff');
+    }
+    if (window.ParticleSystem) {
+      window.ParticleSystem.burst(player.x, player.y, '#44ddff', 20);
+    }
+  }
+
+  /**
+   * Star Burst: large AOE damage around the player and reset charge.
+   */
+  _doStarBurst(x, y, damage, radius, chargeReset) {
+    damage = damage || 80;
+    radius = radius || 300;
+    this._doShockwave(x, y, damage, radius);
+    // Reset star charge
+    if (chargeReset && this.player && this.player.stats) {
+      this.player.stats.starCharge = 0;
+    }
+    // Visual burst
+    if (window.ParticleSystem && window.ParticleSystem.burst) {
+      window.ParticleSystem.burst(x, y, '#ffff88', 30);
+    }
   }
 
   /**
@@ -2458,6 +2807,2091 @@ class SkillManager {
         ctx.restore();
       }
     });
+  }
+
+  // ====================================================================
+  //  NEW ACTIVE SKILL HANDLERS (45+)
+  // ====================================================================
+
+  // ----------------------------------------------------------------
+  //  METEOR / FIRE
+  // ----------------------------------------------------------------
+
+  /**
+   * Meteor Shower: rain meteors from the sky over a duration.
+   */
+  _doMeteorShower(x, y, damage, count, duration, radius, fallRadius) {
+    damage = damage || 80;
+    count = count || 12;
+    duration = duration || 4000;
+    radius = radius || 60;
+    fallRadius = fallRadius || 350;
+    var game = window.game;
+    var interval = duration / count;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        setTimeout(function() {
+          var mx = x - fallRadius / 2 + Math.random() * fallRadius;
+          var my = y - fallRadius / 2 + Math.random() * fallRadius;
+          // Warning indicator
+          game.addEntity({
+            x: mx, y: my - 30, active: true, category: 'particle', drawLayer: 2,
+            lifetime: 0.3, _age: 0,
+            update: function(dt) { this._age += dt; if (this._age >= this.lifetime) game.removeEntity(this); },
+            draw: function(ctx) {
+              var a = 1 - this._age / this.lifetime;
+              ctx.fillStyle = 'rgba(255,100,30,' + (a * 0.5) + ')';
+              ctx.beginPath(); ctx.arc(this.x, this.y, 20 + a * 20, 0, Math.PI * 2); ctx.fill();
+            }
+          });
+          // Impact
+          if (window.ParticleSystem) window.ParticleSystem.explosion(mx, my, 'small');
+          game.addShake(3);
+          var enemies = game.enemies;
+          for (var j = 0; j < enemies.length; j++) {
+            var e = enemies[j];
+            if (!e.active) continue;
+            var dx = e.x - mx, dy = e.y - my;
+            if (Math.sqrt(dx * dx + dy * dy) < radius) {
+              e.takeDamage(damage);
+              // Apply burn
+              e.burnTimer = Math.max(e.burnTimer || 0, 2000);
+              e.burnDamage = Math.max(e.burnDamage || 0, 5);
+            }
+          }
+        }, idx * interval);
+      })(i);
+    }
+  }
+
+  /**
+   * Fire Pillar: pillars of flame erupt from the ground.
+   */
+  _doFirePillar(x, y, damage, duration, radius, count) {
+    damage = damage || 50;
+    duration = duration || 2000;
+    radius = radius || 60;
+    count = count || 3;
+    var game = window.game;
+    var interval = duration / count;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        setTimeout(function() {
+          var px = x - 60 + Math.random() * 120;
+          var py = y - 40 + Math.random() * 80;
+          // Visual pillar
+          game.addEntity({
+            x: px, y: py, active: true, category: 'particle', drawLayer: 3,
+            lifetime: 0.6, _age: 0, maxRadius: radius,
+            update: function(dt) {
+              this._age += dt;
+              if (this._age >= this.lifetime) game.removeEntity(this);
+              var enemies = game.enemies;
+              for (var j = 0; j < enemies.length; j++) {
+                var e = enemies[j];
+                if (!e.active) continue;
+                var dx = e.x - this.x, dy = e.y - this.y;
+                if (Math.sqrt(dx * dx + dy * dy) < radius) {
+                  e.takeDamage(damage);
+                }
+              }
+            },
+            draw: function(ctx) {
+              var a = Math.max(0, 1 - this._age / this.lifetime);
+              ctx.save();
+              var grad = ctx.createRadialGradient(px, py, 0, px, py, radius);
+              grad.addColorStop(0, 'rgba(255,255,200,' + (a * 0.8) + ')');
+              grad.addColorStop(0.5, 'rgba(255,150,50,' + (a * 0.5) + ')');
+              grad.addColorStop(1, 'rgba(255,50,20,' + (a * 0.2) + ')');
+              ctx.fillStyle = grad;
+              ctx.beginPath(); ctx.arc(px, py, radius * (0.5 + 0.5 * (1 - this._age / this.lifetime)), 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+          });
+          game.addShake(3);
+        }, idx * interval);
+      })(i);
+    }
+  }
+
+  /**
+   * Pyroclasm: expanding ring of fire that damages enemies.
+   */
+  _doPyroclasm(x, y, damage, radius, expanding, duration) {
+    damage = damage || 70;
+    radius = radius || 300;
+    expanding = expanding !== false;
+    duration = duration || 2000;
+    if (expanding) {
+      // Use fireNova pattern but with pyroclasm visuals
+      this._doShockwave(x, y, damage, radius);
+    }
+    // Visual: additional fire particles
+    if (window.ParticleSystem) {
+      window.ParticleSystem.spawn(x, y, {
+        count: 16, speed: 200, life: 600,
+        colors: ['#ff4400', '#ff8800', '#ffcc00', '#ffffff'],
+        size: 4, gravity: -20
+      });
+      window.ParticleSystem.screenFlash('#ff4400', 200);
+    }
+    game.addShake(6);
+  }
+
+  /**
+   * Inferno: persistent fire damage zone.
+   */
+  _doInferno(x, y, damage, duration, radius, burnDamage, burnDuration) {
+    damage = damage || 25;
+    duration = duration || 5000;
+    radius = radius || 280;
+    burnDamage = burnDamage || 10;
+    burnDuration = burnDuration || 3000;
+    // Reuse blizzard-like DOT zone pattern
+    var game = window.game;
+    var tickInterval = 300;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickInterval) {
+          this._tickTimer -= tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              e.burnTimer = Math.max(e.burnTimer || 0, burnDuration);
+              e.burnDamage = Math.max(e.burnDamage || 0, burnDamage);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.4 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(255,200,50,' + (a * 0.6) + ')');
+        grad.addColorStop(0.5, 'rgba(255,100,20,' + (a * 0.3) + ')');
+        grad.addColorStop(1, 'rgba(200,40,10,' + (a * 0.1) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        // Ring
+        ctx.strokeStyle = 'rgba(255,150,50,' + (a * 0.6) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * (0.4 + 0.6 * Math.sin(this._elapsed * 0.005)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Flame Wave: cone of flame projectiles.
+   */
+  _doFlameWave(x, y, damage, radius, angle) {
+    damage = damage || 45;
+    radius = radius || 350;
+    angle = angle !== undefined ? angle : 180;
+    var player = this.player;
+    var game = window.game;
+    var targetAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    var halfAngle = (angle * Math.PI / 180) / 2;
+    var count = 8;
+    if (window.BulletPatterns) {
+      for (var i = 0; i < count; i++) {
+        var a = targetAngle - halfAngle + (i / (count - 1)) * halfAngle * 2;
+        window.BulletPatterns.flame(x, y, a, 350, damage, radius, '#ff6600', '#ff4400');
+      }
+    }
+    if (window.ParticleSystem) window.ParticleSystem.screenFlash('#ff6600', 100);
+  }
+
+  // ----------------------------------------------------------------
+  //  ICE / FROST
+  // ----------------------------------------------------------------
+
+  /**
+   * Frost Nova: expanding ice ring that freezes enemies.
+   */
+  _doFrostNova(x, y, damage, radius, freezeDuration) {
+    damage = damage || 55;
+    radius = radius || 220;
+    freezeDuration = freezeDuration || 2000;
+    var game = window.game;
+    game.addEntity({
+      x: x, y: y, radius: 20, maxRadius: radius, damage: damage, freezeDuration: freezeDuration,
+      active: true, category: 'particle', drawLayer: 3, _hitEnemies: {},
+      update: function(dt) {
+        this.radius += 400 * dt;
+        if (this.radius >= this.maxRadius) { game.removeEntity(this); return; }
+        var enemies = game.enemies;
+        for (var i = enemies.length - 1; i >= 0; i--) {
+          var e = enemies[i];
+          if (!e.active || this._hitEnemies[e._id]) continue;
+          var dx = e.x - this.x, dy = e.y - this.y;
+          if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+            this._hitEnemies[e._id] = true;
+            e.takeDamage(this.damage);
+            e.frozenTimer = Math.max(e.frozenTimer || 0, this.freezeDuration);
+          }
+        }
+      },
+      draw: function(ctx) {
+        var alpha = 1 - (this.radius / this.maxRadius);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(100, 200, 255, ' + (alpha * 0.8) + ')';
+        ctx.lineWidth = 4 * alpha;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(200, 240, 255, ' + (alpha * 0.5) + ')';
+        ctx.lineWidth = 2 * alpha;
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+    if (window.ParticleSystem) {
+      window.ParticleSystem.nova(x, y, '#88ddff');
+    }
+    game.addShake(4);
+  }
+
+  /**
+   * Ice Wall: create a temporary wall that blocks enemies and bullets.
+   */
+  _doIceWall(x, y, duration, wallWidth, hp, blocksBullets) {
+    duration = duration || 4000;
+    wallWidth = wallWidth || 300;
+    hp = hp || 200;
+    blocksBullets = blocksBullets !== false;
+    var game = window.game;
+    var player = this.player;
+    var wallX = player.x + 60;
+    var wallY = player.y;
+    var wall = {
+      x: wallX, y: wallY, w: wallWidth, h: 20, hp: hp, maxHp: hp,
+      active: true, category: 'particle', drawLayer: 4,
+      duration: duration / 1000, _elapsed: 0,
+      update: function(dt) {
+        this._elapsed += dt;
+        // Follow player with offset
+        this.x = player.x + 60; this.y = player.y;
+        if (this._elapsed >= this.duration || this.hp <= 0) { game.removeEntity(this); return; }
+      },
+      draw: function(ctx) {
+        var a = Math.max(0.3, 1 - this._elapsed / this.duration);
+        var hpPct = this.hp / this.maxHp;
+        ctx.save();
+        ctx.fillStyle = 'rgba(100, 200, 255, ' + (a * 0.4 * hpPct) + ')';
+        var x = this.x - this.w / 2;
+        ctx.fillRect(x, this.y - this.h / 2, this.w, this.h);
+        ctx.strokeStyle = 'rgba(150, 220, 255, ' + (a * 0.8) + ')';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, this.y - this.h / 2, this.w, this.h);
+        ctx.restore();
+      }
+    };
+    game.addEntity(wall);
+  }
+
+  /**
+   * Hailstorm: rain ice shards over an area.
+   */
+  _doHailstorm(x, y, damage, count, duration, radius, slowAmount) {
+    damage = damage || 35;
+    count = count || 20;
+    duration = duration || 3000;
+    radius = radius || 300;
+    slowAmount = slowAmount || 0.3;
+    var game = window.game;
+    var interval = duration / count;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        setTimeout(function() {
+          var hx = x - radius / 2 + Math.random() * radius;
+          var hy = y - radius / 2 + Math.random() * radius - 50;
+          // Ice shard projectile
+          if (window.BulletPatterns && window.Bullet) {
+            var b = new window.Bullet({
+              x: hx, y: hy, vx: 0, vy: 200 + Math.random() * 100,
+              damage: damage, speed: 250, size: 3, color: '#88ddff',
+              trailColor: '#aaddff', category: 'playerBullet',
+              lifetime: 1.5, slowAmount: slowAmount, slowDuration: 2000
+            });
+            game.addEntity(b);
+          }
+        }, idx * interval);
+      })(i);
+    }
+  }
+
+  /**
+   * Frost Armor: temporary defense buff that freezes attackers.
+   */
+  _doFrostArmor(duration, freezeAttackers, freezeDuration, defense) {
+    duration = duration || 6000;
+    freezeAttackers = freezeAttackers !== false;
+    freezeDuration = freezeDuration || 1500;
+    defense = defense || 0.2;
+    var player = this.player;
+    // Apply defensive buff
+    this._applyTempStatMod({ stat: 'defense', op: 'add', value: defense }, duration);
+    // Track freeze-on-hit
+    player._frostArmorTimer = Math.max(player._frostArmorTimer || 0, duration);
+    player._frostArmorFreezeDuration = freezeDuration;
+    // Visual: blue aura
+    var game = window.game;
+    game.addEntity({
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 4,
+      _age: 0, lifetime: duration / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this.lifetime) { game.removeEntity(this); return; }
+        if (game.player && game.player.active) { this.x = game.player.x; this.y = game.player.y; }
+      },
+      draw: function(ctx) {
+        var a = 0.3 + 0.2 * Math.sin(this._age * 4);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(100, 200, 255, ' + a + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 20 + 5 * Math.sin(this._age * 3), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  // ----------------------------------------------------------------
+  //  LIGHTNING / THUNDER
+  // ----------------------------------------------------------------
+
+  /**
+   * Thunderbolt: powerful single-target lightning strike.
+   */
+  _doThunderbolt(x, y, damage, radius, stunDuration) {
+    damage = damage || 120;
+    radius = radius || 100;
+    stunDuration = stunDuration || 1000;
+    var game = window.game;
+    var enemies = game.enemies;
+    // Find nearest enemy
+    var nearest = null, nearestDist = Infinity;
+    var player = this.player;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - player.x, dy = e.y - player.y;
+      var d = dx * dx + dy * dy;
+      if (d < nearestDist) { nearestDist = d; nearest = e; }
+    }
+    if (!nearest) return;
+    // Strike
+    nearest.takeDamage(damage);
+    if (window.ParticleSystem) {
+      window.ParticleSystem.lightning(player.x, player.y, nearest.x, nearest.y, '#ffff88');
+      window.ParticleSystem.screenFlash('#ffff88', 100);
+    }
+    game.addShake(5);
+    // AOE damage around target
+    var px = nearest.x, py = nearest.y;
+    for (var j = 0; j < enemies.length; j++) {
+      var e2 = enemies[j];
+      if (!e2.active || e2 === nearest) continue;
+      var ddx = e2.x - px, ddy = e2.y - py;
+      if (Math.sqrt(ddx * ddx + ddy * ddy) < radius) {
+        e2.takeDamage(Math.floor(damage * 0.5));
+        if (stunDuration) {
+          e2._paralyzeTimer = Math.max(e2._paralyzeTimer || 0, stunDuration);
+        }
+      }
+    }
+  }
+
+  /**
+   * Lightning Dash: dash forward leaving a trail of lightning damage.
+   */
+  _doLightningDash(damage, trailDamage, distance, trailDuration) {
+    damage = damage || 60;
+    trailDamage = trailDamage || 20;
+    distance = distance || 350;
+    trailDuration = trailDuration || 1500;
+    var player = this.player;
+    var game = window.game;
+    var startX = player.x, startY = player.y;
+    var targetX = game.mouseX, targetY = game.mouseY;
+    var dx = targetX - startX, dy = targetY - startY;
+    var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    var normX = dx / dist, normY = dy / dist;
+    var endX = startX + normX * distance, endY = startY + normY * distance;
+    // Teleport player
+    player.x = endX; player.y = endY;
+    // Lightning trail
+    if (window.ParticleSystem) {
+      window.ParticleSystem.lightning(startX, startY, endX, endY, '#88ffff');
+    }
+    // Damage enemies along the path
+    var enemies = game.enemies;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var ex = e.x, ey = e.y;
+      // Check distance to line segment
+      var t = Math.max(0, Math.min(1, ((ex - startX) * normX + (ey - startY) * normY) / distance));
+      var cx = startX + normX * t * distance, cy = startY + normY * t * distance;
+      var ddx = ex - cx, ddy = ey - cy;
+      if (Math.sqrt(ddx * ddx + ddy * ddy) < 60) {
+        e.takeDamage(damage);
+      }
+    }
+    game.addShake(4);
+  }
+
+  /**
+   * Static Field: persistent electric damage zone.
+   */
+  _doStaticField(x, y, damage, duration, radius, tickRate) {
+    damage = damage || 10;
+    duration = duration || 5000;
+    radius = radius || 180;
+    tickRate = tickRate || 300;
+    var game = window.game;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickRate) {
+          this._tickTimer -= tickRate;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              // Apply shock
+              e._shockedTimer = Math.max(e._shockedTimer || 0, 500);
+            }
+          }
+          // Visual spark
+          if (window.ParticleSystem) {
+            var enemies2 = game.enemies;
+            for (var k = 0; k < enemies2.length; k++) {
+              var ek = enemies2[k];
+              if (!ek.active) continue;
+              var ddx = ek.x - this.x, ddy = ek.y - this.y;
+              if (Math.sqrt(ddx * ddx + ddy * ddy) < this.radius) {
+                window.ParticleSystem.lightning(this.x, this.y, ek.x, ek.y, '#ffff44');
+                break;
+              }
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,100,' + a + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * (0.6 + 0.4 * Math.sin(this._elapsed * 0.01)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Thunderclap: thunder AOE burst around player.
+   */
+  _doThunderclap(x, y, damage, radius, stunDuration) {
+    damage = damage || 65;
+    radius = radius || 250;
+    stunDuration = stunDuration || 800;
+    var game = window.game;
+    var player = this.player;
+    this._doShockwave(player.x, player.y, damage, radius);
+    // Lightning visuals outward
+    if (window.ParticleSystem) {
+      var enemies = game.enemies;
+      for (var i = 0; i < enemies.length && i < 6; i++) {
+        var e = enemies[i];
+        if (!e.active) continue;
+        window.ParticleSystem.lightning(player.x, player.y, e.x, e.y, '#ffff44');
+      }
+      window.ParticleSystem.screenFlash('#ffff44', 150);
+    }
+    game.addShake(6);
+  }
+
+  // ----------------------------------------------------------------
+  //  POISON / TOXIC
+  // ----------------------------------------------------------------
+
+  /**
+   * Poison Cloud: persistent poison damage zone.
+   */
+  _doPoisonCloud(x, y, damage, duration, radius, poisonDamage, poisonDuration) {
+    damage = damage || 12;
+    duration = duration || 5000;
+    radius = radius || 160;
+    poisonDamage = poisonDamage || 8;
+    poisonDuration = poisonDuration || 3000;
+    var game = window.game;
+    var tickInterval = 500;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickInterval) {
+          this._tickTimer -= tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              e.poisonTimer = Math.max(e.poisonTimer || 0, poisonDuration);
+              e.poisonDamage = Math.max(e.poisonDamage || 0, poisonDamage);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(80,220,60,' + (a * 0.5) + ')');
+        grad.addColorStop(0.5, 'rgba(60,180,40,' + (a * 0.3) + ')');
+        grad.addColorStop(1, 'rgba(40,120,30,' + (a * 0.1) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(80,200,60,' + (a * 0.5) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * (0.5 + 0.5 * Math.sin(this._elapsed * 0.004)), 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Toxic Nova: poison nova that damages and poisons enemies.
+   */
+  _doToxicNova(x, y, damage, radius, poisonDamage, poisonDuration) {
+    damage = damage || 40;
+    radius = radius || 280;
+    poisonDamage = poisonDamage || 15;
+    poisonDuration = poisonDuration || 4000;
+    var game = window.game;
+    this._doShockwave(x, y, damage, radius);
+    // Apply poison to all enemies in radius
+    var enemies = game.enemies;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - x, dy = e.y - y;
+      if (Math.sqrt(dx * dx + dy * dy) < radius) {
+        e.poisonTimer = Math.max(e.poisonTimer || 0, poisonDuration);
+        e.poisonDamage = Math.max(e.poisonDamage || 0, poisonDamage);
+      }
+    }
+    if (window.ParticleSystem) {
+      window.ParticleSystem.spawn(x, y, {
+        count: 20, speed: 200, life: 500,
+        colors: ['#55cc44', '#88ff44', '#aaff00'], size: 3.5, gravity: 10
+      });
+    }
+    game.addShake(4);
+  }
+
+  /**
+   * Acid Rain: acid zone that damages and shreds defense.
+   */
+  _doAcidRain(x, y, damage, duration, radius, defenseShred) {
+    damage = damage || 18;
+    duration = duration || 5000;
+    radius = radius || 350;
+    defenseShred = defenseShred || 0.3;
+    var game = window.game;
+    var tickInterval = 400;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0, _shredEnemies: {},
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickInterval) {
+          this._tickTimer -= tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              // Defense shred via vulnerability
+              if (defenseShred) {
+                e._vulnerableTimer = Math.max(e._vulnerableTimer || 0, 1000);
+                e._vulnerableMult = Math.max(e._vulnerableMult || 0, defenseShred);
+              }
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(100,200,80,' + (a * 0.4) + ')');
+        grad.addColorStop(0.5, 'rgba(60,160,40,' + (a * 0.2) + ')');
+        grad.addColorStop(1, 'rgba(40,100,30,' + (a * 0.05) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        // Rain lines
+        ctx.strokeStyle = 'rgba(80,200,60,' + (a * 0.3) + ')';
+        ctx.lineWidth = 1;
+        for (var i = 0; i < 10; i++) {
+          var rx = this.x - this.radius + (this.radius * 2 * ((i + this._elapsed * 0.001) % 1));
+          ctx.beginPath();
+          ctx.moveTo(rx, this.y - this.radius);
+          ctx.lineTo(rx + 5, this.y - this.radius + 20);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Venom Strike: single-target high poison damage strike.
+   */
+  _doVenomStrike(damage, poisonDamage, poisonDuration, singleTarget) {
+    damage = damage || 80;
+    poisonDamage = poisonDamage || 20;
+    poisonDuration = poisonDuration || 4000;
+    var game = window.game;
+    var player = this.player;
+    var enemies = game.enemies;
+    // Find nearest enemy
+    var nearest = null, nearestDist = Infinity;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - player.x, dy = e.y - player.y;
+      var d = dx * dx + dy * dy;
+      if (d < nearestDist) { nearestDist = d; nearest = e; }
+    }
+    if (!nearest) return;
+    nearest.takeDamage(damage);
+    nearest.poisonTimer = Math.max(nearest.poisonTimer || 0, poisonDuration);
+    nearest.poisonDamage = Math.max(nearest.poisonDamage || 0, poisonDamage);
+    // Visual
+    if (window.ParticleSystem) {
+      window.ParticleSystem.spawn(nearest.x, nearest.y, {
+        count: 12, speed: 100, life: 400,
+        colors: ['#55cc44', '#88ff44', '#aaff00'], size: 3, gravity: -20
+      });
+      window.ParticleSystem.damageNumber(nearest.x, nearest.y - 20, damage, '#55ff44');
+    }
+  }
+
+  // ----------------------------------------------------------------
+  //  SUMMON / MINIONS
+  // ----------------------------------------------------------------
+
+  /**
+   * Summon Turret: deploy a temporary auto-firing turret.
+   */
+  _doSummonTurret(x, y, damage, duration, fireRate, count) {
+    damage = damage || 10;
+    duration = duration || 8000;
+    fireRate = fireRate || 400;
+    count = count || 1;
+    var game = window.game;
+    var player = this.player;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        var offsetX = (idx - (count - 1) / 2) * 50;
+        var turret = {
+          x: player.x + offsetX, y: player.y - 30,
+          active: true, category: 'particle', drawLayer: 4,
+          _elapsed: 0, _fireTimer: 0, _fireRate: fireRate,
+          _damage: damage, _lifetime: duration / 1000,
+          update: function(dt) {
+            this._elapsed += dt;
+            if (this._elapsed >= this._lifetime) { game.removeEntity(this); return; }
+            // Follow player
+            this.x = player.x + offsetX; this.y = player.y - 30;
+            // Auto-fire
+            this._fireTimer += dt * 1000;
+            if (this._fireTimer >= this._fireRate) {
+              this._fireTimer -= this._fireRate;
+              var enemies = game.enemies;
+              var nearest = null, nd = Infinity;
+              for (var j = 0; j < enemies.length; j++) {
+                if (!enemies[j].active) continue;
+                var dx = enemies[j].x - this.x, dy = enemies[j].y - this.y;
+                var d = dx * dx + dy * dy;
+                if (d < nd) { nd = d; nearest = enemies[j]; }
+              }
+              if (nearest) {
+                var angle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+                if (window.Bullet) {
+                  var b = new window.Bullet({
+                    x: this.x, y: this.y,
+                    vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
+                    damage: this._damage, speed: 400, size: 3,
+                    color: '#ffaa44', trailColor: '#ff8800',
+                    category: 'playerBullet', lifetime: 2
+                  });
+                  game.addEntity(b);
+                }
+              }
+            }
+          },
+          draw: function(ctx) {
+            var a = Math.max(0.3, 1 - this._elapsed / this._lifetime);
+            ctx.save(); ctx.globalAlpha = a;
+            ctx.fillStyle = '#ffaa44';
+            ctx.fillRect(this.x - 8, this.y - 4, 16, 8);
+            ctx.fillStyle = '#ffcc66';
+            ctx.fillRect(this.x - 4, this.y - 10, 8, 6);
+            ctx.restore();
+          }
+        };
+        game.addEntity(turret);
+      })(i);
+    }
+  }
+
+  /**
+   * Summon Wolves: deploy temporary wolf minions that chase enemies.
+   */
+  _doSummonWolves(x, y, damage, duration, count, speed) {
+    damage = damage || 25;
+    duration = duration || 10000;
+    count = count || 2;
+    speed = speed || 200;
+    var game = window.game;
+    var player = this.player;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        var wolf = {
+          x: player.x + (idx - (count - 1) / 2) * 40, y: player.y + 20,
+          active: true, category: 'particle', drawLayer: 4,
+          _elapsed: 0, _lifetime: duration / 1000, _speed: speed,
+          _damage: damage, _target: null, _attackTimer: 0, _attackRate: 600,
+          update: function(dt) {
+            this._elapsed += dt;
+            if (this._elapsed >= this._lifetime) { game.removeEntity(this); return; }
+            // Find nearest enemy
+            var enemies = game.enemies;
+            var nearest = null, nd = Infinity;
+            for (var j = 0; j < enemies.length; j++) {
+              if (!enemies[j].active) continue;
+              var dx = enemies[j].x - this.x, dy = enemies[j].y - this.y;
+              var d = dx * dx + dy * dy;
+              if (d < nd && d < 350 * 350) { nd = d; nearest = enemies[j]; }
+            }
+            if (nearest) {
+              var dx = nearest.x - this.x, dy = nearest.y - this.y;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > 20) {
+                this.x += (dx / dist) * this._speed * dt;
+                this.y += (dy / dist) * this._speed * dt;
+              }
+              // Attack
+              this._attackTimer += dt * 1000;
+              if (this._attackTimer >= this._attackRate && dist < 40) {
+                this._attackTimer -= this._attackRate;
+                nearest.takeDamage(this._damage);
+              }
+            } else {
+              // Follow player
+              var dx = player.x - this.x, dy = player.y - this.y;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > 30) {
+                this.x += (dx / dist) * this._speed * 0.5 * dt;
+                this.y += (dy / dist) * this._speed * 0.5 * dt;
+              }
+            }
+          },
+          draw: function(ctx) {
+            var a = Math.max(0.3, 1 - this._elapsed / this._lifetime);
+            ctx.save(); ctx.globalAlpha = a;
+            ctx.fillStyle = '#88aaff';
+            ctx.beginPath();
+            // Wolf shape (triangle + ears)
+            ctx.moveTo(this.x + 10, this.y);
+            ctx.lineTo(this.x - 6, this.y - 6);
+            ctx.lineTo(this.x - 6, this.y + 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#aaccff';
+            ctx.beginPath();
+            ctx.arc(this.x - 2, this.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        };
+        game.addEntity(wolf);
+      })(i);
+    }
+  }
+
+  /**
+   * Landmine: deploy proximity mines that explode when enemies approach.
+   */
+  _doLandmine(x, y, damage, radius, count, duration) {
+    damage = damage || 100;
+    radius = radius || 120;
+    count = count || 3;
+    duration = duration || 15000;
+    var game = window.game;
+    var player = this.player;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        var offsetX = (Math.random() - 0.5) * 120;
+        var offsetY = (Math.random() - 0.5) * 80;
+        var mine = {
+          x: player.x + offsetX, y: player.y + offsetY,
+          active: true, category: 'particle', drawLayer: 3,
+          _elapsed: 0, _lifetime: duration / 1000, _exploded: false,
+          _damage: damage, _radius: radius,
+          update: function(dt) {
+            this._elapsed += dt;
+            if (this._elapsed >= this._lifetime || this._exploded) {
+              if (this._exploded && !this._removed) {
+                this._removed = true;
+                game.removeEntity(this);
+              } else if (!this._exploded) {
+                game.removeEntity(this);
+              }
+              return;
+            }
+            // Check for nearby enemies
+            var enemies = game.enemies;
+            for (var j = 0; j < enemies.length; j++) {
+              var e = enemies[j];
+              if (!e.active) continue;
+              var dx = e.x - this.x, dy = e.y - this.y;
+              if (Math.sqrt(dx * dx + dy * dy) < 30) {
+                // Explode!
+                this._exploded = true;
+                this._removed = false;
+                if (window.ParticleSystem) window.ParticleSystem.explosion(this.x, this.y, 'normal');
+                game.addShake(4);
+                for (var k = 0; k < enemies.length; k++) {
+                  var e2 = enemies[k];
+                  if (!e2.active) continue;
+                  var ddx = e2.x - this.x, ddy = e2.y - this.y;
+                  if (Math.sqrt(ddx * ddx + ddy * ddy) < this._radius) {
+                    e2.takeDamage(this._damage);
+                  }
+                }
+                this._age = this._lifetime; // force removal next frame
+              }
+            }
+          },
+          draw: function(ctx) {
+            var a = Math.max(0.3, 1 - this._elapsed / this._lifetime);
+            ctx.save(); ctx.globalAlpha = a;
+            // Mine visual
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath(); ctx.arc(this.x, this.y, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
+        };
+        game.addEntity(mine);
+      })(i);
+    }
+  }
+
+  /**
+   * Arcane Missiles: homing projectiles that seek enemies.
+   */
+  _doArcaneMissiles(x, y, damage, count, homing, homingStrength) {
+    damage = damage || 30;
+    count = count || 8;
+    homing = homing !== false;
+    homingStrength = homingStrength || 0.08;
+    var game = window.game;
+    var player = this.player;
+    if (window.BulletPatterns) {
+      for (var i = 0; i < count; i++) {
+        var angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+        window.BulletPatterns.homing(
+          player.x + Math.cos(angle) * 20,
+          player.y + Math.sin(angle) * 20,
+          300, damage, '#aa88ff', '#8866cc',
+          null, homingStrength
+        );
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------
+  //  DEFENSE / BARRIER
+  // ----------------------------------------------------------------
+
+  /**
+   * Barrier: temporary shield that absorbs damage.
+   */
+  _doBarrier(shieldAmount, duration, radius) {
+    shieldAmount = shieldAmount || 60;
+    duration = duration || 5000;
+    radius = radius || 100;
+    var player = this.player;
+    player.maxShield = (player.maxShield || 0) + shieldAmount;
+    player.shield = Math.min((player.shield || 0) + shieldAmount, player.maxShield);
+    // Visual: barrier ring
+    var game = window.game;
+    game.addEntity({
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 5,
+      _age: 0, lifetime: duration / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this.lifetime) { game.removeEntity(this); return; }
+        if (game.player && game.player.active) { this.x = game.player.x; this.y = game.player.y; }
+      },
+      draw: function(ctx) {
+        var a = 0.3 + 0.2 * Math.sin(this._age * 5);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(68, 170, 255, ' + a + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(this.x, this.y, 24, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  /**
+   * Phalanx: rotating shield orbs that damage enemies and block bullets.
+   */
+  _doPhalanx(shieldOrbs, duration, orbDamage, blockBullets) {
+    shieldOrbs = shieldOrbs || 4;
+    duration = duration || 8000;
+    orbDamage = orbDamage || 20;
+    blockBullets = blockBullets !== false;
+    var game = window.game;
+    var player = this.player;
+    for (var i = 0; i < shieldOrbs; i++) {
+      (function(idx) {
+        var orb = {
+          x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 5,
+          _age: 0, _lifetime: duration / 1000, _angle: (idx / shieldOrbs) * Math.PI * 2,
+          _orbitRadius: 30, _damage: orbDamage,
+          update: function(dt) {
+            this._age += dt;
+            if (this._age >= this._lifetime) { game.removeEntity(this); return; }
+            this._angle += dt * 3; // rotate
+            if (game.player && game.player.active) {
+              this.x = game.player.x + Math.cos(this._angle) * this._orbitRadius;
+              this.y = game.player.y + Math.sin(this._angle) * this._orbitRadius;
+            }
+            // Damage enemies on contact
+            var enemies = game.enemies;
+            for (var j = 0; j < enemies.length; j++) {
+              var e = enemies[j];
+              if (!e.active) continue;
+              var dx = e.x - this.x, dy = e.y - this.y;
+              if (Math.sqrt(dx * dx + dy * dy) < 20) {
+                e.takeDamage(this._damage);
+              }
+            }
+          },
+          draw: function(ctx) {
+            var a = Math.max(0.3, 1 - this._age / this._lifetime);
+            ctx.save(); ctx.globalAlpha = a;
+            ctx.fillStyle = '#66bbff';
+            ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
+        };
+        game.addEntity(orb);
+      })(i);
+    }
+  }
+
+  /**
+   * Runic Shield: powerful shield that reflects and heals.
+   */
+  _doRunicShield(shieldAmount, duration, reflectDamage, healOnBlock) {
+    shieldAmount = shieldAmount || 100;
+    duration = duration || 8000;
+    reflectDamage = reflectDamage || 0.3;
+    healOnBlock = healOnBlock || 5;
+    var player = this.player;
+    player.maxShield = (player.maxShield || 0) + shieldAmount;
+    player.shield = Math.min((player.shield || 0) + shieldAmount, player.maxShield);
+    // Apply reflect + heal-on-block
+    this._applyTempStatMod({ stat: 'shieldReflect', op: 'add', value: reflectDamage }, duration);
+    // Track heal-on-block
+    player._runicHealOnBlock = Math.max(player._runicHealOnBlock || 0, healOnBlock);
+    // Visual: glowing runic aura
+    var game = window.game;
+    game.addEntity({
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 5,
+      _age: 0, _lifetime: duration / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this._lifetime) { game.removeEntity(this); player._runicHealOnBlock = 0; return; }
+        if (game.player && game.player.active) { this.x = game.player.x; this.y = game.player.y; }
+      },
+      draw: function(ctx) {
+        var a = 0.4 + 0.2 * Math.sin(this._age * 4);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 30);
+        grad.addColorStop(0, 'rgba(200,150,255,' + (a * 0.5) + ')');
+        grad.addColorStop(0.5, 'rgba(150,100,200,' + (a * 0.3) + ')');
+        grad.addColorStop(1, 'rgba(100,50,150,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,150,255,' + a + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(this.x, this.y, 25, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  /**
+   * Reverse Bullets: reverse enemy bullets in a radius.
+   */
+  _doReverseBullets(duration, radius, reflectedDamage) {
+    duration = duration || 3000;
+    radius = radius || 350;
+    reflectedDamage = reflectedDamage || 1.5;
+    var game = window.game;
+    var player = this.player;
+    // Apply bullet reflection buff
+    player._reverseBulletsTimer = Math.max(player._reverseBulletsTimer || 0, duration);
+    player._reverseBulletsRadius = radius;
+    player._reverseBulletsMult = reflectedDamage;
+    // Visual: glowing field
+    game.addEntity({
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 5,
+      _age: 0, _lifetime: duration / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this._lifetime) {
+          if (game.player) { game.player._reverseBulletsTimer = 0; }
+          game.removeEntity(this); return;
+        }
+        if (game.player && game.player.active) { this.x = game.player.x; this.y = game.player.y; }
+      },
+      draw: function(ctx) {
+        var a = 0.3 + 0.2 * Math.sin(this._age * 4);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(200,200,255,' + a + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius * (0.3 + 0.1 * Math.sin(this._age * 2)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  // ----------------------------------------------------------------
+  //  MOBILITY / TELEPORT
+  // ----------------------------------------------------------------
+
+  /**
+   * Teleport: instantly move to cursor position with AOE damage.
+   */
+  _doTeleport(range, damage, radius) {
+    range = range || 350;
+    damage = damage || 40;
+    radius = radius || 120;
+    var player = this.player;
+    var game = window.game;
+    var startX = player.x, startY = player.y;
+    // Teleport toward cursor
+    var dx = game.mouseX - player.x, dy = game.mouseY - player.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 0) {
+      var t = Math.min(dist, range) / dist;
+      player.x += dx * t;
+      player.y += dy * t;
+    }
+    // Damage at origin and destination
+    if (window.ParticleSystem) window.ParticleSystem.explosion(startX, startY, 'small');
+    if (window.ParticleSystem) window.ParticleSystem.explosion(player.x, player.y, 'small');
+    // Damage enemies at both locations
+    this._doShockwave(startX, startY, damage, radius);
+    this._doShockwave(player.x, player.y, damage, radius);
+    game.addShake(3);
+  }
+
+  /**
+   * Warp Strike: teleport to nearest enemy and strike.
+   */
+  _doWarpStrike(damage, stunDuration, teleportToEnemy) {
+    damage = damage || 150;
+    stunDuration = stunDuration || 1000;
+    var game = window.game;
+    var player = this.player;
+    var enemies = game.enemies;
+    var nearest = null, nd = Infinity;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - player.x, dy = e.y - player.y;
+      var d = dx * dx + dy * dy;
+      if (d < nd) { nd = d; nearest = e; }
+    }
+    if (!nearest) return;
+    // Teleport to enemy
+    var startX = player.x, startY = player.y;
+    player.x = nearest.x + 20;
+    player.y = nearest.y;
+    // Damage and stun
+    nearest.takeDamage(damage);
+    if (stunDuration) {
+      nearest._paralyzeTimer = Math.max(nearest._paralyzeTimer || 0, stunDuration);
+    }
+    // Visual
+    if (window.ParticleSystem) {
+      window.ParticleSystem.lightning(startX, startY, player.x, player.y, '#aa88ff');
+      window.ParticleSystem.explosion(nearest.x, nearest.y, 'small');
+      window.ParticleSystem.screenFlash('#aa88ff', 100);
+    }
+    game.addShake(5);
+  }
+
+  /**
+   * Smoke Bomb: deploy smoke screen that slows enemies and grants stealth.
+   */
+  _doSmokeBomb(duration, radius, stealth, enemySlow) {
+    duration = duration || 3000;
+    radius = radius || 180;
+    enemySlow = enemySlow || 0.3;
+    var game = window.game;
+    var player = this.player;
+    // Grant stealth (enemies can't target)
+    player._stealthTimer = Math.max(player._stealthTimer || 0, duration);
+    // Slow enemies in radius
+    var tickInterval = 300;
+    var entity = {
+      x: player.x, y: player.y, radius: radius, active: true, category: 'particle', drawLayer: 6,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this.x = player.x; this.y = player.y;
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickInterval) {
+          this._tickTimer -= tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.slowTimer = Math.max(e.slowTimer || 0, 500);
+              e.slowAmount = Math.max(e.slowAmount || 0, enemySlow);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(150,150,150,' + (a * 0.4) + ')');
+        grad.addColorStop(0.5, 'rgba(100,100,100,' + (a * 0.2) + ')');
+        grad.addColorStop(1, 'rgba(50,50,50,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Phantom Strike: rapid dash-slash combo hitting multiple enemies.
+   */
+  _doPhantomStrike(damage, count, dashDistance, slashRadius) {
+    damage = damage || 50;
+    count = count || 5;
+    dashDistance = dashDistance || 100;
+    slashRadius = slashRadius || 80;
+    var game = window.game;
+    var player = this.player;
+    var enemies = game.enemies;
+    var hitEnemies = {};
+    var currentX = player.x, currentY = player.y;
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        setTimeout(function() {
+          // Find nearest enemy not yet hit
+          var target = null, nd = Infinity;
+          for (var j = 0; j < enemies.length; j++) {
+            var e = enemies[j];
+            if (!e.active || hitEnemies[e._id]) continue;
+            var dx = e.x - currentX, dy = e.y - currentY;
+            var d = dx * dx + dy * dy;
+            if (d < nd) { nd = d; target = e; }
+          }
+          if (!target) return;
+          // Dash toward target
+          var dx = target.x - currentX, dy = target.y - currentY;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          var t = Math.min(dist, dashDistance) / dist;
+          currentX += dx * t; currentY += dy * t;
+          // Slash damage in radius
+          hitEnemies[target._id] = true;
+          for (var k = 0; k < enemies.length; k++) {
+            var ek = enemies[k];
+            if (!ek.active) continue;
+            var ddx = ek.x - currentX, ddy = ek.y - currentY;
+            if (Math.sqrt(ddx * ddx + ddy * ddy) < slashRadius) {
+              ek.takeDamage(damage);
+              hitEnemies[ek._id] = true;
+            }
+          }
+          // Visual
+          if (window.ParticleSystem) {
+            window.ParticleSystem.spawn(currentX, currentY, {
+              count: 6, speed: 80, life: 300,
+              colors: ['#aaccff', '#ffffff', '#88aaff'], size: 2.5, gravity: -15
+            });
+          }
+        }, idx * 200);
+      })(i);
+    }
+  }
+
+  // ----------------------------------------------------------------
+  //  AOE / EXPLOSION
+  // ----------------------------------------------------------------
+
+  /**
+   * Chain Explosion: explosions chain from enemy to enemy.
+   */
+  _doChainExplosion(x, y, damage, radius, chainCount, chainRange) {
+    damage = damage || 100;
+    radius = radius || 150;
+    chainCount = chainCount || 8;
+    chainRange = chainRange || 180;
+    var game = window.game;
+    var enemies = game.enemies;
+    var hit = {};
+    // Find nearest enemy from x,y to start
+    var current = null, nd = Infinity;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - x, dy = e.y - y;
+      var d = dx * dx + dy * dy;
+      if (d < nd) { nd = d; current = e; }
+    }
+    if (!current) return;
+    var chainDmg = damage;
+    var rangeSq = chainRange * chainRange;
+    for (var c = 0; c < chainCount && current; c++) {
+      var cid = current._uid || (current._uid = Math.random());
+      if (hit[cid]) break;
+      hit[cid] = true;
+      // Explosion!
+      current.takeDamage(chainDmg);
+      if (window.ParticleSystem) window.ParticleSystem.explosion(current.x, current.y, 'small');
+      game.addShake(3);
+      // Find next target
+      var next = null, nextDist = Infinity;
+      for (var j = 0; j < enemies.length; j++) {
+        var e2 = enemies[j];
+        if (!e2.active) continue;
+        var e2id = e2._uid || (e2._uid = Math.random());
+        if (hit[e2id]) continue;
+        var ddx = e2.x - current.x, ddy = e2.y - current.y;
+        var dd = ddx * ddx + ddy * ddy;
+        if (dd < rangeSq && dd < nextDist) { nextDist = dd; next = e2; }
+      }
+      current = next;
+      chainDmg *= 0.8;
+    }
+  }
+
+  /**
+   * Doom: delayed massive area explosion.
+   */
+  _doDoom(x, y, damage, radius, delay, screenShake) {
+    damage = damage || 500;
+    radius = radius || 400;
+    delay = delay || 3000;
+    screenShake = screenShake !== false;
+    var game = window.game;
+    // Warning zone
+    var warning = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 2,
+      _age: 0, _lifetime: delay / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this._lifetime) {
+          // EXPLOSION!
+          game.removeEntity(this);
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+            }
+          }
+          if (window.ParticleSystem) {
+            window.ParticleSystem.layeredExplosion(this.x, this.y, 'big');
+            window.ParticleSystem.screenFlash('#ffffff', 300);
+          }
+          if (screenShake) game.addShake(15);
+        }
+      },
+      draw: function(ctx) {
+        var a = Math.min(1, this._age / this._lifetime);
+        var pulse = 1 + Math.sin(this._age * 8) * 0.05;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,0,0,' + (0.3 + a * 0.4) + ')';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,0,0,' + (a * 0.1) + ')';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    };
+    game.addEntity(warning);
+  }
+
+  /**
+   * Earthquake: persistent tremor zone that damages and stuns.
+   */
+  _doEarthquake(x, y, damage, duration, radius, tickRate, stunChance) {
+    damage = damage || 35;
+    duration = duration || 3000;
+    radius = radius || 400;
+    tickRate = tickRate || 400;
+    stunChance = stunChance || 0.3;
+    var game = window.game;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickRate) {
+          this._tickTimer -= tickRate;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              if (Math.random() < stunChance) {
+                e._paralyzeTimer = Math.max(e._paralyzeTimer || 0, 500);
+              }
+            }
+          }
+          game.addShake(3);
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(180,140,80,' + a + ')';
+        ctx.lineWidth = 2;
+        // Shaking ring
+        var offset = (this._elapsed * 0.1) % 20 - 10;
+        ctx.beginPath();
+        ctx.arc(this.x + offset * Math.sin(this._elapsed * 0.05), this.y + offset * Math.cos(this._elapsed * 0.05),
+          this.radius * (0.5 + 0.5 * Math.sin(this._elapsed * 0.003)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Plasma Ball: slow-moving orb of plasma that pierces enemies.
+   */
+  _doPlasmaBall(x, y, damage, speed, radius, duration, pierce) {
+    damage = damage || 60;
+    speed = speed || 150;
+    radius = radius || 80;
+    duration = duration || 6000;
+    pierce = pierce !== false;
+    var game = window.game;
+    var player = this.player;
+    var angle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    if (window.Bullet) {
+      var b = new window.Bullet({
+        x: player.x, y: player.y,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: damage, speed: speed, size: radius / 8,
+        color: '#ff88ff', trailColor: '#cc44ff',
+        category: 'playerBullet', lifetime: duration / 1000,
+        explosionRadius: radius, pierceCount: pierce ? 10 : 0
+      });
+      game.addEntity(b);
+    }
+  }
+
+  // ----------------------------------------------------------------
+  //  SPECIAL / UNIQUE
+  // ----------------------------------------------------------------
+
+  /**
+   * Laser Sweep: sweeping beam of laser damage.
+   */
+  _doLaserSweep(x, y, damage, duration, sweepAngle, beamLength, tickRate) {
+    damage = damage || 15;
+    duration = duration || 3000;
+    sweepAngle = sweepAngle || 180;
+    beamLength = beamLength || 500;
+    tickRate = tickRate || 100;
+    var game = window.game;
+    var player = this.player;
+    var halfSweep = sweepAngle * Math.PI / 180 / 2;
+    var startAngle = -halfSweep;
+    var endAngle = halfSweep;
+    var beam = {
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 4,
+      _elapsed: 0, _lifetime: duration / 1000, _tickTimer: 0,
+      _currentAngle: startAngle,
+      update: function(dt) {
+        this._elapsed += dt;
+        if (this._elapsed >= this._lifetime) { game.removeEntity(this); return; }
+        this.x = player.x; this.y = player.y;
+        // Sweep angle
+        var t = this._elapsed / this._lifetime;
+        this._currentAngle = startAngle + (endAngle - startAngle) * Math.sin(t * Math.PI);
+        // Damage along beam
+        var baseAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+        var beamAngle = baseAngle + this._currentAngle;
+        var endX = this.x + Math.cos(beamAngle) * beamLength;
+        var endY = this.y + Math.sin(beamAngle) * beamLength;
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickRate) {
+          this._tickTimer -= tickRate;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            // Distance to line segment
+            var dx = e.x - this.x, dy = e.y - this.y;
+            var proj = (dx * Math.cos(beamAngle) + dy * Math.sin(beamAngle));
+            proj = Math.max(0, Math.min(beamLength, proj));
+            var cx = this.x + Math.cos(beamAngle) * proj;
+            var cy = this.y + Math.sin(beamAngle) * proj;
+            var ddx = e.x - cx, ddy = e.y - cy;
+            if (Math.sqrt(ddx * ddx + ddy * ddy) < 20) {
+              e.takeDamage(damage);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = Math.max(0.3, 1 - this._elapsed / this._lifetime);
+        var baseAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+        var beamAngle = baseAngle + this._currentAngle;
+        var endX = this.x + Math.cos(beamAngle) * beamLength;
+        var endY = this.y + Math.sin(beamAngle) * beamLength;
+        ctx.save();
+        ctx.globalAlpha = a * 0.6;
+        var grad = ctx.createLinearGradient(this.x, this.y, endX, endY);
+        grad.addColorStop(0, 'rgba(255,100,100,0.8)');
+        grad.addColorStop(0.3, 'rgba(255,200,100,0.5)');
+        grad.addColorStop(1, 'rgba(255,50,50,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(endX, endY); ctx.stroke();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255,255,200,' + (a * 0.8) + ')';
+        ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(endX, endY); ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(beam);
+  }
+
+  /**
+   * Death Mark: mark enemies to take extra damage.
+   */
+  _doDeathMark(damageMultiplier, duration, targetCount) {
+    damageMultiplier = damageMultiplier || 2.0;
+    duration = duration || 5000;
+    targetCount = targetCount || 3;
+    var game = window.game;
+    var player = this.player;
+    var enemies = game.enemies;
+    // Mark nearest enemies
+    var marks = [];
+    var allEnemies = [];
+    for (var i = 0; i < enemies.length; i++) {
+      if (enemies[i].active) allEnemies.push(enemies[i]);
+    }
+    // Sort by distance to player
+    allEnemies.sort(function(a, b) {
+      var da = (a.x - player.x) * (a.x - player.x) + (a.y - player.y) * (a.y - player.y);
+      var db = (b.x - player.x) * (b.x - player.x) + (b.y - player.y) * (b.y - player.y);
+      return da - db;
+    });
+    for (var i = 0; i < Math.min(targetCount, allEnemies.length); i++) {
+      var e = allEnemies[i];
+      e._vulnerableTimer = Math.max(e._vulnerableTimer || 0, duration);
+      e._vulnerableMult = Math.max(e._vulnerableMult || 0, damageMultiplier);
+      if (window.ParticleSystem) {
+        window.ParticleSystem.spawn(e.x, e.y, {
+          count: 4, speed: 30, life: 400,
+          colors: ['#ff0000', '#ff4444'], size: 3, gravity: -20
+        });
+      }
+    }
+  }
+
+  /**
+   * Blade Storm: spinning blades around player.
+   */
+  _doBladeStorm(x, y, damage, duration, radius, tickRate, pierce) {
+    damage = damage || 15;
+    duration = duration || 4000;
+    radius = radius || 160;
+    tickRate = tickRate || 150;
+    pierce = pierce !== false;
+    var game = window.game;
+    var player = this.player;
+    var entity = {
+      x: player.x, y: player.y, radius: radius, active: true, category: 'particle', drawLayer: 4,
+      _elapsed: 0, _tickTimer: 0, _angle: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this.x = player.x; this.y = player.y;
+        this._angle += dt * 5;
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickRate) {
+          this._tickTimer -= tickRate;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = Math.max(0.2, 1 - this._elapsed / duration);
+        ctx.save(); ctx.globalAlpha = a;
+        // Draw spinning blades
+        var bladeCount = 4;
+        for (var i = 0; i < bladeCount; i++) {
+          var ba = this._angle + (i / bladeCount) * Math.PI * 2;
+          var bx = this.x + Math.cos(ba) * this.radius * 0.6;
+          var by = this.y + Math.sin(ba) * this.radius * 0.6;
+          ctx.fillStyle = '#aaccff';
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(ba);
+          ctx.beginPath();
+          ctx.moveTo(10, 0); ctx.lineTo(-3, -4); ctx.lineTo(-3, 4); ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+        // Outer circle
+        ctx.strokeStyle = 'rgba(170,204,255,' + (a * 0.5) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Sunburst: holy burst of light that damages and heals.
+   */
+  _doSunburst(x, y, damage, radius, blindDuration, healAmount) {
+    damage = damage || 120;
+    radius = radius || 300;
+    blindDuration = blindDuration || 2000;
+    healAmount = healAmount || 40;
+    var game = window.game;
+    var player = this.player;
+    // Heal player
+    if (healAmount > 0) player.heal(healAmount);
+    // Holy nova damage
+    this._doShockwave(x, y, damage, radius);
+    // Blind enemies (reduce accuracy)
+    var enemies = game.enemies;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - x, dy = e.y - y;
+      if (Math.sqrt(dx * dx + dy * dy) < radius) {
+        e._blindTimer = Math.max(e._blindTimer || 0, blindDuration);
+        e._blindAmount = 0.5;
+      }
+    }
+    // Visual
+    if (window.ParticleSystem) {
+      window.ParticleSystem.spawn(x, y, {
+        count: 30, speed: 200, life: 600,
+        colors: ['#ffffcc', '#ffffff', '#ffff88', '#ffdd66'], size: 4, gravity: -30
+      });
+      window.ParticleSystem.screenFlash('#ffffcc', 300);
+      window.ParticleSystem.damageNumber(x, y - 30, '+' + healAmount, '#44ff44');
+    }
+    game.addShake(6);
+  }
+
+  /**
+   * Avalanche: crush enemies with a wave of ice and force.
+   */
+  _doAvalanche(x, y, damage, duration, radius, pushForce, slowAmount) {
+    damage = damage || 70;
+    duration = duration || 3000;
+    radius = radius || 250;
+    pushForce = pushForce || 100;
+    slowAmount = slowAmount || 0.5;
+    var game = window.game;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0, _tickInterval: 500,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= this._tickInterval) {
+          this._tickTimer -= this._tickInterval;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < this.radius) {
+              e.takeDamage(damage);
+              // Push enemies away from center
+              if (pushForce && dist > 1) {
+                e.x += (dx / dist) * pushForce;
+                e.y += (dy / dist) * pushForce;
+              }
+              // Slow
+              e.slowTimer = Math.max(e.slowTimer || 0, 1500);
+              e.slowAmount = Math.max(e.slowAmount || 0, slowAmount);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(150,200,255,' + (a * 0.4) + ')');
+        grad.addColorStop(0.5, 'rgba(120,180,220,' + (a * 0.2) + ')');
+        grad.addColorStop(1, 'rgba(100,150,200,' + (a * 0.05) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(150,200,255,' + (a * 0.6) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * (0.3 + 0.7 * ((this._elapsed % 1000) / 1000)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Soul Drain: draining zone that damages and heals.
+   */
+  _doSoulDrain(x, y, damage, lifesteal, duration, radius) {
+    damage = damage || 30;
+    lifesteal = lifesteal || 0.5;
+    duration = duration || 3000;
+    radius = radius || 200;
+    var game = window.game;
+    var player = this.player;
+    var entity = {
+      x: x, y: y, radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0, _tickInterval: 500,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= this._tickInterval) {
+          this._tickTimer -= this._tickInterval;
+          var enemies = game.enemies;
+          var totalDmg = 0;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              totalDmg += damage;
+            }
+          }
+          // Heal player based on damage dealt
+          if (totalDmg > 0 && lifesteal > 0) {
+            player.heal(Math.floor(totalDmg * lifesteal));
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(180,80,220,' + (a * 0.5) + ')');
+        grad.addColorStop(0.5, 'rgba(130,50,180,' + (a * 0.3) + ')');
+        grad.addColorStop(1, 'rgba(80,30,120,' + (a * 0.1) + ')');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        // Soul particles streaming to player
+        ctx.strokeStyle = 'rgba(200,100,255,' + (a * 0.4) + ')';
+        ctx.lineWidth = 1;
+        for (var i = 0; i < 4; i++) {
+          var px = this.x + Math.cos(i * 1.57 + this._elapsed * 0.005) * this.radius * 0.3;
+          var py = this.y + Math.sin(i * 1.57 + this._elapsed * 0.005) * this.radius * 0.3;
+          ctx.beginPath(); ctx.moveTo(px, py);
+          ctx.lineTo(player.x, player.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Void Sphere: slow-moving orb that pulls enemies toward its center.
+   */
+  _doVoidSphere(x, y, damage, speed, radius, duration, pullForce) {
+    damage = damage || 25;
+    speed = speed || 100;
+    radius = radius || 60;
+    duration = duration || 5000;
+    pullForce = pullForce || 60;
+    var game = window.game;
+    var player = this.player;
+    var angle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    if (window.Bullet) {
+      var b = new window.Bullet({
+        x: player.x, y: player.y,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: damage, speed: speed, size: 6,
+        color: '#8844cc', trailColor: '#6622aa',
+        category: 'playerBullet', lifetime: duration / 1000,
+        wellRadius: radius * 2, pullForce: pullForce,
+        pierceCount: 5
+      });
+      game.addEntity(b);
+    }
+  }
+
+  /**
+   * Enrage: self-buff that increases attack and speed but increases damage taken.
+   */
+  _doEnrage(attackBoost, speedBoost, duration, takeMoreDamage) {
+    attackBoost = attackBoost || 1.4;
+    speedBoost = speedBoost || 1.3;
+    duration = duration || 5000;
+    takeMoreDamage = takeMoreDamage || 0.2;
+    var player = this.player;
+    this._applyTempStatMod({ stat: 'attack', op: 'multiply', value: attackBoost }, duration);
+    this._applyTempStatMod({ stat: 'attackSpeed', op: 'multiply', value: speedBoost - 1 }, duration);
+    // Track vulnerability
+    player._enrageVulnerability = Math.max(
+      (player._enrageVulnerability || 0) + takeMoreDamage,
+      takeMoreDamage
+    );
+    setTimeout(function() {
+      if (player) player._enrageVulnerability = 0;
+    }, duration);
+    // Visual: rage aura
+    var game = window.game;
+    game.addEntity({
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 4,
+      _age: 0, _lifetime: duration / 1000,
+      update: function(dt) {
+        this._age += dt;
+        if (this._age >= this._lifetime) { game.removeEntity(this); return; }
+        if (game.player && game.player.active) { this.x = game.player.x; this.y = game.player.y; }
+      },
+      draw: function(ctx) {
+        var a = 0.3 + 0.3 * Math.sin(this._age * 6);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,50,50,' + (a * 0.2) + ')';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 20 + 10 * Math.sin(this._age * 4), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,100,50,' + a + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 25 + 5 * Math.sin(this._age * 5), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  /**
+   * Healing Ward: stationary ward that heals the player.
+   */
+  _doHealingWard(x, y, healPerSec, duration, radius) {
+    healPerSec = healPerSec || 4;
+    duration = duration || 8000;
+    radius = radius || 200;
+    var game = window.game;
+    var player = this.player;
+    var entity = {
+      x: y !== undefined ? x : player.x,
+      y: y !== undefined ? y : player.y,
+      radius: radius, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0, _tickInterval: 500,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= this._tickInterval) {
+          this._tickTimer -= this._tickInterval;
+          // Heal player if within radius
+          var dx = player.x - this.x, dy = player.y - this.y;
+          if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+            var healAmt = healPerSec * (this._tickInterval / 1000);
+            player.heal(Math.max(1, Math.floor(healAmt)));
+            if (window.ParticleSystem) {
+              window.ParticleSystem.healEffect(player.x, player.y);
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 * (1 - this._elapsed / duration);
+        ctx.save();
+        // Golden healing circle
+        var grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'rgba(100,255,100,' + (a * 0.3) + ')');
+        grad.addColorStop(0.5, 'rgba(80,200,80,' + (a * 0.15) + ')');
+        grad.addColorStop(1, 'rgba(50,150,50,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        // Cross symbol
+        ctx.strokeStyle = 'rgba(100,255,100,' + (a * 0.7) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x - 8, this.y); ctx.lineTo(this.x + 8, this.y);
+        ctx.moveTo(this.x, this.y - 8); ctx.lineTo(this.x, this.y + 8);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Lightning Rod: repeatedly strikes a random enemy with lightning.
+   */
+  _doLightningRod(x, y, damage, duration, radius, strikeInterval, targetRandomEnemy) {
+    damage = damage || 50;
+    duration = duration || 5000;
+    radius = radius || 100;
+    strikeInterval = strikeInterval || 800;
+    targetRandomEnemy = targetRandomEnemy !== false;
+    var game = window.game;
+    var player = this.player;
+    var entity = {
+      x: player.x, y: player.y, active: true, category: 'particle', drawLayer: 3,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this.x = player.x; this.y = player.y;
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= strikeInterval) {
+          this._tickTimer -= strikeInterval;
+          var enemies = game.enemies;
+          var validTargets = [];
+          for (var i = 0; i < enemies.length; i++) {
+            if (enemies[i].active) validTargets.push(enemies[i]);
+          }
+          if (validTargets.length === 0) return;
+          var target = targetRandomEnemy
+            ? validTargets[Math.floor(Math.random() * validTargets.length)]
+            : validTargets[0];
+          // Strike
+          target.takeDamage(damage);
+          if (window.ParticleSystem) {
+            window.ParticleSystem.lightning(this.x, this.y, target.x, target.y, '#ffff44');
+          }
+          // AOE around target
+          for (var j = 0; j < enemies.length; j++) {
+            var e = enemies[j];
+            if (!e.active || e === target) continue;
+            var dx = e.x - target.x, dy = e.y - target.y;
+            if (Math.sqrt(dx * dx + dy * dy) < radius) {
+              e.takeDamage(Math.floor(damage * 0.5));
+              e._shockedTimer = Math.max(e._shockedTimer || 0, 500);
+            }
+          }
+          game.addShake(2);
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.3 + 0.2 * Math.sin(this._elapsed * 0.01);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,100,' + a + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 12 + 3 * Math.sin(this._elapsed * 0.005), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
+  }
+
+  /**
+   * Frozen Comet: powerful ice comet that impacts with splash.
+   */
+  _doFrozenComet(x, y, damage, radius, freezeDuration, impactDamage, splashRadius) {
+    damage = damage || 130;
+    radius = radius || 120;
+    freezeDuration = freezeDuration || 2500;
+    impactDamage = impactDamage || 60;
+    splashRadius = splashRadius || 80;
+    var game = window.game;
+    var player = this.player;
+    // Find nearest enemy as target
+    var enemies = game.enemies;
+    var target = null, nd = Infinity;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - player.x, dy = e.y - player.y;
+      var d = dx * dx + dy * dy;
+      if (d < nd) { nd = d; target = e; }
+    }
+    if (!target) return;
+    // Impact visual
+    if (window.ParticleSystem) {
+      window.ParticleSystem.nova(target.x, target.y, '#88ddff');
+      window.ParticleSystem.screenFlash('#88ddff', 200);
+    }
+    game.addShake(6);
+    // Primary target damage + freeze
+    target.takeDamage(damage);
+    target.frozenTimer = Math.max(target.frozenTimer || 0, freezeDuration);
+    // Splash damage
+    if (impactDamage > 0) {
+      for (var i = 0; i < enemies.length; i++) {
+        var e = enemies[i];
+        if (!e.active || e === target) continue;
+        var dx = e.x - target.x, dy = e.y - target.y;
+        if (Math.sqrt(dx * dx + dy * dy) < (splashRadius + radius)) {
+          e.takeDamage(impactDamage);
+          e.frozenTimer = Math.max(e.frozenTimer || 0, freezeDuration * 0.5);
+        }
+      }
+    }
+  }
+
+  /**
+   * Whirlwind: spinning blades of wind around player.
+   */
+  _doWhirlwind(x, y, damage, duration, radius, tickRate) {
+    damage = damage || 20;
+    duration = duration || 2000;
+    radius = radius || 120;
+    tickRate = tickRate || 200;
+    var game = window.game;
+    var player = this.player;
+    var entity = {
+      x: player.x, y: player.y, radius: radius, active: true, category: 'particle', drawLayer: 4,
+      _elapsed: 0, _tickTimer: 0,
+      update: function(dt) {
+        this._elapsed += dt * 1000;
+        if (this._elapsed >= duration) { game.removeEntity(this); return; }
+        this.x = player.x; this.y = player.y;
+        this._tickTimer += dt * 1000;
+        if (this._tickTimer >= tickRate) {
+          this._tickTimer -= tickRate;
+          var enemies = game.enemies;
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            if (!e.active) continue;
+            var dx = e.x - this.x, dy = e.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.radius) {
+              e.takeDamage(damage);
+              // Push
+              if (Math.sqrt(dx * dx + dy * dy) > 5) {
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                e.x += (dx / dist) * 20;
+                e.y += (dy / dist) * 20;
+              }
+            }
+          }
+        }
+      },
+      draw: function(ctx) {
+        var a = 0.4 * (1 - this._elapsed / duration);
+        ctx.save(); ctx.globalAlpha = a;
+        // Spinning wind lines
+        for (var i = 0; i < 6; i++) {
+          var ba = this._elapsed * 0.005 + (i / 6) * Math.PI * 2;
+          var bx = this.x + Math.cos(ba) * this.radius;
+          var by = this.y + Math.sin(ba) * this.radius;
+          ctx.strokeStyle = '#88ffaa';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    };
+    game.addEntity(entity);
   }
 
   // ====================================================================
