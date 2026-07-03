@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-HTML5-orange.svg)]()
 
-🕹️ **在线试玩**: [https://game1.the37777777.top/ulw](https://game1.the37777777.top/ulw)
+🕹️ **在线试玩**: [https://game1.the37777777.top](https://game1.the37777777.top)
 
 ---
 
