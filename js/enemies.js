@@ -1602,6 +1602,11 @@ class Enemy {
     if (phase.spreadAngle !== undefined) this.bulletConfig.spreadAngle = phase.spreadAngle;
     if (phase.fireRate !== undefined) this.fireRate = phase.fireRate;
     if (phase.bulletSpeed !== undefined) this.bulletConfig.speed = phase.bulletSpeed;
+
+    // Boss Dragon: enable tail swipe in Phase 2+ (bossPhase >= 1 = below 50% HP)
+    if (this.type === 'boss_dragon' && this.bossPhase >= 1) {
+      this.tailSwipeCooldown = 3000;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1748,7 +1753,7 @@ class Enemy {
       // Spread pattern: fan of bullets toward player
       const count = cfg.count || 5;
       const angle = Math.atan2(py - baseY, px - baseX);
-      BulletPatterns.spread(baseX, baseY, count, cfg.spreadAngle || 45, cfg.speed, cfg.damage, cfg.color, angle);
+      BulletPatterns.spreadAimed(baseX, baseY, count, cfg.spreadAngle || 45, cfg.speed, cfg.damage, angle, cfg.color);
     } else if (pattern === 'burst' && BulletPatterns.circle) {
       // Burst: rapid fire circle
       BulletPatterns.circle(baseX, baseY, (cfg.count || 8) + 4, cfg.speed * 1.2, cfg.damage * 0.7, cfg.color);
@@ -4056,9 +4061,8 @@ class WaveSpawner {
     const cfg = GAME_CONFIG.BALANCE;
     const spawnRules = GAME_CONFIG.WAVES.spawnRules;
 
-    // Calculate current difficulty
-    const difficulty = Math.floor(game.score / 5000) + Math.floor(game.gameTime / cfg.DIFFICULTY_INTERVAL);
-    game.difficulty = difficulty;
+    // Calculate current difficulty (phase modifiers already applied by main.js)
+    const difficulty = game.difficulty;
 
     // Update spawn interval based on difficulty
     this.spawnInterval = spawnRules.baseInterval / (1 + difficulty * cfg.DIFFICULTY_SPAWN_RATE);
@@ -4430,16 +4434,11 @@ class WaveSpawner {
     const template = GAME_CONFIG.ENEMIES[bossType];
     if (!template) return;
 
-    // Scale boss HP by wave number: HP = base × (1 + wave × 0.06)²
     const scaledTemplate = Object.assign({}, template);
-    var bossHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
-    // Boss难度递增：第一个Boss简单，后续逐渐变强
-    if (window.game && window.game.bossHpMultiplier) bossHpScale *= window.game.bossHpMultiplier;
-    scaledTemplate.hp = Math.floor(template.hp * bossHpScale);
-    // Scale boss damage: damage = base × (1 + wave × 0.04)
-    const waveDmgScale = 1 + this.waveNumber * 0.04;
-    scaledTemplate.damage = Math.floor(template.damage * waveDmgScale);
-    scaledTemplate.bulletDamage = Math.floor((template.bulletDamage || template.damage) * waveDmgScale);
+    // Boss独有血量乘区：保留bossHpMultiplier作为独立乘区（非波次缩放）
+    if (window.game && window.game.bossHpMultiplier) {
+      scaledTemplate.hp = Math.floor(template.hp * window.game.bossHpMultiplier);
+    }
     scaledTemplate.bossName = template.name;
 
     const opts = {
@@ -4499,14 +4498,7 @@ class WaveSpawner {
 
     const positions = this._getSpawnPositions(count, spacing, pattern, cfg);
 
-    // Scale HP by wave number: HP = base × (1 + wave × 0.06)²
-    const waveHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
-    // Scale damage by wave number: damage = base × (1 + wave × 0.04)
-    const waveDmgScale = 1 + this.waveNumber * 0.04;
     const scaledConfig = Object.assign({}, enemyConfig);
-    scaledConfig.hp = Math.floor(enemyConfig.hp * waveHpScale);
-    scaledConfig.damage = Math.floor(enemyConfig.damage * waveDmgScale);
-    scaledConfig.bulletDamage = Math.floor((enemyConfig.bulletDamage || enemyConfig.damage) * waveDmgScale);
 
     for (const pos of positions) {
       // Queue entry warning: red arrow 0.5s before spawn
