@@ -1027,6 +1027,34 @@ var BulletPatterns = {
   },
 
   // ----------------------------------------------------------
+  //  2b. spreadAimed — N bullets in an arc toward a specific direction
+  // ----------------------------------------------------------
+  spreadAimed: function(x, y, count, spreadAngle, speed, damage, baseAngle, color, trailColor) {
+    var bullets = [];
+    var startAngle = baseAngle - spreadAngle / 2;
+    var step = count > 1 ? spreadAngle / (count - 1) : 0;
+    for (var i = 0; i < count; i++) {
+      var angle = startAngle + step * i;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor || color,
+        category: 'enemyBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 4,
+        drawLayer: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
   //  3. homing — Bullet that curves toward target
   // ----------------------------------------------------------
   homing: function(x, y, speed, damage, color, trailColor, target, homingStrength) {
@@ -2218,6 +2246,272 @@ var BulletPatterns = {
       pullForce: pullForce || 150,
       wellDamage: wellDamage || 15,
       executeThreshold: executeThreshold || 0.15
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F15. venomFlame — Short-range burning flame (orange/green)
+  // ----------------------------------------------------------
+  venomFlame: function(x, y, angle, speed, damage, flameLength, pierceCount, burnDamage, color, trailColor) {
+    var bullets = [];
+    for (var i = -1; i <= 1; i++) {
+      var a = angle + i * 0.1;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 7,
+        hitRadius: 5.5,
+        lifetime: (flameLength || 200) / speed + 0.3,
+        pierceCount: pierceCount || 3,
+        burnDamage: burnDamage || 8
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F16. frostStorm — Rotating ice shard storm
+  // ----------------------------------------------------------
+  frostStorm: function(x, y, angle, speed, damage, spinSpeed, pierceCount, slowAmount, slowDuration, color, trailColor) {
+    var bullets = [];
+    var count = 5;
+    for (var i = 0; i < count; i++) {
+      var spreadAngle = (i - (count - 1) / 2) * 0.2;
+      var a = angle + spreadAngle;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 5,
+        hitRadius: 4,
+        lifetime: 3.5,
+        pierceCount: pierceCount || 3,
+        spinSpeed: spinSpeed || 7,
+        slowAmount: slowAmount || 0.45,
+        slowDuration: slowDuration || 2500
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F17. thunderShock — Chain lightning wave
+  // ----------------------------------------------------------
+  thunderShock: function(x, y, angle, speed, damage, chainCount, chainRange, waveAmplitude, waveFrequency, stunDuration, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 4,
+      hitRadius: 3,
+      lifetime: 2.5,
+      chainCount: chainCount || 3,
+      chainRange: chainRange || 140,
+      amplitude: waveAmplitude || 3,
+      frequency: waveFrequency || 0.05,
+      stunDuration: stunDuration || 500
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F18. holyLight — Homing piercing light beams
+  // ----------------------------------------------------------
+  holyLight: function(x, y, angle, speed, damage, homingStrength, homingRange, pierceCount, color, trailColor) {
+    var bullets = [];
+    var count = 3;
+    for (var i = 0; i < count; i++) {
+      var offset = (i - (count - 1) / 2) * 0.08;
+      var a = angle + offset;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 4,
+        hitRadius: 3,
+        lifetime: 2.5,
+        homingStrength: homingStrength || 0.06,
+        homingRange: homingRange || 400,
+        pierceCount: pierceCount || 3
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F19. shadowNeedle — Fast dark piercing needles
+  // ----------------------------------------------------------
+  shadowNeedle: function(x, y, angle, speed, damage, bulletCount, pierceCount, spinSpeed, color, trailColor) {
+    var bullets = [];
+    var count = bulletCount || 4;
+    for (var i = 0; i < count; i++) {
+      var offset = (i - (count - 1) / 2) * 0.05;
+      var a = angle + offset;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 2,
+        hitRadius: 1.5,
+        lifetime: 2,
+        pierceCount: pierceCount || 3,
+        rotationSpeed: spinSpeed || 6
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F20. electricWave — Wave motion with chain lightning
+  // ----------------------------------------------------------
+  electricWave: function(x, y, angle, speed, damage, waveAmplitude, waveFrequency, chainCount, chainRange, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 4,
+      hitRadius: 3,
+      lifetime: 2.5,
+      amplitude: waveAmplitude || 4,
+      frequency: waveFrequency || 0.06,
+      chainCount: chainCount || 2,
+      chainRange: chainRange || 120
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F21. napalm — Explosive flame pool bomb
+  // ----------------------------------------------------------
+  napalm: function(x, y, angle, speed, damage, explosionRadius, burnDamage, burnDuration, flamePoolRadius, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 7,
+      hitRadius: 5.5,
+      lifetime: 3,
+      explosionRadius: explosionRadius || 80,
+      burnDamage: burnDamage || 10,
+      burnDuration: burnDuration || 3000,
+      flamePoolRadius: flamePoolRadius || 50
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F22. photonTracker — Homing laser beam
+  // ----------------------------------------------------------
+  photonTracker: function(x, y, angle, speed, damage, homingStrength, homingRange, beamWidth, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 2.5,
+      homingStrength: homingStrength || 0.07,
+      homingRange: homingRange || 450,
+      beamWidth: beamWidth || 4
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  F23. scatterSatellite — Orbital scatter shot
+  // ----------------------------------------------------------
+  scatterSatellite: function(x, y, angle, speed, damage, orbitRadius, orbitSpeed, orbitCount, bulletCount, spreadAngle, color, trailColor) {
+    var bullets = [];
+    var count = bulletCount || 3;
+    var halfAngle = (spreadAngle || 20) * Math.PI / 180 / 2;
+    for (var i = 0; i < count; i++) {
+      var offset = -halfAngle + (i / (count - 1 || 1)) * (halfAngle * 2);
+      var a = angle + offset;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 3,
+        hitRadius: 2.5,
+        lifetime: 3.5,
+        orbitRadius: orbitRadius || 75,
+        orbitSpeed: orbitSpeed || 2.5
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  F24. piercingExplosive — Piercing rounds that explode
+  // ----------------------------------------------------------
+  piercingExplosive: function(x, y, angle, speed, damage, pierceCount, explosionRadius, explosionDamage, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 3,
+      pierceCount: pierceCount || 2,
+      explosionRadius: explosionRadius || 70,
+      explosionDamage: explosionDamage || 20
     });
     return [bullet];
   }

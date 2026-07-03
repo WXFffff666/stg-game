@@ -551,6 +551,47 @@ class WeaponManager {
       case 'blackHoleGen':
         if (B) B.blackHoleGen(x, y, angleUp, spd, dmg, cfg.wellRadius || 200, cfg.pullForce || 150, cfg.wellDamage || 15, cfg.executeThreshold || 0.15, color, trail);
         break;
+
+      // ---- Fusion Weapon Patterns (10 new) ----
+      case 'venomFlame':
+        if (B) B.venomFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, color, trail);
+        break;
+
+      case 'frostStorm':
+        if (B) B.frostStorm(x, y, angleUp, spd, dmg, cfg.spinSpeed || 7, cfg.pierceCount || 3, cfg.slowAmount || 0.45, cfg.slowDuration || 2500, color, trail);
+        break;
+
+      case 'thunderShock':
+        if (B) B.thunderShock(x, y, angleUp, spd, dmg, cfg.chainCount || 3, cfg.chainRange || 140, cfg.waveAmplitude || 3, cfg.waveFrequency || 0.05, cfg.stunDuration || 500, color, trail);
+        break;
+
+      case 'holyLight':
+        if (B) B.holyLight(x, y, angleUp, spd, dmg, cfg.homingStrength || 0.06, cfg.homingRange || 400, cfg.pierceCount || 3, color, trail);
+        break;
+
+      case 'shadowNeedle':
+        if (B) B.shadowNeedle(x, y, angleUp, spd, dmg, cfg.bulletCount || 4, cfg.pierceCount || 3, cfg.spinSpeed || 6, color, trail);
+        break;
+
+      case 'electricWave':
+        if (B) B.electricWave(x, y, angleUp, spd, dmg, cfg.waveAmplitude || 4, cfg.waveFrequency || 0.06, cfg.chainCount || 2, cfg.chainRange || 120, color, trail);
+        break;
+
+      case 'napalm':
+        if (B) B.napalm(x, y, angleUp, spd, dmg, cfg.explosionRadius || 80, cfg.burnDamage || 10, cfg.burnDuration || 3000, cfg.flamePoolRadius || 50, color, trail);
+        break;
+
+      case 'photonTracker':
+        if (B) B.photonTracker(x, y, angleUp, spd, dmg, cfg.homingStrength || 0.07, cfg.homingRange || 450, cfg.beamWidth || 4, color, trail);
+        break;
+
+      case 'scatterSatellite':
+        if (B) B.scatterSatellite(x, y, angleUp, spd, dmg, cfg.orbitRadius || 75, cfg.orbitSpeed || 2.5, cfg.orbitCount || 3, cfg.bulletCount || 3, cfg.spreadAngle || 20, color, trail);
+        break;
+
+      case 'piercingExplosive':
+        if (B) B.piercingExplosive(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, cfg.explosionRadius || 70, cfg.explosionDamage || 20, color, trail);
+        break;
     }
 
     // Extra bullets from stats (dual-wield style spread)
