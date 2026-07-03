@@ -113,8 +113,7 @@ class Game {
     this.offsetX = 0;
     this.offsetY = 0;
 
-    // Game and canvas share the same coordinate space (16:9)
-    // No separate canvas resolution needed
+    // Game coordinate space matches canvas (portrait 2:3 for vertical STG)
 
     // Game state
     this.scene = GAME_CONFIG.SCENES.MENU;
