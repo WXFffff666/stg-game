@@ -1748,6 +1748,13 @@
       playerEntity.shield = playerEntity.stats.shieldOnHit;
     }
 
+    // Fire onLethalDamage conditional trigger before death check
+    if (!alive && skillManager && typeof skillManager.onLethalDamage === 'function') {
+      skillManager.onLethalDamage();
+      // Re-check alive after potential rewind heal
+      if (playerEntity.hp > 0) return;
+    }
+
     if (!alive) {
       // Check revive
       if (playerEntity.stats.reviveCount && playerEntity.stats.reviveCount > 0) {

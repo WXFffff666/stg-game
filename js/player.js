@@ -1278,6 +1278,278 @@ var ShipDesigns = {
     ctx.beginPath();
     ctx.arc(0, -s * 0.1, s * 0.18, 0, Math.PI * 2);
     ctx.fill();
+  },
+
+  // 32. explosive: Bomb-shaped hull with fuse spark, explosion accents
+  explosive: function(ctx, s, color, time) {
+    // Round bomb body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.65, 0, Math.PI * 2);
+    ctx.fill();
+    // Fuse stalk
+    ctx.strokeStyle = '#ccaa66';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.65);
+    ctx.quadraticCurveTo(s * 0.15, -s * 0.85, s * 0.1, -s * 1.05);
+    ctx.stroke();
+    // Fuse spark (animated)
+    var sparkPulse = 0.6 + Math.sin(time * 12) * 0.4;
+    ctx.fillStyle = 'rgba(255,220,50,' + sparkPulse + ')';
+    ctx.beginPath();
+    ctx.arc(s * 0.1, -s * 1.1, s * 0.12 * sparkPulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,200,0,0.3)';
+    ctx.beginPath();
+    ctx.arc(s * 0.1, -s * 1.1, s * 0.25 * sparkPulse, 0, Math.PI * 2);
+    ctx.fill();
+    // Bottom fins
+    ctx.fillStyle = '#cc6600';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.3, s * 0.5);
+    ctx.lineTo(-s * 0.6, s * 0.85);
+    ctx.lineTo(-s * 0.15, s * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.3, s * 0.5);
+    ctx.lineTo(s * 0.6, s * 0.85);
+    ctx.lineTo(s * 0.15, s * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    // Explosion crack arcs (animated)
+    var crackAlpha = 0.3 + Math.sin(time * 8) * 0.2;
+    ctx.strokeStyle = 'rgba(255,255,100,' + crackAlpha + ')';
+    ctx.lineWidth = 1.5;
+    for (var i = 0; i < 4; i++) {
+      var crackAngle = time * 5 + i * 1.6;
+      var crackLen = s * 0.25 + Math.sin(time * 7 + i) * s * 0.1;
+      var cx = Math.cos(crackAngle) * s * 0.65;
+      var cy = Math.sin(crackAngle) * s * 0.65;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(crackAngle) * crackLen, cy + Math.sin(crackAngle) * crackLen);
+      ctx.stroke();
+    }
+    // Heat core
+    var corePulse = 0.5 + Math.sin(time * 6) * 0.3;
+    ctx.fillStyle = 'rgba(255,200,50,' + corePulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, s * 0.05, s * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 33. mech: Robotic angular shape with gear details
+  mech: function(ctx, s, color, time) {
+    // Angular mech body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.9);
+    ctx.lineTo(-s * 0.5, -s * 0.5);
+    ctx.lineTo(-s * 0.7, 0);
+    ctx.lineTo(-s * 0.5, s * 0.5);
+    ctx.lineTo(-s * 0.2, s * 0.75);
+    ctx.lineTo(s * 0.2, s * 0.75);
+    ctx.lineTo(s * 0.5, s * 0.5);
+    ctx.lineTo(s * 0.7, 0);
+    ctx.lineTo(s * 0.5, -s * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // Shoulder armor plates
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.45, -s * 0.1);
+    ctx.lineTo(-s * 0.85, -s * 0.2);
+    ctx.lineTo(-s * 0.8, s * 0.1);
+    ctx.lineTo(-s * 0.4, s * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.45, -s * 0.1);
+    ctx.lineTo(s * 0.85, -s * 0.2);
+    ctx.lineTo(s * 0.8, s * 0.1);
+    ctx.lineTo(s * 0.4, s * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    // Visor eye slit (pulsing)
+    var visorPulse = 0.7 + Math.sin(time * 4) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + visorPulse + ')';
+    ctx.fillRect(-s * 0.25, -s * 0.3, s * 0.5, s * 0.1);
+    // Mechanical joint circles
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(-s * 0.3, s * 0.6, s * 0.13, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(s * 0.3, s * 0.6, s * 0.13, 0, Math.PI * 2);
+    ctx.stroke();
+    // Rotating gear emblem
+    var gearAngle = time * 2;
+    ctx.save();
+    ctx.translate(0, s * 0.15);
+    ctx.rotate(gearAngle);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    // Vent glow
+    var ventAlpha = 0.3 + Math.sin(time * 5) * 0.2;
+    ctx.fillStyle = 'rgba(200,220,255,' + ventAlpha + ')';
+    ctx.beginPath();
+    ctx.arc(-s * 0.15, s * 0.45, s * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.15, s * 0.45, s * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  // 34. tech: Circuit-board hexagonal design with data streams
+  tech: function(ctx, s, color, time) {
+    // Hexagonal hull
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < 6; i++) {
+      var angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      var hx = Math.cos(angle) * s * 0.8;
+      var hy = Math.sin(angle) * s * 0.8;
+      if (i === 0) ctx.moveTo(hx, hy);
+      else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Inner hex circuit traces
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var j = 0; j < 6; j++) {
+      var ia = (j / 6) * Math.PI * 2 - Math.PI / 2;
+      var ix = Math.cos(ia) * s * 0.45;
+      var iy = Math.sin(ia) * s * 0.45;
+      if (j === 0) ctx.moveTo(ix, iy);
+      else ctx.lineTo(ix, iy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    // Radial circuit lines
+    for (var k = 0; k < 6; k++) {
+      var ca = (k / 6) * Math.PI * 2 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ca) * s * 0.45, Math.sin(ca) * s * 0.45);
+      ctx.lineTo(Math.cos(ca) * s * 0.15, Math.sin(ca) * s * 0.15);
+      ctx.stroke();
+    }
+    // Scanning line (horizontal sweep)
+    var scanY = Math.sin(time * 3) * s * 0.65;
+    ctx.strokeStyle = 'rgba(100,220,255,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.65, scanY);
+    ctx.lineTo(s * 0.65, scanY);
+    ctx.stroke();
+    // Data node dots (rotating)
+    for (var n = 0; n < 4; n++) {
+      var nodeAngle = time * 2.5 + (n / 4) * Math.PI * 2;
+      var nx = Math.cos(nodeAngle) * s * 0.65;
+      var ny = Math.sin(nodeAngle) * s * 0.65;
+      var nodeAlpha = 0.5 + Math.sin(time * 6 + n) * 0.4;
+      ctx.fillStyle = 'rgba(255,255,255,' + nodeAlpha + ')';
+      ctx.beginPath();
+      ctx.arc(nx, ny, s * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Central data core
+    var corePulse = 0.6 + Math.sin(time * 5) * 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,' + corePulse + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    // Tech wing extenders
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.5, -s * 0.1);
+    ctx.lineTo(-s * 1.0, -s * 0.35);
+    ctx.lineTo(-s * 0.95, s * 0.15);
+    ctx.lineTo(-s * 0.45, s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.5, -s * 0.1);
+    ctx.lineTo(s * 1.0, -s * 0.35);
+    ctx.lineTo(s * 0.95, s * 0.15);
+    ctx.lineTo(s * 0.45, s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+  },
+
+  // 35. chaos: Shifting geometric shape with chaotic effects
+  chaos: function(ctx, s, color, time) {
+    // Unstable shifting hull - vertices oscillate
+    var numPoints = 8;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (var i = 0; i < numPoints; i++) {
+      var baseAngle = (i / numPoints) * Math.PI * 2 - Math.PI / 2;
+      var wobble = Math.sin(time * 4 + i * 1.3) * 0.2 + Math.sin(time * 7 + i * 0.7) * 0.15;
+      var r = s * (0.5 + 0.5 * (0.6 + wobble));
+      var px = Math.cos(baseAngle) * r;
+      var py = Math.sin(baseAngle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // Chaotic inner shards (rotating fragments)
+    var shardAngle = time * 3.5;
+    for (var j = 0; j < 4; j++) {
+      var sa = shardAngle + (j / 4) * Math.PI * 2;
+      var sr = s * 0.35;
+      var sx = Math.cos(sa) * sr;
+      var sy = Math.sin(sa) * sr;
+      var shardPulse = 0.4 + Math.sin(time * 6 + j * 1.7) * 0.3;
+      ctx.fillStyle = 'rgba(255,255,255,' + shardPulse + ')';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - s * 0.08);
+      ctx.lineTo(sx + s * 0.1, sy + s * 0.04);
+      ctx.lineTo(sx - s * 0.1, sy + s * 0.04);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Disintegration particles (swirling outward)
+    for (var k = 0; k < 6; k++) {
+      var pAngle = time * 5 + k * 1.05;
+      var pR = s * 0.8 + Math.sin(time * 4 + k * 1.3) * s * 0.3;
+      var px2 = Math.cos(pAngle) * pR;
+      var py2 = Math.sin(pAngle) * pR;
+      var pSize = s * 0.05 + Math.sin(time * 8 + k * 2) * s * 0.03;
+      var pAlpha = 0.3 + Math.sin(time * 6 + k * 1.5) * 0.3;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = pAlpha;
+      ctx.beginPath();
+      ctx.arc(px2, py2, pSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Chaotic energy flash
+    var flashFreq = Math.sin(time * 11) * Math.sin(time * 13);
+    var flashAlpha = Math.max(0, flashFreq * 0.35);
+    ctx.fillStyle = 'rgba(255,255,255,' + flashAlpha + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    // Unstable wandering core
+    var coreShiftX = Math.sin(time * 5) * s * 0.08;
+    var coreShiftY = Math.cos(time * 7) * s * 0.08;
+    ctx.fillStyle = '#ff88cc';
+    ctx.beginPath();
+    ctx.arc(coreShiftX, coreShiftY, s * 0.13, 0, Math.PI * 2);
+    ctx.fill();
   }
 };
 
@@ -1510,6 +1782,10 @@ class Player {
         if (this._stealthTimer <= 0) {
           this._stealthActive = false;
           this._stealthDamageMult = 1;
+          // Fire onStealthEnd conditional trigger
+          if (this._skillManager && typeof this._skillManager.onStealthEnd === 'function') {
+            this._skillManager.onStealthEnd();
+          }
         }
       }
     }
