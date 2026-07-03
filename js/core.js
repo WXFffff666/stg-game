@@ -113,12 +113,8 @@ class Game {
     this.offsetX = 0;
     this.offsetY = 0;
 
-    // Canvas design resolution (16:9 letterbox)
-    this.canvasW = 1280;
-    this.canvasH = 720;
-    this.gameScale = 1;
-    this.gameOffsetX = 0;
-    this.gameOffsetY = 0;
+    // Game and canvas share the same coordinate space (16:9)
+    // No separate canvas resolution needed
 
     // Game state
     this.scene = GAME_CONFIG.SCENES.MENU;
@@ -141,8 +137,8 @@ class Game {
     this.isPointerDown = false;
     this.pointerActive = false;
 
-    // 设备检测：宽度<768px判定为手机
-    this.isMobile = window.innerWidth < 768;
+    // 设备检测：触摸/触笔设备检测（feature-based）
+    this.isMobile = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
 
     // Entity pools
     this.entities = [];
@@ -215,11 +211,27 @@ class Game {
     this.canvas.addEventListener('touchcancel', this._onPointerUp);
     window.addEventListener('keydown', this._onKeyDown);
 
+    // Sync UI toggles on fullscreen change (desktop native + older webkit)
+    document.addEventListener('fullscreenchange', function() {
+      var fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      _syncFullscreenUI(!!fsEl);
+    });
+    document.addEventListener('webkitfullscreenchange', function() {
+      var fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      _syncFullscreenUI(!!fsEl);
+    });
+
     // Prevent context menu on canvas
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     this._onResize();
     this._initPools();
+
+    // Attempt screen orientation lock for landscape (PWA fullscreen)
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function() {});
+    }
+
     console.log('STG Engine initialized');
   }
 
@@ -621,13 +633,10 @@ class Game {
   // ===== COORDINATE CONVERSION =====
   canvasToGame(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    // Client → canvas coordinates
-    const canvasX = (clientX - rect.left) / this.scale;
-    const canvasY = (clientY - rect.top) / this.scale;
-    // Canvas → game coordinates
+    // Client → game coordinates (game = canvas, no intermediate step)
     return {
-      x: (canvasX - this.gameOffsetX) / this.gameScale,
-      y: (canvasY - this.gameOffsetY) / this.gameScale,
+      x: (clientX - rect.left) / this.scale,
+      y: (clientY - rect.top) / this.scale,
     };
   }
 
@@ -744,7 +753,7 @@ class Game {
     // Clear full canvas (reset to DPR-only transform, then restore)
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, this.canvasW, this.canvasH);
+    ctx.clearRect(0, 0, this.width, this.height);
     ctx.restore();
 
     // Persistent game transform is now active
@@ -791,24 +800,19 @@ class Game {
 
   // ===== EVENT HANDLERS =====
   _onResize() {
-    // 更新设备检测
-    this.isMobile = window.innerWidth < 768;
+    // 设备检测（feature-based）
+    this.isMobile = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
 
-    // 手机端使用竖屏canvas尺寸
-    if (this.isMobile) {
-      this.canvasW = 720;
-      this.canvasH = 1280;
-    } else {
-      this.canvasW = 1280;
-      this.canvasH = 720;
-    }
+    // Game and canvas share the same 16:9 coordinate space
+    const gameW = this.width;
+    const gameH = this.height;
 
     const container = this.canvas.parentElement || document.body;
     const vpW = container.clientWidth || window.innerWidth;
     const vpH = container.clientHeight || window.innerHeight;
 
-    // Step 1: Enforce 16:9 letterbox envelope on viewport
-    const targetAspect = this.canvasW / this.canvasH; // 16/9
+    // Single letterbox: viewport → game canvas (16:9)
+    const targetAspect = gameW / gameH;
     let envW, envH;
     if (vpW / vpH > targetAspect) {
       // Wider than 16:9 → black bars on sides
@@ -820,32 +824,23 @@ class Game {
       envH = envW / targetAspect;
     }
 
-    // Step 2: Scale for CSS display (canvas pixels → CSS pixels)
-    this.scale = envW / this.canvasW;
+    // CSS display scale (game pixels → CSS pixels)
+    this.scale = envW / gameW;
 
-    // Step 3: Game-to-canvas coordinate mapping
-    this.gameScale = Math.min(this.canvasW / this.width, this.canvasH / this.height);
-    this.gameOffsetX = (this.canvasW - this.width * this.gameScale) / 2;
-    this.gameOffsetY = (this.canvasH - this.height * this.gameScale) / 2;
-
-    // Step 4: Viewport centering offset
+    // Viewport centering offset
     this.offsetX = (vpW - envW) / 2;
     this.offsetY = (vpH - envH) / 2;
 
-    // Step 5: Apply canvas element sizing and persistent transform
+    // Apply canvas element sizing
     const dpr = window.devicePixelRatio || 1;
     this.canvas.style.width = envW + 'px';
     this.canvas.style.height = envH + 'px';
-    this.canvas.width = this.canvasW * dpr;
-    this.canvas.height = this.canvasH * dpr;
+    this.canvas.width = gameW * dpr;
+    this.canvas.height = gameH * dpr;
 
-    // Persistent transform: game coordinates → canvas device pixels
-    // All draw calls using game coords (0,0)-(600,900) map correctly
-    this.ctx.setTransform(
-      dpr * this.gameScale, 0, 0,
-      dpr * this.gameScale,
-      dpr * this.gameOffsetX, dpr * this.gameOffsetY
-    );
+    // Persistent transform: game coordinates → device pixels (DPR only)
+    // Game coords = canvas coords = 1280x720, no intermediate mapping needed
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   _onPointerMove(e) {
@@ -906,10 +901,8 @@ class Game {
       case 'F':
       case 'F11':
         e.preventDefault();
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          document.documentElement.requestFullscreen();
+        if (typeof window.toggleFullscreen === 'function') {
+          window.toggleFullscreen();
         }
         break;
     }
@@ -930,6 +923,84 @@ class Game {
     const dx = cx - closestX;
     const dy = cy - closestY;
     return (dx * dx + dy * dy) < (radius * radius);
+  }
+}
+
+// ===== UNIFIED FULLSCREEN TOGGLE =====
+
+/**
+ * Unified fullscreen toggle with vendor prefix fallbacks and iOS CSS overlay fallback.
+ * - Checks document.fullscreenEnabled with vendor prefixes
+ * - Uses element.requestFullscreen() with { navigationUI: 'hide' }
+ * - On iOS (where requestFullscreen fails for non-<video> elements), applies
+ *   .fs-ios-fallback CSS class and adds a close button
+ * - Syncs UI toggles (#fs-toggle and #fullscreen-toggle) on state change
+ */
+window.toggleFullscreen = function() {
+  var el = document.documentElement;
+  var rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  var exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  var fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  var fsEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled;
+
+  // Exit iOS CSS fallback mode if active
+  if (document.body.classList.contains('fs-ios-fallback')) {
+    _toggleFullscreenExitIOS();
+    return;
+  }
+
+  if (fsEl) {
+    // Exit fullscreen
+    if (exitFs) exitFs.call(document);
+  } else if (fsEnabled && rfs) {
+    // Enter fullscreen with navUI hint
+    var promise = rfs.call(el, { navigationUI: 'hide' });
+    if (promise && typeof promise.catch === 'function') {
+      promise.catch(function(err) {
+        // User pressed ESC or fullscreen denied — iOS fallback
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent || '')) {
+          _toggleFullscreenEnterIOS();
+        }
+      });
+    }
+  }
+};
+
+/** Enter iOS CSS fullscreen overlay */
+function _toggleFullscreenEnterIOS() {
+  document.body.classList.add('fs-ios-fallback');
+  if (!document.getElementById('fs-ios-close')) {
+    var btn = document.createElement('button');
+    btn.id = 'fs-ios-close';
+    btn.textContent = '✕';
+    btn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;width:44px;height:44px;font-size:24px;background:rgba(0,0,0,0.6);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    btn.onclick = _toggleFullscreenExitIOS;
+    document.body.appendChild(btn);
+  }
+  _syncFullscreenUI(true);
+}
+
+/** Exit iOS CSS fullscreen overlay and clean up */
+function _toggleFullscreenExitIOS() {
+  document.body.classList.remove('fs-ios-fallback');
+  var btn = document.getElementById('fs-ios-close');
+  if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
+  _syncFullscreenUI(false);
+}
+
+/** Sync both .fs-toggle button state and #fullscreen-toggle checkbox */
+function _syncFullscreenUI(isFullscreen) {
+  var btn = document.getElementById('fs-toggle');
+  if (btn) {
+    if (isFullscreen) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  }
+  var toggle = document.getElementById('fullscreen-toggle');
+  if (toggle) {
+    toggle.checked = !!isFullscreen;
   }
 }
 

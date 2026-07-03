@@ -534,8 +534,8 @@ canvas {
   background: rgba(255,255,255,0.2); transform: scale(0.95);
 }
 
-/* Responsive - Mobile Portrait (设计分辨率 720×1280) */
-@media (max-width: 480px), (max-height: 900px) and (orientation: portrait) {
+/* Responsive - Mobile/Touch devices (设计分辨率 720×1280) */
+@media (hover: none) and (pointer: coarse), (max-width: 480px) {
   /* 菜单屏幕适配 */
   .menu-screen h1 { font-size: 28px; }
   .menu-btn { width: 180px; padding: 12px 0; font-size: 14px; min-height: 44px; }
@@ -681,6 +681,15 @@ canvas {
   .combo-text { font-size: 22px; }
 }
 
+/* PWA display-mode overrides */
+@media (display-mode: fullscreen) {
+  body { background: #000; }
+  #game-container { background: #000; }
+}
+@media (display-mode: standalone) {
+  /* PWA specific adjustments: none currently needed */
+}
+
 /* Fullscreen toggle (desktop) */
 @media (min-width: 481px) {
   .fs-toggle {
@@ -694,6 +703,16 @@ canvas {
     opacity: 0.5; transition: opacity 0.2s;
   }
   .fs-toggle:hover { opacity: 1; color: #fff; }
+}
+
+/* iOS CSS Fullscreen Fallback (when requestFullscreen fails) */
+.fs-ios-fallback #game-container {
+  position: fixed !important; top: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important;
+  z-index: 9999 !important;
+}
+.fs-ios-fallback canvas {
+  max-width: 100% !important; max-height: 100% !important;
 }
 
 /* Upgrade Shop */
@@ -1273,7 +1292,7 @@ canvas {
   <canvas id="game-canvas"></canvas>
 
   <!-- Fullscreen Toggle -->
-  <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="if(document.fullscreenElement){document.exitFullscreen()}else{document.documentElement.requestFullscreen()}">⛶</button>
+  <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="window.toggleFullscreen()">⛶</button>
 
   <!-- 暂停按钮 (手机端右上角) -->
   <button class="hud-pause-btn" id="hud-pause-btn" title="暂停 (P/ESC)" style="display:none">⏸</button>

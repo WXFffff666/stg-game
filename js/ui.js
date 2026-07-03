@@ -347,23 +347,15 @@ class UIManager {
       });
     }
 
-    // Fullscreen toggle
+    // Fullscreen toggle (delegates to unified window.toggleFullscreen in core.js)
     const fullscreenToggle = document.getElementById('fullscreen-toggle');
     if (fullscreenToggle) {
       fullscreenToggle.addEventListener('change', () => {
-        if (fullscreenToggle.checked) {
-          var el = document.documentElement;
-          var rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-          if (rfs) rfs.call(el);
-        } else {
-          var exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
-          if (exitFs && document.fullscreenElement) exitFs.call(document);
+        if (typeof window.toggleFullscreen === 'function') {
+          window.toggleFullscreen();
         }
       });
-      // Sync toggle state when fullscreen changes via Escape key
-      document.addEventListener('fullscreenchange', () => {
-        fullscreenToggle.checked = !!document.fullscreenElement;
-      });
+      // Note: fullscreenchange sync is handled globally in core.js init()
     }
 
     // 重置数据按钮
