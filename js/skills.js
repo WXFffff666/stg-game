@@ -453,6 +453,7 @@ class SkillManager {
           if (this.radius >= this.maxRadius) window.game.removeEntity(this);
         },
         draw: function(ctx) {
+          if (this.radius >= this.maxRadius) return;
           var alpha = 1 - (this.radius / this.maxRadius);
           ctx.save();
           ctx.strokeStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.8) + ')';
@@ -509,6 +510,7 @@ class SkillManager {
                 if (this.radius >= this.maxRadius) window.game.removeEntity(this);
               },
               draw: function(ctx) {
+                if (this.radius >= this.maxRadius) return;
                 var alpha = 1 - (this.radius / this.maxRadius);
                 ctx.save();
                 ctx.strokeStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.9) + ')';

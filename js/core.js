@@ -643,6 +643,7 @@ class Game {
   _loop(timestamp) {
     if (!this.isRunning) return;
 
+    try {
     const rawDt = timestamp - this.lastTime;
     this.lastTime = timestamp;
 
@@ -660,6 +661,11 @@ class Game {
     }
 
     this._draw();
+    } catch(e) {
+      console.warn('Game loop error (non-fatal):', e.message);
+      if (this._loopErrorCount === undefined) this._loopErrorCount = 0;
+      this._loopErrorCount++;
+    }
     this.rafId = requestAnimationFrame(this._loop);
   }
 
@@ -780,7 +786,11 @@ class Game {
     const drawLayer = (list, layer) => {
       for (const entity of list) {
         if (entity.active && entity.draw && (entity.drawLayer || 0) === layer) {
-          entity.draw(ctx);
+          try {
+            entity.draw(ctx);
+          } catch(e) {
+            // Skip broken entity visuals, keep game running
+          }
         }
       }
     };
