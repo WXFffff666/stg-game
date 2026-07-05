@@ -450,10 +450,10 @@ class SkillManager {
         update: function(dt) {
           this._age += dt;
           this.radius += 300 * dt;
-          if (this.radius >= this.maxRadius) window.game.removeEntity(this);
+          if (this.radius >= this.maxRadius) { this.active = false; window.game.removeEntity(this); }
         },
         draw: function(ctx) {
-          if (this.radius >= this.maxRadius) return;
+          if (this.radius <= 0 || this.radius >= this.maxRadius || !isFinite(this.radius)) return;
           var alpha = 1 - (this.radius / this.maxRadius);
           ctx.save();
           ctx.strokeStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.8) + ')';
