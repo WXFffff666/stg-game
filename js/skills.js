@@ -459,7 +459,7 @@ class SkillManager {
           ctx.strokeStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.8) + ')';
           ctx.lineWidth = 3 * alpha;
           ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, Math.max(1, Math.min(this.radius, this.maxRadius)), 0, Math.PI * 2);
           ctx.stroke();
           ctx.fillStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.15) + ')';
           ctx.fill();
@@ -516,7 +516,7 @@ class SkillManager {
                 ctx.strokeStyle = 'rgba(' + this._r + ',' + this._g + ',' + this._b + ',' + (alpha * 0.9) + ')';
                 ctx.lineWidth = 4 * alpha;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, Math.max(1, Math.min(this.radius, this.maxRadius)), 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.restore();
               }
