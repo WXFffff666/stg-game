@@ -648,10 +648,10 @@ class Game {
 
     if (!this.isPaused) {
       this.gameTime += rawDt;
-      this._update(dt);
+      try { this._update(dt); } catch(e) { console.warn('update err:', e.message); }
     }
 
-    this._draw();
+    try { this._draw(); } catch(e) { console.warn('draw err:', e.message); }
     this.rafId = requestAnimationFrame(this._loop);
   }
 
