@@ -273,8 +273,11 @@ var ParticleSystem = {
    * @param {object} config - { count, speed, life, size, colors, gravity?, ... }
    */
   spawn: function(x, y, config) {
-    var count = config.count || 1;
+    // Entity cap: skip non-essential particles when scene is overloaded
     var g = window.game;
+    if (g && g.entities && g.entities.length > 800) return;
+
+    var count = config.count || 1;
     for (var i = 0; i < count; i++) {
       var p = g.getFromPool(g.particlePool, this._factory);
       p.init(x, y, config);

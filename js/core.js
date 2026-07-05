@@ -906,10 +906,8 @@ class Game {
       case 'F':
       case 'F11':
         e.preventDefault();
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          document.documentElement.requestFullscreen();
+        if (typeof window.toggleFullscreen === 'function') {
+          window.toggleFullscreen();
         }
         break;
     }
@@ -945,6 +943,48 @@ window.toggleFullscreen = function() {
   var rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
   var exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
   var fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
-  if (fsEl) { if (exitFs) exitFs.call(document); }
-  else if (rfs) { var p = rfs.call(el, { navigationUI: 'hide' }); if (p && p.catch) { p.catch(function(){}) } }
+
+  /* iOS CSS fullscreen fallback */
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  function applyIOSFallback() {
+    document.body.classList.add('fs-ios-fallback');
+    if (!document.getElementById('fs-ios-close')) {
+      var btn = document.createElement('button');
+      btn.id = 'fs-ios-close';
+      btn.textContent = '退出全屏';
+      btn.style.cssText = 'position:fixed;top:10px;right:10px;z-index:10000;padding:8px 16px;font-size:16px;background:rgba(0,0,0,0.6);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:4px;cursor:pointer;';
+      btn.onclick = function() {
+        document.body.classList.remove('fs-ios-fallback');
+        this.remove();
+      };
+      document.body.appendChild(btn);
+    }
+  }
+
+  function removeIOSFallback() {
+    document.body.classList.remove('fs-ios-fallback');
+    var closeBtn = document.getElementById('fs-ios-close');
+    if (closeBtn) closeBtn.remove();
+  }
+
+  /* If already in iOS fallback mode, exit it */
+  if (document.body.classList.contains('fs-ios-fallback')) {
+    removeIOSFallback();
+    return;
+  }
+
+  if (fsEl) {
+    if (exitFs) exitFs.call(document);
+    removeIOSFallback();
+  } else if (rfs) {
+    var p = rfs.call(el, { navigationUI: 'hide' });
+    if (p && p.catch) {
+      p.catch(function() {
+        if (isIOS) applyIOSFallback();
+      });
+    }
+  } else if (isIOS) {
+    applyIOSFallback();
+  }
 };

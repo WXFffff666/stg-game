@@ -25,6 +25,7 @@ const GAME_CONFIG = {
     ],
     DIFFICULTY_INTERVAL: 45000,
     DIFFICULTY_MULTIPLIER: 0.05,
+    MAX_DIFFICULTY: 100,
     DIFFICULTY_BULLET_SPEED: 0.02,
     DIFFICULTY_ENEMY_HP: 0.04,
     DIFFICULTY_SPAWN_RATE: 0.05,
@@ -41,6 +42,7 @@ const GAME_CONFIG = {
     MAX_PARTICLES: 300,
     BOSS_SCORE_THRESHOLD: 5000,
     BOSS_INTERVAL_SCORE: 20000,
+    MAX_BOSS_HP_MULTIPLIER: 5.0,
     COMBO_TIMEOUT: 3000,
     COMBO_MULTIPLIER: 0.1,
 
@@ -60,8 +62,8 @@ const GAME_CONFIG = {
 
     // ============ 性能优化配置 ============
     // 对象池扩容
-    POOL_BULLETS: 300,
-    POOL_ENEMIES: 60,
+    POOL_BULLETS: 400,
+    POOL_ENEMIES: 80,
     POOL_PARTICLES: 250,
 
     // 碰撞网格配置 (4x4空间网格)
@@ -74,9 +76,13 @@ const GAME_CONFIG = {
     LOW_FPS_CHECK_INTERVAL: 500,   // 检测间隔(毫秒)
 
     // 低性能模式限制
-    LOW_PERF_PARTICLE_REDUCTION: 0.5,  // 粒子减少50%
+    LOW_PERF_PARTICLE_REDUCTION: 0.3,  // 粒子减少70%
     LOW_PERF_MAX_ENEMIES: 25,          // 敌人上限
-    LOW_PERF_MAX_BULLETS: 120,         // 子弹上限
+    LOW_PERF_MAX_BULLETS: 120,
+
+    // ============ 武器槽配置 ============
+    MAX_WEAPON_SLOTS: 6,
+    MAX_PASSIVE_SLOTS: 6,         // 子弹上限
   },
 
   // ============ SCENES ============
@@ -327,6 +333,265 @@ const GAME_CONFIG = {
       description: '随机元素，混沌之力',
       baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, randomEffectChance: 0.15, chaosMultiplier: 0.2 },
       icon: '🎭'
+    },
+    // ===== New Factions (43) =====
+    light: {
+      id: 'light', name: '☀️ 光之流', color: '#fff9c4',
+      description: '光能汇聚，辐射照耀',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 95, speed: 285, lightCharge: 0, lightBurstDamage: 30 },
+      icon: '☀️'
+    },
+    dark: {
+      id: 'dark', name: '🌚 黯影流', color: '#1a1a2e',
+      description: '暗影之力，吞噬光芒',
+      baseStats: { attackSpeed: 1.0, attack: 1.15, hp: 90, speed: 295, shadowMeld: 0.1, darkBolt: 15 },
+      icon: '🌚'
+    },
+    crystal: {
+      id: 'crystal', name: '💎 水晶流', color: '#00e5ff',
+      description: '水晶晶莹，破片飞散',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, crystalShardCount: 1, shardDamage: 0.3 },
+      icon: '💎'
+    },
+    lava: {
+      id: 'lava', name: '🌋 熔岩流', color: '#bf360c',
+      description: '熔岩滚滚，灼烧大地',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 110, speed: 265, magmaPoolDamage: 8, magmaPoolRadius: 100 },
+      icon: '🌋'
+    },
+    steam: {
+      id: 'steam', name: '♨️ 蒸汽流', color: '#b0bec5',
+      description: '蒸汽增压，爆发推进',
+      baseStats: { attackSpeed: 1.15, attack: 0.85, hp: 100, speed: 310, steamPressure: 0.1, steamBurstRadius: 120 },
+      icon: '♨️'
+    },
+    dust: {
+      id: 'dust', name: '🌫️ 沙尘流', color: '#8d6e63',
+      description: '沙尘蔽日，迷乱视野',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 105, speed: 285, dustBlindChance: 0.1, dustSlowAmount: 0.15 },
+      icon: '🌫️'
+    },
+    metal: {
+      id: 'metal', name: '⛓️ 钢铁流', color: '#455a64',
+      description: '钢铁装甲，坚不可摧',
+      baseStats: { attackSpeed: 0.9, attack: 0.95, hp: 140, speed: 260, armorPierce: 0.15, shrapnelCount: 0 },
+      icon: '⛓️'
+    },
+    glass: {
+      id: 'glass', name: '💠 玻璃流', color: '#80deea',
+      description: '玻璃锋锐，脆弱而致命',
+      baseStats: { attackSpeed: 1.1, attack: 1.2, hp: 70, speed: 295, glassShardChance: 0.2, shardDamage: 20 },
+      icon: '💠'
+    },
+    silk: {
+      id: 'silk', name: '🧣 丝线流', color: '#f06292',
+      description: '丝线缠绕，以柔克刚',
+      baseStats: { attackSpeed: 1.0, attack: 0.85, hp: 105, speed: 290, silkSnareChance: 0.1, silkSnareDuration: 2000 },
+      icon: '🧣'
+    },
+    bone: {
+      id: 'bone', name: '🦴 骸骨流', color: '#bcaaa4',
+      description: '骸骨之力，死灵复苏',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 110, speed: 275, boneSpikeDamage: 10, boneArmor: 0.05 },
+      icon: '🦴'
+    },
+    arrow: {
+      id: 'arrow', name: '🎯 箭术流', color: '#ff6d00',
+      description: '百步穿杨，精准致命',
+      baseStats: { attackSpeed: 1.0, attack: 1.15, hp: 90, speed: 285, arrowPrecision: 0.2, arrowCritBonus: 0.3 },
+      icon: '🎯'
+    },
+    spear: {
+      id: 'spear', name: '🔱 长枪流', color: '#00695c',
+      description: '枪出如龙，贯穿敌阵',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 105, speed: 275, spearPierceCount: 1, spearRange: 30 },
+      icon: '🔱'
+    },
+    hammer: {
+      id: 'hammer', name: '🔨 重锤流', color: '#4e342e',
+      description: '重锤砸击，震荡波碎',
+      baseStats: { attackSpeed: 0.85, attack: 1.3, hp: 120, speed: 255, hammerStunChance: 0.08, hammerRadius: 30 },
+      icon: '🔨'
+    },
+    whip: {
+      id: 'whip', name: '🪢 鞭笞流', color: '#ad1457',
+      description: '长鞭横扫，群体打击',
+      baseStats: { attackSpeed: 1.05, attack: 0.9, hp: 95, speed: 290, whipChainCount: 1, whipRange: 20 },
+      icon: '🪢'
+    },
+    sword: {
+      id: 'sword', name: '⚔️ 剑气流', color: '#78909c',
+      description: '剑气纵横，连击无双',
+      baseStats: { attackSpeed: 1.1, attack: 1.0, hp: 100, speed: 295, swordComboCount: 0, swordComboBonus: 0.1 },
+      icon: '⚔️'
+    },
+    ax: {
+      id: 'ax', name: '🪓 巨斧流', color: '#e64a19',
+      description: '巨斧劈砍，摧枯拉朽',
+      baseStats: { attackSpeed: 0.9, attack: 1.25, hp: 115, speed: 265, axCleaveRadius: 20, axCleaveDamage: 0.4 },
+      icon: '🪓'
+    },
+    dagger: {
+      id: 'dagger', name: '🗡️ 匕首流', color: '#263238',
+      description: '匕首迅疾，背刺要害',
+      baseStats: { attackSpeed: 1.2, attack: 1.05, hp: 85, speed: 310, daggerBackstabMult: 1.5, daggerCritChance: 0.1 },
+      icon: '🗡️'
+    },
+    staff: {
+      id: 'staff', name: '🪄 法杖流', color: '#6a1b9a',
+      description: '法杖聚能，魔法洪流',
+      baseStats: { attackSpeed: 0.95, attack: 1.1, hp: 95, speed: 280, magicCharge: 0, magicBurstDamage: 40 },
+      icon: '🪄'
+    },
+    bow: {
+      id: 'bow', name: '🏹 弓术流', color: '#2e7d32',
+      description: '弓开如月，箭射流星',
+      baseStats: { attackSpeed: 0.95, attack: 1.2, hp: 90, speed: 285, bowVolleyCount: 0, bowRangeBonus: 20 },
+      icon: '🏹'
+    },
+    wolf: {
+      id: 'wolf', name: '🐺 狼群流', color: '#5d4037',
+      description: '狼群狩猎，团结协作',
+      baseStats: { attackSpeed: 1.05, attack: 1.0, hp: 100, speed: 295, wolfPackAttack: 0.1, wolfPackRadius: 150 },
+      icon: '🐺'
+    },
+    bear: {
+      id: 'bear', name: '🐻 熊罴流', color: '#3e2723',
+      description: '熊罴之力，厚积薄发',
+      baseStats: { attackSpeed: 0.85, attack: 1.15, hp: 150, speed: 255, bearFortify: 0.1, bearRoarRadius: 150 },
+      icon: '🐻'
+    },
+    eagle: {
+      id: 'eagle', name: '🦅 鹰击流', color: '#0d47a1',
+      description: '鹰击长空，俯冲猎杀',
+      baseStats: { attackSpeed: 1.05, attack: 1.0, hp: 90, speed: 310, eagleSwoopDamage: 0.3, eagleSwoopRange: 50 },
+      icon: '🦅'
+    },
+    snake: {
+      id: 'snake', name: '🐍 蛇影流', color: '#1b5e20',
+      description: '蛇影潜行，毒牙致命',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 95, speed: 295, snakeVenomDamage: 5, snakeVenomDuration: 2500 },
+      icon: '🐍'
+    },
+    lion: {
+      id: 'lion', name: '🦁 狮王流', color: '#f9a825',
+      description: '狮王威仪，统御战场',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 120, speed: 285, lionAuraDamage: 0.15, lionAuraRadius: 180 },
+      icon: '🦁'
+    },
+    tiger: {
+      id: 'tiger', name: '🐯 虎威流', color: '#e65100',
+      description: '猛虎下山，势不可挡',
+      baseStats: { attackSpeed: 1.05, attack: 1.15, hp: 95, speed: 300, tigerPounceDamage: 0.4, tigerPounceRange: 40 },
+      icon: '🐯'
+    },
+    fox: {
+      id: 'fox', name: '🦊 狐魅流', color: '#880e4f',
+      description: '狐魅灵巧，以智取胜',
+      baseStats: { attackSpeed: 1.1, attack: 0.9, hp: 90, speed: 315, foxDodgeChance: 0.05, foxTrickDamage: 0.2 },
+      icon: '🦊'
+    },
+    crane: {
+      id: 'crane', name: '🕊️ 鹤翼流', color: '#006064',
+      description: '鹤翼舒展，流水行云',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 100, speed: 300, craneDanceChance: 0.08, craneDanceDuration: 2000 },
+      icon: '🕊️'
+    },
+    dragon: {
+      id: 'dragon', name: '🐉 龙神流', color: '#283593',
+      description: '龙神之力，毁天灭地',
+      baseStats: { attackSpeed: 1.0, attack: 1.2, hp: 110, speed: 280, dragonBreathDamage: 15, dragonBreathRadius: 80 },
+      icon: '🐉'
+    },
+    phoenix: {
+      id: 'phoenix', name: '🌅 凤凰流', color: '#b71c1c',
+      description: '凤凰涅槃，浴火重生',
+      baseStats: { attackSpeed: 1.0, attack: 1.1, hp: 85, speed: 290, phoenixRebirthHp: 0.3, phoenixFireDamage: 10 },
+      icon: '🌅'
+    },
+    dream: {
+      id: 'dream', name: '💭 梦境流', color: '#7b1fa2',
+      description: '梦境迷离，虚实难辨',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 100, speed: 280, dreamConfuseChance: 0.08, dreamConfuseDuration: 2000 },
+      icon: '💭'
+    },
+    nightmare: {
+      id: 'nightmare', name: '🌘 梦魇流', color: '#4a148c',
+      description: '梦魇侵袭，恐惧蔓延',
+      baseStats: { attackSpeed: 1.05, attack: 1.0, hp: 90, speed: 295, nightmareFearChance: 0.06, nightmareFearDuration: 1500 },
+      icon: '🌘'
+    },
+    fate: {
+      id: 'fate', name: '🎴 命运流', color: '#33691e',
+      description: '命运交织，因果难逃',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, fateMarkChance: 0.15, fateMarkBonus: 0.25 },
+      icon: '🎴'
+    },
+    destiny: {
+      id: 'destiny', name: '✨ 天命流', color: '#e040fb',
+      description: '天命所归，气运加身',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 105, speed: 285, destinyBuffChance: 0.12, destinyBuffAmount: 0.2 },
+      icon: '✨'
+    },
+    karma: {
+      id: 'karma', name: '☯️ 因果流', color: '#1de9b6',
+      description: '因果循环，善恶有报',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 280, karmaReflect: 0.1, karmaStackBonus: 0.05 },
+      icon: '☯️'
+    },
+    order: {
+      id: 'order', name: '⚖️ 秩序流', color: '#1565c0',
+      description: '秩序规约，法则掌控',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 110, speed: 275, orderRuneCount: 0, orderRuneDamage: 15 },
+      icon: '⚖️'
+    },
+    truth: {
+      id: 'truth', name: '👁️ 真实流', color: '#00acc1',
+      description: '真实视野，破妄归真',
+      baseStats: { attackSpeed: 1.0, attack: 1.05, hp: 95, speed: 285, trueSightChance: 0.1, trueDamageBonus: 0.2 },
+      icon: '👁️'
+    },
+    lies: {
+      id: 'lies', name: '🕸️ 谎言流', color: '#8e24aa',
+      description: '编织谎言，迷惑敌人',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 95, speed: 295, liesDeceiveChance: 0.12, liesDeceiveDamage: 0.3 },
+      icon: '🕸️'
+    },
+    forest: {
+      id: 'forest', name: '🌲 森林流', color: '#004d40',
+      description: '森林庇护，万物生长',
+      baseStats: { attackSpeed: 1.0, attack: 0.9, hp: 125, speed: 270, forestRegen: 0.005, forestThornDamage: 0.15 },
+      icon: '🌲'
+    },
+    mountain: {
+      id: 'mountain', name: '⛰️ 山岳流', color: '#37474f',
+      description: '山岳不动，稳如磐石',
+      baseStats: { attackSpeed: 0.9, attack: 1.0, hp: 160, speed: 250, mountainDefense: 0.15, mountainCrush: 0.1 },
+      icon: '⛰️'
+    },
+    river: {
+      id: 'river', name: '🏞️ 川流流', color: '#0277bd',
+      description: '川流不息，连绵不绝',
+      baseStats: { attackSpeed: 1.1, attack: 0.9, hp: 100, speed: 295, riverFlowStack: 0, riverFlowBonus: 0.03 },
+      icon: '🏞️'
+    },
+    ocean: {
+      id: 'ocean', name: '🌏 沧海流', color: '#002171',
+      description: '沧海深渊，暗流涌动',
+      baseStats: { attackSpeed: 1.0, attack: 1.05, hp: 115, speed: 275, oceanDepthDamage: 5, oceanCurrentSlow: 0.1 },
+      icon: '🌏'
+    },
+    desert: {
+      id: 'desert', name: '🏜️ 沙漠流', color: '#d4a574',
+      description: '炙热沙漠，干涸万物',
+      baseStats: { attackSpeed: 1.0, attack: 1.0, hp: 100, speed: 285, desertScorchDamage: 4, desertThirstSlow: 0.1 },
+      icon: '🏜️'
+    },
+    tundra: {
+      id: 'tundra', name: '🧊 冻原流', color: '#eceff1',
+      description: '冻原冰封，极寒主宰',
+      baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 110, speed: 275, tundraFrostChance: 0.1, tundraFrostDuration: 2000 },
+      icon: '🧊'
     },
   },
 
@@ -919,6 +1184,308 @@ const GAME_CONFIG = {
     { id: 'whirlwind', name: '旋风斩', faction: 'any', type: 'active', rarity: 'common',
       cooldown: 9000, effects: [{ action: 'whirlwind', damage: 20, duration: 2000, radius: 120, tickRate: 200 }] },
 
+    // ============ NEW: Light Faction Skills (3) ============
+    { id: 'lt_radiance', name: '光能汇聚', faction: 'light', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'lightCharge', op: 'add', value: 10 }, { stat: 'attack', op: 'multiply', value: 0.08 }] },
+    { id: 'lt_flash', name: '闪光爆', faction: 'light', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'flash', damage: 30, radius: 120, blindDuration: 1500 }] },
+    { id: 'lt_solarBeam', name: '太阳光束', faction: 'light', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'solarBeam', damage: 15, duration: 3000, beamWidth: 40, tickRate: 200 }] },
+    // ============ NEW: Dark Faction Skills (3) ============
+    { id: 'dk_shroud', name: '暗影斗篷', faction: 'dark', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'shadowMeld', op: 'add', value: 0.08 }, { stat: 'dodgeChance', op: 'add', value: 0.03 }] },
+    { id: 'dk_consume', name: '暗影吞噬', faction: 'dark', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ stat: 'hp', op: 'add', value: 5 }, { stat: 'shadowMeld', op: 'add', value: 0.02, duration: 5000 }] },
+    { id: 'dk_voidStrike', name: '虚空打击', faction: 'dark', type: 'active', rarity: 'rare',
+      cooldown: 15000, effects: [{ action: 'voidStrike', damage: 80, radius: 150, shadowBonus: 0.5 }] },
+    // ============ NEW: Crystal Faction Skills (3) ============
+    { id: 'cy_shatter', name: '水晶碎裂', faction: 'crystal', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'crystalShardCount', op: 'add', value: 1 }, { stat: 'shardDamage', op: 'add', value: 0.1 }] },
+    { id: 'cy_refract', name: '折射', faction: 'crystal', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'shardSpray', damage: 15, count: 3, spreadAngle: 60 }] },
+    { id: 'cy_prism', name: '棱镜之光', faction: 'crystal', type: 'active', rarity: 'rare',
+      cooldown: 16000, effects: [{ action: 'prismBeam', damage: 40, duration: 3000, splitCount: 3 }] },
+    // ============ NEW: Lava Faction Skills (3) ============
+    { id: 'lv_erupt', name: '岩浆喷发', faction: 'lava', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'magmaPoolDamage', op: 'add', value: 5 }, { stat: 'magmaPoolRadius', op: 'add', value: 20 }] },
+    { id: 'lv_magma', name: '熔岩飞溅', faction: 'lava', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'magmaSplash', damage: 25, radius: 100, burnDuration: 2000 }] },
+    { id: 'lv_volcano', name: '火山爆发', faction: 'lava', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'volcano', damage: 60, radius: 280, duration: 3000, tickRate: 500 }] },
+    // ============ NEW: Steam Faction Skills (3) ============
+    { id: 'se_pressure', name: '蒸汽增压', faction: 'steam', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'steamPressure', op: 'add', value: 0.08 }, { stat: 'attackSpeed', op: 'multiply', value: -0.05 }] },
+    { id: 'se_cloud', name: '蒸汽云', faction: 'steam', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onDodge', effects: [{ action: 'steamCloud', damage: 10, duration: 3000, radius: 120, slowAmount: 0.3 }] },
+    { id: 'se_geyser', name: '蒸汽喷泉', faction: 'steam', type: 'active', rarity: 'rare',
+      cooldown: 12000, effects: [{ action: 'geyser', damage: 50, radius: 150, pushForce: 150 }] },
+    // ============ NEW: Dust Faction Skills (3) ============
+    { id: 'du_sandBlast', name: '沙尘喷射', faction: 'dust', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'dustBlindChance', op: 'add', value: 0.08 }, { stat: 'dustSlowAmount', op: 'add', value: 0.05 }] },
+    { id: 'du_dustDevil', name: '沙尘恶魔', faction: 'dust', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'dustDevil', damage: 15, duration: 3000, radius: 150, slowAmount: 0.3 }] },
+    { id: 'du_sirocco', name: '热风侵袭', faction: 'dust', type: 'active', rarity: 'rare',
+      cooldown: 16000, effects: [{ action: 'sirocco', damage: 40, duration: 4000, radius: 250, pushForce: 100 }] },
+    // ============ NEW: Metal Faction Skills (3) ============
+    { id: 'mt_shrapnel', name: '弹片飞散', faction: 'metal', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'shrapnelCount', op: 'add', value: 2 }, { stat: 'armorPierce', op: 'add', value: 0.05 }] },
+    { id: 'mt_armor', name: '钢铁装甲', faction: 'metal', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', cooldown: 8000, effects: [{ stat: 'defense', op: 'add', value: 0.15, duration: 3000 }] },
+    { id: 'mt_railgun', name: '电磁炮', faction: 'metal', type: 'active', rarity: 'rare',
+      cooldown: 14000, effects: [{ action: 'railgun', damage: 120, pierceCount: 5, range: 500 }] },
+    // ============ NEW: Glass Faction Skills (3) ============
+    { id: 'gl_fragile', name: '易碎品', faction: 'glass', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'glassShardChance', op: 'add', value: 0.12 }, { stat: 'critMult', op: 'add', value: 0.3 }] },
+    { id: 'gl_splinter', name: '碎片飞溅', faction: 'glass', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'splinter', damage: 20, count: 4, spreadAngle: 90 }] },
+    { id: 'gl_mirrorBlade', name: '镜刃风暴', faction: 'glass', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'mirrorBlade', damage: 35, duration: 3000, radius: 150, tickRate: 200 }] },
+    // ============ NEW: Silk Faction Skills (3) ============
+    { id: 'si_weave', name: '丝线编织', faction: 'silk', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'silkSnareChance', op: 'add', value: 0.08 }, { stat: 'silkSnareDuration', op: 'add', value: 500 }] },
+    { id: 'si_cocoon', name: '茧缚', faction: 'silk', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'cocoon', duration: 2000, slowAmount: 0.6 }] },
+    { id: 'si_webTrap', name: '蛛网陷阱', faction: 'silk', type: 'active', rarity: 'rare',
+      cooldown: 14000, effects: [{ action: 'webTrap', radius: 180, duration: 5000, slowAmount: 0.5 }] },
+    // ============ NEW: Bone Faction Skills (3) ============
+    { id: 'bn_spike', name: '骨刺', faction: 'bone', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'boneSpikeDamage', op: 'add', value: 8 }, { stat: 'boneArmor', op: 'add', value: 0.03 }] },
+    { id: 'bn_ossify', name: '骨化', faction: 'bone', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ stat: 'defense', op: 'add', value: 0.08, duration: 5000 }, { stat: 'maxHp', op: 'add', value: 5 }] },
+    { id: 'bn_skeleton', name: '骷髅召唤', faction: 'bone', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'summonSkeleton', count: 2, duration: 8000, damage: 15 }] },
+    // ============ NEW: Arrow Faction Skills (3) ============
+    { id: 'ar_pierce', name: '贯穿射击', faction: 'arrow', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'arrowPrecision', op: 'add', value: 0.15 }, { stat: 'pierceCount', op: 'add', value: 1 }] },
+    { id: 'ar_volley', name: '箭雨', faction: 'arrow', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onCrit', effects: [{ action: 'arrowVolley', damage: 20, count: 5, spreadAngle: 30 }] },
+    { id: 'ar_trueshot', name: '百步穿杨', faction: 'arrow', type: 'active', rarity: 'rare',
+      cooldown: 12000, effects: [{ action: 'trueshot', damage: 200, singleTarget: true, guaranteedCrit: true }] },
+    // ============ NEW: Spear Faction Skills (3) ============
+    { id: 'sp_thrust', name: '突刺', faction: 'spear', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'spearPierceCount', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.06 }] },
+    { id: 'sp_impale', name: '穿刺', faction: 'spear', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'impale', damage: 40, stunDuration: 1000 }] },
+    { id: 'sp_whirlwind', name: '回旋枪', faction: 'spear', type: 'active', rarity: 'rare',
+      cooldown: 14000, effects: [{ action: 'spearWhirlwind', damage: 30, duration: 2500, radius: 160 }] },
+    // ============ NEW: Hammer Faction Skills (3) ============
+    { id: 'hm_smash', name: '猛击', faction: 'hammer', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'hammerStunChance', op: 'add', value: 0.06 }, { stat: 'attack', op: 'multiply', value: 0.1 }] },
+    { id: 'hm_quake', name: '地震波', faction: 'hammer', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'shockwave', damage: 25, radius: 150, stunDuration: 800 }] },
+    { id: 'hm_megaton', name: '百万吨重击', faction: 'hammer', type: 'active', rarity: 'rare',
+      cooldown: 22000, effects: [{ action: 'megatonSlam', damage: 150, radius: 250, stunDuration: 1500, screenShake: true }] },
+    // ============ NEW: Whip Faction Skills (3) ============
+    { id: 'wh_lash', name: '鞭挞', faction: 'whip', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'whipChainCount', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    { id: 'wh_snare', name: '缠绕鞭', faction: 'whip', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'whipSnare', duration: 2000, slowAmount: 0.4 }] },
+    { id: 'wh_cascade', name: '鞭笞连击', faction: 'whip', type: 'active', rarity: 'rare',
+      cooldown: 12000, effects: [{ action: 'whipCascade', damage: 25, hits: 5, radius: 180 }] },
+    // ============ NEW: Sword Faction Skills (3) ============
+    { id: 'sw_slash', name: '斩击', faction: 'sword', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'swordComboCount', op: 'add', value: 1 }, { stat: 'attackSpeed', op: 'multiply', value: -0.05 }] },
+    { id: 'sw_bladeFury', name: '剑刃风暴', faction: 'sword', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 3000, effects: [{ stat: 'attackSpeed', op: 'multiply', value: -0.2 }, { stat: 'attack', op: 'multiply', value: 0.15 }] },
+    { id: 'sw_iaijutsu', name: '居合斩', faction: 'sword', type: 'active', rarity: 'rare',
+      cooldown: 15000, effects: [{ action: 'iaijutsu', damage: 180, radius: 200, lineWidth: 50 }] },
+    // ============ NEW: Ax Faction Skills (3) ============
+    { id: 'ax_cleave', name: '顺劈', faction: 'ax', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'axCleaveRadius', op: 'add', value: 15 }, { stat: 'axCleaveDamage', op: 'add', value: 0.15 }] },
+    { id: 'ax_brutal', name: '残暴打击', faction: 'ax', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'cleaveExplosion', damage: 40, radius: 120 }] },
+    { id: 'ax_whirlwind', name: '旋风斧', faction: 'ax', type: 'active', rarity: 'rare',
+      cooldown: 16000, effects: [{ action: 'axWhirlwind', damage: 30, duration: 3000, radius: 160 }] },
+    // ============ NEW: Dagger Faction Skills (3) ============
+    { id: 'da_backstab', name: '背刺', faction: 'dagger', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'daggerBackstabMult', op: 'add', value: 0.5 }, { stat: 'daggerCritChance', op: 'add', value: 0.05 }] },
+    { id: 'da_poisonBlade', name: '淬毒刀刃', faction: 'dagger', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'poisonBlade', damage: 10, poisonDamage: 5, poisonDuration: 3000 }] },
+    { id: 'da_shadowStrike', name: '暗影突袭', faction: 'dagger', type: 'active', rarity: 'rare',
+      cooldown: 10000, effects: [{ action: 'shadowStrike', damage: 70, teleportRange: 250, backstabMultiplier: 2.0 }] },
+    // ============ NEW: Staff Faction Skills (3) ============
+    { id: 'sf_arcane', name: '奥术飞弹', faction: 'staff', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'magicCharge', op: 'add', value: 8 }, { stat: 'magicBurstDamage', op: 'add', value: 10 }] },
+    { id: 'sf_manaSurge', name: '魔力涌动', faction: 'staff', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 4000, effects: [{ stat: 'attack', op: 'multiply', value: 0.2 }, { stat: 'magicCharge', op: 'add', value: 20 }] },
+    { id: 'sf_arcaneStorm', name: '奥术风暴', faction: 'staff', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'arcaneStorm', damage: 35, duration: 4000, radius: 220, tickRate: 300 }] },
+    // ============ NEW: Bow Faction Skills (3) ============
+    { id: 'bw_rapid', name: '速射', faction: 'bow', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'bowVolleyCount', op: 'add', value: 1 }, { stat: 'attackSpeed', op: 'multiply', value: -0.08 }] },
+    { id: 'bw_rain', name: '箭雨覆盖', faction: 'bow', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'arrowRain', damage: 15, count: 8, radius: 180 }] },
+    { id: 'bw_barrage', name: '弓术 barrage', faction: 'bow', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'bowBarrage', damage: 25, count: 12, duration: 2000, spreadAngle: 45 }] },
+    // ============ NEW: Wolf Faction Skills (3) ============
+    { id: 'wf_howl', name: '狼嚎', faction: 'wolf', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'wolfPackAttack', op: 'add', value: 0.08 }, { stat: 'wolfPackRadius', op: 'add', value: 30 }] },
+    { id: 'wf_pack', name: '狼群狩猎', faction: 'wolf', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 5000, effects: [{ stat: 'wolfPackAttack', op: 'add', value: 0.15 }, { stat: 'speed', op: 'multiply', value: 0.15 }] },
+    { id: 'wf_hunt', name: '猎杀时刻', faction: 'wolf', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'wolfHunt', damage: 40, count: 3, duration: 6000, targetLowHp: true }] },
+    // ============ NEW: Bear Faction Skills (3) ============
+    { id: 'br_roar', name: '熊吼', faction: 'bear', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'bearFortify', op: 'add', value: 0.06 }, { stat: 'attack', op: 'multiply', value: 0.08 }] },
+    { id: 'br_hibernate', name: '冬眠', faction: 'bear', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onLowHp', cooldown: 30000, effects: [{ stat: 'hpRegen', op: 'multiply', value: 3.0, duration: 5000 }] },
+    { id: 'br_maul', name: '熊掌拍击', faction: 'bear', type: 'active', rarity: 'rare',
+      cooldown: 14000, effects: [{ action: 'maul', damage: 100, radius: 120, stunDuration: 1200 }] },
+    // ============ NEW: Eagle Faction Skills (3) ============
+    { id: 'eg_dive', name: '俯冲', faction: 'eagle', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'eagleSwoopDamage', op: 'add', value: 0.2 }, { stat: 'eagleSwoopRange', op: 'add', value: 20 }] },
+    { id: 'eg_keen', name: '鹰眼', faction: 'eagle', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onCrit', effects: [{ stat: 'critRate', op: 'add', value: 0.08, duration: 3000 }] },
+    { id: 'eg_storm', name: '风暴之翼', faction: 'eagle', type: 'active', rarity: 'rare',
+      cooldown: 16000, effects: [{ action: 'eagleStorm', damage: 30, duration: 4000, radius: 180, pushForce: 80 }] },
+    // ============ NEW: Snake Faction Skills (3) ============
+    { id: 'sa_coil', name: '盘绕', faction: 'snake', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'snakeVenomDamage', op: 'add', value: 5 }, { stat: 'snakeVenomDuration', op: 'add', value: 500 }] },
+    { id: 'sa_venomFang', name: '毒牙', faction: 'snake', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'venomBite', damage: 20, poisonDamage: 10, poisonDuration: 4000 }] },
+    { id: 'sa_serpent', name: '巨蛇召唤', faction: 'snake', type: 'active', rarity: 'rare',
+      cooldown: 22000, effects: [{ action: 'summonSerpent', damage: 25, duration: 6000, radius: 120, poisonAura: true }] },
+    // ============ NEW: Lion Faction Skills (3) ============
+    { id: 'li_majesty', name: '狮王威严', faction: 'lion', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'lionAuraDamage', op: 'add', value: 0.1 }, { stat: 'lionAuraRadius', op: 'add', value: 30 }] },
+    { id: 'li_pride', name: '狮群 pride', faction: 'lion', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 5000, effects: [{ stat: 'lionAuraDamage', op: 'add', value: 0.15 }, { stat: 'attack', op: 'multiply', value: 0.15 }] },
+    { id: 'li_territory', name: '领地宣言', faction: 'lion', type: 'active', rarity: 'rare',
+      cooldown: 25000, effects: [{ action: 'territory', damage: 20, duration: 6000, radius: 250, allyBuff: 0.2 }] },
+    // ============ NEW: Tiger Faction Skills (3) ============
+    { id: 'ti_pounce', name: '猛扑', faction: 'tiger', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'tigerPounceDamage', op: 'add', value: 0.2 }, { stat: 'tigerPounceRange', op: 'add', value: 15 }] },
+    { id: 'ti_fury', name: '虎威 fury', faction: 'tiger', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 3000, effects: [{ stat: 'attack', op: 'multiply', value: 0.3 }, { stat: 'speed', op: 'multiply', value: 0.2 }] },
+    { id: 'ti_stalk', name: '潜行追踪', faction: 'tiger', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'stalk', duration: 4000, stealth: true, nextAttackBonus: 2.0 }] },
+    // ============ NEW: Fox Faction Skills (3) ============
+    { id: 'fx_trick', name: '狐火 trick', faction: 'fox', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'foxDodgeChance', op: 'add', value: 0.04 }, { stat: 'foxTrickDamage', op: 'add', value: 0.15 }] },
+    { id: 'fx_evade', name: '灵巧闪避', faction: 'fox', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onDodge', effects: [{ action: 'foxFire', damage: 20, count: 3, homing: true }] },
+    { id: 'fx_willowisp', name: '狐火鬼火', faction: 'fox', type: 'active', rarity: 'rare',
+      cooldown: 14000, effects: [{ action: 'willOWisp', damage: 15, count: 5, duration: 5000, homing: true }] },
+    // ============ NEW: Crane Faction Skills (3) ============
+    { id: 'cn_glide', name: '滑翔', faction: 'crane', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'craneDanceChance', op: 'add', value: 0.05 }, { stat: 'speed', op: 'multiply', value: 0.06 }] },
+    { id: 'cn_wing', name: '鹤翼展翅', faction: 'crane', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onDodge', duration: 3000, effects: [{ stat: 'attack', op: 'multiply', value: 0.2 }, { stat: 'dodgeChance', op: 'add', value: 0.05 }] },
+    { id: 'cn_tranquility', name: '宁静之境', faction: 'crane', type: 'active', rarity: 'rare',
+      cooldown: 25000, effects: [{ action: 'tranquility', healPerSec: 10, duration: 5000, radius: 200, enemySlow: 0.3 }] },
+    // ============ NEW: Dragon Faction Skills (3) ============
+    { id: 'dr_breath', name: '龙息', faction: 'dragon', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'dragonBreathDamage', op: 'add', value: 8 }, { stat: 'dragonBreathRadius', op: 'add', value: 20 }] },
+    { id: 'dr_scales', name: '龙鳞甲', faction: 'dragon', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', cooldown: 12000, effects: [{ stat: 'defense', op: 'add', value: 0.2, duration: 4000 }] },
+    { id: 'dr_ascend', name: '龙神降临', faction: 'dragon', type: 'active', rarity: 'rare',
+      cooldown: 30000, effects: [{ action: 'dragonAscend', damage: 50, duration: 5000, radius: 300, burnDamage: 15 }] },
+    // ============ NEW: Phoenix Faction Skills (3) ============
+    { id: 'px_flame', name: '凤凰火焰', faction: 'phoenix', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'phoenixFireDamage', op: 'add', value: 8 }, { stat: 'burnDamage', op: 'add', value: 3 }] },
+    { id: 'px_rebirth', name: '涅槃重生', faction: 'phoenix', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onLethalDamage', cooldown: 90000, effects: [{ action: 'rebirth', healPercent: 0.5, radius: 300, damage: 80 }] },
+    { id: 'px_inferno', name: '烈焰地狱', faction: 'phoenix', type: 'active', rarity: 'rare',
+      cooldown: 24000, effects: [{ action: 'inferno', damage: 30, duration: 5000, radius: 250, burnDamage: 12 }] },
+    // ============ NEW: Dream Faction Skills (3) ============
+    { id: 'dm_sleep', name: '催眠', faction: 'dream', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'dreamConfuseChance', op: 'add', value: 0.06 }, { stat: 'dreamConfuseDuration', op: 'add', value: 500 }] },
+    { id: 'dm_nightmare', name: '噩梦', faction: 'dream', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'nightmare', damage: 15, confuseDuration: 2000, fearChance: 0.3 }] },
+    { id: 'dm_illusion', name: '幻象领域', faction: 'dream', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'illusionField', duration: 5000, radius: 200, confuseEnemies: true, decoyCount: 2 }] },
+    // ============ NEW: Nightmare Faction Skills (3) ============
+    { id: 'nm_terror', name: '恐惧 terror', faction: 'nightmare', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'nightmareFearChance', op: 'add', value: 0.05 }, { stat: 'nightmareFearDuration', op: 'add', value: 300 }] },
+    { id: 'nm_haunt', name: '萦绕 haunt', faction: 'nightmare', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'haunt', damage: 10, duration: 5000, radius: 100, fearChance: 0.2 }] },
+    { id: 'nm_abyss', name: '深渊凝视', faction: 'nightmare', type: 'active', rarity: 'rare',
+      cooldown: 22000, effects: [{ action: 'abyssGaze', damage: 40, duration: 3000, radius: 250, fearDuration: 2000 }] },
+    // ============ NEW: Fate Faction Skills (3) ============
+    { id: 'ft_weave', name: '命运编织', faction: 'fate', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'fateMarkChance', op: 'add', value: 0.12 }, { stat: 'fateMarkBonus', op: 'add', value: 0.1 }] },
+    { id: 'ft_inevitable', name: '命中注定', faction: 'fate', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'fateMark', duration: 5000, bonusDamage: 0.3 }] },
+    { id: 'ft_redemption', name: '命运救赎', faction: 'fate', type: 'active', rarity: 'rare',
+      cooldown: 30000, effects: [{ action: 'fateRedemption', healPercent: 0.4, markedEnemyDamage: 100 }] },
+    // ============ NEW: Destiny Faction Skills (3) ============
+    { id: 'dy_bless', name: '天命祝福', faction: 'destiny', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'destinyBuffChance', op: 'add', value: 0.1 }, { stat: 'destinyBuffAmount', op: 'add', value: 0.08 }] },
+    { id: 'dy_vision', name: '天命预言', faction: 'destiny', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onLevelUp', effects: [{ stat: 'destinyBuffChance', op: 'add', value: 0.2, duration: 30000 }] },
+    { id: 'dy_manifest', name: '天命显现', faction: 'destiny', type: 'active', rarity: 'rare',
+      cooldown: 28000, effects: [{ action: 'destinyManifest', duration: 5000, allStatsBonus: 0.3, radius: 200 }] },
+    // ============ NEW: Karma Faction Skills (3) ============
+    { id: 'km_retribution', name: '报应', faction: 'karma', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'karmaReflect', op: 'add', value: 0.06 }, { stat: 'karmaStackBonus', op: 'add', value: 0.03 }] },
+    { id: 'km_balance', name: '因果平衡', faction: 'karma', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'karmaBalance', damage: 30, healAmount: 15 }] },
+    { id: 'km_cycle', name: '轮回', faction: 'karma', type: 'active', rarity: 'rare',
+      cooldown: 35000, effects: [{ action: 'karmaCycle', damage: 60, radius: 250, stackConsume: true, bonusPerStack: 0.1 }] },
+    // ============ NEW: Order Faction Skills (3) ============
+    { id: 'or_law', name: '秩序法则', faction: 'order', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'orderRuneCount', op: 'add', value: 1 }, { stat: 'orderRuneDamage', op: 'add', value: 8 }] },
+    { id: 'or_discipline', name: '严明纪律', faction: 'order', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'orderStrike', damage: 30, radius: 100, slowAmount: 0.3 }] },
+    { id: 'or_sanction', name: '秩序制裁', faction: 'order', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'orderSanction', damage: 80, radius: 180, enemySlow: 0.5, duration: 3000 }] },
+    // ============ NEW: Truth Faction Skills (3) ============
+    { id: 'tr_reveal', name: '真相揭露', faction: 'truth', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'trueSightChance', op: 'add', value: 0.08 }, { stat: 'trueDamageBonus', op: 'add', value: 0.1 }] },
+    { id: 'tr_pierce', name: '真实穿透', faction: 'truth', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'truePierce', damage: 25, ignoreDefense: true }] },
+    { id: 'tr_judgment', name: '真实裁决', faction: 'truth', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'trueJudgment', damage: 120, radius: 200, trueDamage: true }] },
+    // ============ NEW: Lies Faction Skills (3) ============
+    { id: 'le_mirage', name: '海市蜃楼', faction: 'lies', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'liesDeceiveChance', op: 'add', value: 0.1 }, { stat: 'liesDeceiveDamage', op: 'add', value: 0.1 }] },
+    { id: 'le_betray', name: '背叛', faction: 'lies', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'betray', damage: 35, confuseEnemy: true, duration: 2000 }] },
+    { id: 'le_puppet', name: '傀儡操控', faction: 'lies', type: 'active', rarity: 'rare',
+      cooldown: 25000, effects: [{ action: 'puppetMaster', duration: 4000, convertChance: 0.5, radius: 200 }] },
+    // ============ NEW: Forest Faction Skills (3) ============
+    { id: 'fo_growth', name: '生长', faction: 'forest', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'forestRegen', op: 'add', value: 0.003 }, { stat: 'forestThornDamage', op: 'add', value: 0.1 }] },
+    { id: 'fo_bramble', name: '荆棘陷阱', faction: 'forest', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'bramble', damage: 20, radius: 120, thornReturn: 0.2 }] },
+    { id: 'fo_entangle', name: '自然缠绕', faction: 'forest', type: 'active', rarity: 'rare',
+      cooldown: 15000, effects: [{ action: 'entangle', duration: 3000, radius: 200, slowAmount: 0.5, damagePerSec: 10 }] },
+    // ============ NEW: Mountain Faction Skills (3) ============
+    { id: 'mo_stone', name: '石肤术', faction: 'mountain', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'mountainDefense', op: 'add', value: 0.1 }, { stat: 'maxHp', op: 'multiply', value: 0.08 }] },
+    { id: 'mo_bulwark', name: '壁垒', faction: 'mountain', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onLowHp', cooldown: 20000, effects: [{ stat: 'defense', op: 'add', value: 0.3, duration: 5000 }] },
+    { id: 'mo_landslide', name: '山崩地裂', faction: 'mountain', type: 'active', rarity: 'rare',
+      cooldown: 25000, effects: [{ action: 'landslide', damage: 80, radius: 300, stunDuration: 1000, knockback: 200 }] },
+    // ============ NEW: River Faction Skills (3) ============
+    { id: 'rv_current', name: '水流', faction: 'river', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'riverFlowStack', op: 'add', value: 1 }, { stat: 'speed', op: 'multiply', value: 0.05 }] },
+    { id: 'rv_rapids', name: '急流', faction: 'river', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', duration: 3000, effects: [{ stat: 'riverFlowBonus', op: 'multiply', value: 0.5 }, { stat: 'speed', op: 'multiply', value: 0.2 }] },
+    { id: 'rv_deluge', name: '洪水泛滥', faction: 'river', type: 'active', rarity: 'rare',
+      cooldown: 18000, effects: [{ action: 'deluge', damage: 40, radius: 300, pushForce: 150, slowAmount: 0.3 }] },
+    // ============ NEW: Ocean Faction Skills (3) ============
+    { id: 'oc_tide', name: '潮汐', faction: 'ocean', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'oceanDepthDamage', op: 'add', value: 5 }, { stat: 'oceanCurrentSlow', op: 'add', value: 0.05 }] },
+    { id: 'oc_whirlpool', name: '漩涡', faction: 'ocean', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onKill', effects: [{ action: 'whirlpool', damage: 15, duration: 4000, radius: 150, pullForce: 100 }] },
+    { id: 'oc_tsunami', name: '海啸', faction: 'ocean', type: 'active', rarity: 'rare',
+      cooldown: 28000, effects: [{ action: 'tsunami', damage: 60, radius: 400, pushForce: 300, slowAmount: 0.4 }] },
+    // ============ NEW: Desert Faction Skills (3) ============
+    { id: 'de_scorch', name: '炙烤', faction: 'desert', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'desertScorchDamage', op: 'add', value: 5 }, { stat: 'desertThirstSlow', op: 'add', value: 0.05 }] },
+    { id: 'de_mirage', name: '沙漠幻影', faction: 'desert', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onDodge', effects: [{ action: 'createDecoy', count: 1, duration: 3000 }] },
+    { id: 'de_sandstorm', name: '沙暴', faction: 'desert', type: 'active', rarity: 'rare',
+      cooldown: 20000, effects: [{ action: 'sandstorm', damage: 20, duration: 5000, radius: 280, blindChance: 0.3 }] },
+    // ============ NEW: Tundra Faction Skills (3) ============
+    { id: 'tn_blizzard', name: '暴风雪', faction: 'tundra', type: 'passive', rarity: 'common',
+      effects: [{ stat: 'tundraFrostChance', op: 'add', value: 0.08 }, { stat: 'tundraFrostDuration', op: 'add', value: 500 }] },
+    { id: 'tn_permfrost', name: '永冻', faction: 'tundra', type: 'conditional', rarity: 'uncommon',
+      trigger: 'onHit', effects: [{ action: 'permfrost', freezeDuration: 1500, frostDamage: 20 }] },
+    { id: 'tn_glacier', name: '冰川崩裂', faction: 'tundra', type: 'active', rarity: 'rare',
+      cooldown: 22000, effects: [{ action: 'glacierBreak', damage: 80, radius: 250, freezeDuration: 2000 }] },
+
     // ---- Fused Skills (created via fusion system) ----
     { id: 'fusion_plagueBlizzard', name: '瘟疫冰暴', faction: 'any', type: 'active', rarity: 'legendary',
       fused: true, cooldown: 20000,
@@ -1150,6 +1717,170 @@ const GAME_CONFIG = {
       description: '发射黑洞吸入并伤害敌人',
       pattern: 'blackHoleGen', fireRate: 1200, damage: 10, bulletSpeed: 200, bulletSize: 8,
       wellRadius: 200, pullForce: 150, wellDamage: 15, executeThreshold: 0.15, bulletColor: '#6600aa', trailColor: '#440066',
+    },
+
+    // ============ 25 New Weapons: Beam(5) / Projectile(5) / Area(5) / Special(5) / Hybrid(5) ============
+
+    // --- Beam Weapons (5) ---
+    beamRifle: {
+      id: 'beamRifle', name: '光束步枪', icon: '🔫', rarity: 'rare',
+      description: '聚焦光束穿透敌人',
+      pattern: 'beamRifle', fireRate: 200, damage: 10, bulletSpeed: 800, bulletSize: 2,
+      pierceCount: 3, beamWidth: 3, bulletColor: '#44ddff', trailColor: '#2288cc',
+    },
+    spreadBeam: {
+      id: 'spreadBeam', name: '散射光束', icon: '💫', rarity: 'uncommon',
+      description: '扇形光束覆盖范围',
+      pattern: 'spreadBeam', fireRate: 450, damage: 6, bulletSpeed: 600, bulletSize: 2.5,
+      bulletCount: 5, spreadAngle: 20, bulletColor: '#88ff44', trailColor: '#44cc00',
+    },
+    pulseBeam: {
+      id: 'pulseBeam', name: '脉冲光束', icon: '〰️', rarity: 'rare',
+      description: '脉冲式光束连射',
+      pattern: 'pulseBeam', fireRate: 350, damage: 12, bulletSpeed: 550, bulletSize: 4,
+      pulseCount: 3, pulseInterval: 0.15, bulletColor: '#ff88ff', trailColor: '#cc44cc',
+    },
+    sniperBeam: {
+      id: 'sniperBeam', name: '狙击光束', icon: '🎯', rarity: 'epic',
+      description: '超远程高伤害狙击',
+      pattern: 'sniperBeam', fireRate: 1500, damage: 50, bulletSpeed: 2000, bulletSize: 2,
+      beamWidth: 2, bulletColor: '#ffffff', trailColor: '#aaaaff',
+    },
+    crossBeam: {
+      id: 'crossBeam', name: '十字光束', icon: '✚', rarity: 'rare',
+      description: '十字形五方向光束',
+      pattern: 'crossBeam', fireRate: 500, damage: 8, bulletSpeed: 500, bulletSize: 3,
+      beamCount: 5, bulletColor: '#88ddff', trailColor: '#4499cc',
+    },
+
+    // --- Projectile/Melee Weapons (5) ---
+    buckshot: {
+      id: 'buckshot', name: '霰弹枪', icon: '💥', rarity: 'uncommon',
+      description: '大范围霰弹散射',
+      pattern: 'buckshot', fireRate: 700, damage: 5, bulletSpeed: 400, bulletSize: 2.5,
+      pelletCount: 8, spreadAngle: 40, bulletColor: '#ff8844', trailColor: '#cc4400',
+    },
+    railgun: {
+      id: 'railgun', name: '电磁炮', icon: '⚡', rarity: 'epic',
+      description: '超高速贯穿电磁弹',
+      pattern: 'railgun', fireRate: 1200, damage: 60, bulletSpeed: 2500, bulletSize: 2,
+      pierceCount: 10, bulletColor: '#44ffff', trailColor: '#00aaaa',
+    },
+    slugRound: {
+      id: 'slugRound', name: '重弹头', icon: '🔩', rarity: 'uncommon',
+      description: '低速高伤害重弹',
+      pattern: 'slugRound', fireRate: 900, damage: 35, bulletSpeed: 300, bulletSize: 7,
+      bulletColor: '#cc8844', trailColor: '#885522',
+    },
+    plasmaCutter: {
+      id: 'plasmaCutter', name: '等离子切割', icon: '🔪', rarity: 'rare',
+      description: '近距离等离子切割刃',
+      pattern: 'plasmaCutter', fireRate: 150, damage: 8, bulletSpeed: 350, bulletSize: 6,
+      cutCount: 3, cutAngle: 15, bulletColor: '#cc44ff', trailColor: '#8822cc',
+    },
+    chainSaw: {
+      id: 'chainSaw', name: '电锯', icon: '🪚', rarity: 'epic',
+      description: '近距离高速旋转切割',
+      pattern: 'chainSaw', fireRate: 60, damage: 3, bulletSpeed: 250, bulletSize: 8,
+      sawCount: 5, sawAngle: 60, pierceCount: 3, spinSpeed: 15, bulletColor: '#cc8844', trailColor: '#885522',
+    },
+
+    // --- Area/Summon Weapons (5) ---
+    teslaField: {
+      id: 'teslaField', name: '特斯拉场', icon: '⚡', rarity: 'rare',
+      description: '部署电场连锁伤害',
+      pattern: 'teslaField', fireRate: 600, damage: 6, bulletSpeed: 150, bulletSize: 5,
+      chainCount: 3, chainRange: 130, fieldDuration: 3000, bulletColor: '#88ffff', trailColor: '#44aaaa',
+    },
+    flamePuddle: {
+      id: 'flamePuddle', name: '火焰池', icon: '🔥', rarity: 'uncommon',
+      description: '留下火焰灼烧地面',
+      pattern: 'flamePuddle', fireRate: 500, damage: 4, bulletSpeed: 100, bulletSize: 10,
+      puddleDuration: 2000, burnDamage: 6, burnDuration: 2000, bulletColor: '#ff6600', trailColor: '#ff3300',
+    },
+    frostMine: {
+      id: 'frostMine', name: '冰霜雷', icon: '❄️', rarity: 'rare',
+      description: '冰冻地雷减速爆炸',
+      pattern: 'frostMine', fireRate: 700, damage: 15, bulletSpeed: 180, bulletSize: 5,
+      mineCount: 3, explosionRadius: 70, slowAmount: 0.5, slowDuration: 2500, bulletColor: '#88ddff', trailColor: '#4499cc',
+    },
+    acidSplash: {
+      id: 'acidSplash', name: '酸液池', icon: '☠️', rarity: 'uncommon',
+      description: '酸液持续腐蚀区域',
+      pattern: 'acidSplash', fireRate: 550, damage: 5, bulletSpeed: 200, bulletSize: 8,
+      pierceCount: 1, burnDamage: 5, burnDuration: 3000, bulletColor: '#88ff44', trailColor: '#44cc00',
+    },
+    droneSwarm: {
+      id: 'droneSwarm', name: '无人机群', icon: '🛸', rarity: 'epic',
+      description: '释放追踪无人机群攻击',
+      pattern: 'droneSwarm', fireRate: 900, damage: 8, bulletSpeed: 200, bulletSize: 3,
+      droneCount: 4, homingStrength: 0.06, homingRange: 350, bulletColor: '#44aa88', trailColor: '#226644',
+    },
+
+    // --- Special/Unique Weapons (5) ---
+    bouncingBullet: {
+      id: 'bouncingBullet', name: '弹射弹', icon: '🏓', rarity: 'uncommon',
+      description: '墙壁弹射反弹攻击',
+      pattern: 'bouncingBullet', fireRate: 400, damage: 10, bulletSpeed: 450, bulletSize: 3,
+      bounceCount: 3, bulletColor: '#ffaa44', trailColor: '#cc7722',
+    },
+    sonicWave: {
+      id: 'sonicWave', name: '音波炮', icon: '🔊', rarity: 'rare',
+      description: '扇形音波震荡波',
+      pattern: 'sonicWave', fireRate: 600, damage: 14, bulletSpeed: 350, bulletSize: 6,
+      waveCount: 7, spreadAngle: 60, bulletColor: '#ff88ff', trailColor: '#cc44cc',
+    },
+    phaseBlade: {
+      id: 'phaseBlade', name: '相位刃', icon: '🌀', rarity: 'epic',
+      description: '相位穿梭穿透攻击',
+      pattern: 'phaseBlade', fireRate: 500, damage: 20, bulletSpeed: 600, bulletSize: 4,
+      pierceCount: 5, waveAmplitude: 2, waveFrequency: 0.08, bulletColor: '#9966ff', trailColor: '#6633cc',
+    },
+    lifestealBlade: {
+      id: 'lifestealBlade', name: '吸血刃', icon: '🩸', rarity: 'rare',
+      description: '造成伤害时回复生命',
+      pattern: 'lifestealBlade', fireRate: 400, damage: 12, bulletSpeed: 500, bulletSize: 4,
+      lifestealPercent: 0.15, bulletColor: '#ff4466', trailColor: '#cc2244',
+    },
+    delayedBomb: {
+      id: 'delayedBomb', name: '延时炸弹', icon: '⏰', rarity: 'rare',
+      description: '延时大范围爆炸',
+      pattern: 'delayedBomb', fireRate: 1000, damage: 20, bulletSpeed: 250, bulletSize: 8,
+      delayTime: 1.5, explosionRadius: 120, bulletColor: '#ff4444', trailColor: '#cc0000',
+    },
+
+    // --- Hybrid/Fusion Weapons (5) ---
+    iceFlame: {
+      id: 'iceFlame', name: '冰焰双袭', icon: '❄️🔥', rarity: 'legendary',
+      description: '冰火交替攻击',
+      pattern: 'iceFlame', fireRate: 300, damage: 14, bulletSpeed: 500, bulletSize: 4,
+      burnDamage: 8, burnDuration: 2000, slowAmount: 0.4, slowDuration: 2000,
+      bulletColor: '#ff8844', trailColor: '#44aaff',
+    },
+    plasmaStorm: {
+      id: 'plasmaStorm', name: '等离子风暴', icon: '🌩️', rarity: 'legendary',
+      description: '风暴等离子链式闪电',
+      pattern: 'plasmaStorm', fireRate: 550, damage: 18, bulletSpeed: 400, bulletSize: 5,
+      chainCount: 4, chainRange: 160, explosionRadius: 50, bulletColor: '#44ffaa', trailColor: '#22cc88',
+    },
+    voidBeam: {
+      id: 'voidBeam', name: '虚空光束', icon: '🕳️', rarity: 'legendary',
+      description: '虚空穿透光束斩杀低血量敌人',
+      pattern: 'voidBeam', fireRate: 500, damage: 12, bulletSpeed: 600, bulletSize: 3,
+      pierceCount: 5, executeThreshold: 0.12, bulletColor: '#6600cc', trailColor: '#440088',
+    },
+    gravityMissile: {
+      id: 'gravityMissile', name: '重力导弹', icon: '🚀🌀', rarity: 'legendary',
+      description: '追踪导弹附带引力井',
+      pattern: 'gravityMissile', fireRate: 800, damage: 30, bulletSpeed: 280, bulletSize: 7,
+      homingStrength: 0.05, explosionRadius: 70, wellRadius: 100, pullForce: 80,
+      bulletColor: '#cc6644', trailColor: '#994422',
+    },
+    thunderBoomerang: {
+      id: 'thunderBoomerang', name: '雷霆回旋镖', icon: '⚡🪃', rarity: 'legendary',
+      description: '回旋镖链式闪电',
+      pattern: 'thunderBoomerang', fireRate: 650, damage: 25, bulletSpeed: 380, bulletSize: 5,
+      range: 350, chainCount: 3, chainRange: 140, bulletColor: '#ffff66', trailColor: '#ffaa22',
     },
   },
 

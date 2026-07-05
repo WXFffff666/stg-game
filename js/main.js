@@ -31,6 +31,9 @@
   let waveShopCurrentItems = [];
   let waveShopRefreshCount = 0;
 
+  // Codex discovery tracking
+  let discoveredEnemyTypes = null; // Set, initialized on game start
+
   // ============ INITIALIZATION ============
   function init() {
     game.init('game-canvas');
@@ -303,18 +306,20 @@
     if (!container) return;
 
     var html = '<h3>🔫 当前武器</h3>';
-    if (weaponManager && weaponManager.currentWeapon) {
-      var weaponId = weaponManager.currentWeapon;
-      var weaponCfg = cfg.WEAPONS[weaponId];
-      if (weaponCfg) {
+    if (weaponManager) {
+      var slots = weaponManager.getSlots();
+      var hasWeapon = false;
+      for (var si = 0; si < slots.length; si++) {
+        var s = slots[si];
+        if (!s) continue;
+        hasWeapon = true;
         html += '<div class="pause-sub-item">' +
-          '<div class="item-icon">' + (weaponCfg.icon || '🔫') + '</div>' +
-          '<div><div class="item-name">' + (weaponCfg.name || weaponId) + '</div>' +
-          '<div class="item-desc">' + (weaponCfg.description || '基础武器') + '</div></div></div>';
-      } else {
-        html += '<div class="pause-sub-item">' +
-          '<div class="item-icon">🔫</div>' +
-          '<div><div class="item-name">' + weaponId + '</div></div></div>';
+          '<div class="item-icon">' + (s.icon || '🔫') + '</div>' +
+          '<div><div class="item-name">' + (s.name || s.weaponId) + '</div>' +
+          '<div class="item-desc">' + (s.description || '') + '</div></div></div>';
+      }
+      if (!hasWeapon) {
+        html += '<div class="pause-sub-empty">无武器数据</div>';
       }
     } else {
       html += '<div class="pause-sub-empty">无武器数据</div>';
@@ -788,6 +793,14 @@
     gameOverShown = false;
     lastBossScore = 0;
 
+    // Init codex discovery tracking for this run
+    discoveredEnemyTypes = new Set();
+
+    // Codex: discover faction on game start (first time only)
+    if (window.CodexProgressManager) {
+      CodexProgressManager.discoverFaction(selectedFaction);
+    }
+
     // Reset in-run shop
     inRunGold = 0;
     inRunUpgrades = {
@@ -836,6 +849,10 @@
     skillManager._isChoosing = false;
     weaponManager = new window.WeaponManager(playerEntity);
     weaponManager.setWeapon('normal');
+    // Codex: discover initial weapon
+    if (window.CodexProgressManager) {
+      CodexProgressManager.discoverWeapon('normal');
+    }
 
     itemSpawner = new window.ItemSpawner();
     buffManager = new window.BuffManager(playerEntity);
@@ -850,7 +867,7 @@
 
     // Connect skill level-up to UI (with fusion integration)
     skillManager.onLevelUp = function(choices) {
-      game.pause();
+      // NOTE: Game no longer paused during level-up — choices shown as overlay on top of gameplay
 
       // 降低BGM音量至30%
       if (window.audio && window.audio._bgmNodes) {
@@ -868,7 +885,40 @@
         ui.showFusionNotification(availableFusions);
       }
 
+      // Helper: clear auto-select timer and countdown display
+      function clearAutoSelect() {
+        if (skillManager._autoSelectTimer) {
+          clearTimeout(skillManager._autoSelectTimer);
+          skillManager._autoSelectTimer = null;
+        }
+        if (skillManager._autoSelectInterval) {
+          clearInterval(skillManager._autoSelectInterval);
+          skillManager._autoSelectInterval = null;
+        }
+        var timerEl = document.getElementById('level-up-timer');
+        if (timerEl) timerEl.textContent = '';
+      }
+
+      // Helper: visual countdown "自动选择剩余 X 秒"
+      function showLevelUpCountdown(totalMs) {
+        var el = document.getElementById('level-up-timer');
+        if (!el) return;
+        var remaining = Math.ceil(totalMs / 1000);
+        el.textContent = '自动选择剩余 ' + remaining + ' 秒';
+        skillManager._autoSelectInterval = setInterval(function() {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(skillManager._autoSelectInterval);
+            skillManager._autoSelectInterval = null;
+            el.textContent = '';
+            return;
+          }
+          el.textContent = '自动选择剩余 ' + remaining + ' 秒';
+        }, 1000);
+      }
+
       ui.showLevelUp(choices, function(selectedItem) {
+        clearAutoSelect();
         // Handle fusion cards (they have _choiceType === 'fusion')
         if (selectedItem._choiceType === 'fusion') {
           // Fusion cards are handled by the separate addFusionCards callback
@@ -876,9 +926,29 @@
           return;
         }
 
+        // Handle slot expansion cards
+        if (selectedItem._choiceType === 'slot') {
+          skillManager._assignSlot(selectedItem._slotType);
+          ui.hideLevelUp();
+          // 设置1.5秒恢复缓冲期
+          window._resumeTimer = 1.5;
+          // 恢复BGM音量
+          if (window.audio && window.audio._bgmNodes) {
+            window.audio._bgmNodes.forEach(function(n) {
+              if (n.gain) n.gain.value = window.audio._bgmVolume;
+            });
+          }
+          // game.resume() handled by _assignSlot in skills.js
+          return;
+        }
+
         // Handle normal skills and weapons
         if (selectedItem._choiceType === 'weapon') {
           skillManager.selectWeapon(selectedItem._weaponId);
+          // Codex: discover weapon on first acquisition
+          if (window.CodexProgressManager) {
+            CodexProgressManager.discoverWeapon(selectedItem._weaponId);
+          }
         } else {
           skillManager.learnSkill(selectedItem._data.id);
         }
@@ -894,10 +964,19 @@
         // game.resume() handled by learnSkill/selectWeapon in skills.js
       });
 
+      // 8-second auto-select timer: if no choice made, click first skill card
+      clearAutoSelect();
+      skillManager._autoSelectTimer = setTimeout(function() {
+        var firstCard = document.querySelector('#skill-choices .skill-card');
+        if (firstCard) firstCard.click();
+      }, 8000);
+      showLevelUpCountdown(8000);
+
       // Add fusion cards to the level-up UI if fusions are available
       if (availableFusions.length > 0) {
         var container = document.getElementById('skill-choices');
         ui.addFusionCards(availableFusions, container, function(selectedItem) {
+          clearAutoSelect();
           // This is called when a fusion card is clicked
           if (selectedItem._fusionType === 'weapon') {
             skillManager.executeWeaponFusion(selectedItem._recipe);
@@ -1285,6 +1364,18 @@
       }
     }
 
+    // Codex: discover new enemy types on first encounter
+    if (window.CodexProgressManager && discoveredEnemyTypes && game.enemies) {
+      for (let _ei = 0; _ei < game.enemies.length; _ei++) {
+        const _e = game.enemies[_ei];
+        if (_e.active && _e.type && !discoveredEnemyTypes.has(_e.type)) {
+          discoveredEnemyTypes.add(_e.type);
+          const _cfg = cfg.ENEMIES && cfg.ENEMIES[_e.type];
+          CodexProgressManager.discoverEnemy(_e.type, _cfg ? _cfg.name : null);
+        }
+      }
+    }
+
     // Collision: player bullets vs enemies (only if both sides exist)
     if (game.playerBullets.length > 0 && game.enemies.length > 0) {
       for (let bi = 0; bi < game.playerBullets.length; bi++) {
@@ -1499,8 +1590,8 @@
       handleEnemyKilled(enemy, isCrit, damage);
     }
 
-    // Arc weapon chain (if player has arc weapon)
-    if (weaponManager && weaponManager.currentWeapon === 'arc') {
+    // Arc weapon chain (if player has arc weapon in any slot)
+    if (weaponManager && weaponManager.hasWeapon('arc')) {
       chainDamage(enemy, damage * 0.3, 0);
     }
   }
@@ -1520,6 +1611,14 @@
       // Grant bonus talent point
       if (talentManager) {
         talentManager.onBossKill();
+      }
+
+      // Codex: discover boss on first kill
+      if (window.CodexProgressManager) {
+        const bossId = enemy.type || enemy.bossName || 'boss';
+        const bossName = enemy.bossName || (cfg.BOSSES && cfg.BOSSES[enemy.type || 'boss']
+          ? cfg.BOSSES[enemy.type || 'boss'].name : null);
+        CodexProgressManager.discoverBoss(bossId, bossName);
       }
     } else {
       window.ParticleSystem.explosion(enemy.x, enemy.y, enemy.size > 20 ? 'normal' : 'small');

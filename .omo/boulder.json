@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "active_work_id": "stg-wave0",
+  "works": {
+    "stg-wave0": {
+      "work_id": "stg-wave0",
+      "active_plan": "D:\\Works\\stg-game\\.omo\\plans\\stg-massive-expansion.md",
+      "plan_name": "stg-massive-expansion",
+      "session_ids": ["opencode:ses_0d92f3282ffe6IdnaqRc42MojM"],
+      "status": "active",
+      "worktree_path": null
+    }
+  }
+}

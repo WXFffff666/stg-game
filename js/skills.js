@@ -305,6 +305,351 @@ var FACTION_SYSTEM = {
       description: '混沌本源觉醒，万物归于混沌',
       effects: [{ stat: 'randomEffectChance', op: 'set', value: 1.0 }, { stat: 'chaosMultiplier', op: 'multiply', value: 3.0 }, { stat: 'chaosDoubleProc', op: 'set', value: true }],
       visualColor: '#ff44aa', visualType: 'poison' }
+  },
+  // ===== New Faction Systems (43) =====
+  light: {
+    corePassive: { effects: [{ stat: 'attack', op: 'multiply', value: 0.1 }, { stat: 'lightCharge', op: 'add', value: 10 }] },
+    exclusiveSkills: ['lt_radiance', 'lt_flash', 'lt_solarBeam'],
+    ultimate: { id: 'ut_light', name: '☀️ 极光领域', faction: 'light', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '光能完全释放，极光笼罩战场',
+      effects: [{ stat: 'lightCharge', op: 'multiply', value: 2.0 }, { stat: 'lightBurstDamage', op: 'multiply', value: 2.0 }, { stat: 'lightAuraDamage', op: 'set', value: 20 }],
+      visualColor: '#fff9c4', visualType: 'holy' }
+  },
+  dark: {
+    corePassive: { effects: [{ stat: 'attack', op: 'multiply', value: 0.1 }, { stat: 'shadowMeld', op: 'add', value: 0.06 }] },
+    exclusiveSkills: ['dk_shroud', 'dk_consume', 'dk_voidStrike'],
+    ultimate: { id: 'ut_dark', name: '🌚 永暗之夜', faction: 'dark', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '黑暗吞噬一切光芒',
+      effects: [{ stat: 'shadowMeld', op: 'add', value: 0.4 }, { stat: 'darkBolt', op: 'multiply', value: 3.0 }, { stat: 'darkVulnerability', op: 'set', value: 0.3 }],
+      visualColor: '#1a1a2e', visualType: 'holy' }
+  },
+  crystal: {
+    corePassive: { effects: [{ stat: 'crystalShardCount', op: 'add', value: 1 }, { stat: 'shardDamage', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['cy_shatter', 'cy_refract', 'cy_prism'],
+    ultimate: { id: 'ut_crystal', name: '💎 水晶风暴', faction: 'crystal', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '水晶碎裂，万箭齐发',
+      effects: [{ stat: 'crystalShardCount', op: 'multiply', value: 2.0 }, { stat: 'shardDamage', op: 'multiply', value: 1.5 }, { stat: 'crystalExplosion', op: 'set', value: { damage: 60, radius: 200 } }],
+      visualColor: '#00e5ff', visualType: 'ice' }
+  },
+  lava: {
+    corePassive: { effects: [{ stat: 'magmaPoolDamage', op: 'add', value: 3 }, { stat: 'magmaPoolRadius', op: 'add', value: 20 }] },
+    exclusiveSkills: ['lv_erupt', 'lv_magma', 'lv_volcano'],
+    ultimate: { id: 'ut_lava', name: '🌋 末日火山', faction: 'lava', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '熔岩爆发，焚尽万物',
+      effects: [{ stat: 'magmaPoolDamage', op: 'multiply', value: 2.0 }, { stat: 'magmaPoolRadius', op: 'multiply', value: 1.5 }, { stat: 'lavaEruption', op: 'set', value: { damage: 80, radius: 300, interval: 3000 } }],
+      visualColor: '#bf360c', visualType: 'fire' }
+  },
+  steam: {
+    corePassive: { effects: [{ stat: 'steamPressure', op: 'add', value: 0.05 }, { stat: 'speed', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['se_pressure', 'se_cloud', 'se_geyser'],
+    ultimate: { id: 'ut_steam', name: '♨️ 蒸汽风暴', faction: 'steam', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '蒸汽压力达到极限，爆发毁灭之力',
+      effects: [{ stat: 'steamPressure', op: 'multiply', value: 2.0 }, { stat: 'steamBurstDamage', op: 'set', value: 50 }, { stat: 'steamBurstRadius', op: 'set', value: 250 }],
+      visualColor: '#b0bec5', visualType: 'poison' }
+  },
+  dust: {
+    corePassive: { effects: [{ stat: 'dustBlindChance', op: 'add', value: 0.05 }, { stat: 'dustSlowAmount', op: 'add', value: 0.08 }] },
+    exclusiveSkills: ['du_sandBlast', 'du_dustDevil', 'du_sirocco'],
+    ultimate: { id: 'ut_dust', name: '🌫️ 沙暴末日', faction: 'dust', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '沙暴蔽日，万物迷失',
+      effects: [{ stat: 'dustBlindChance', op: 'add', value: 0.35 }, { stat: 'dustSlowAmount', op: 'multiply', value: 1.0 }, { stat: 'dustStormRadius', op: 'set', value: 300 }],
+      visualColor: '#8d6e63', visualType: 'poison' }
+  },
+  metal: {
+    corePassive: { effects: [{ stat: 'armorPierce', op: 'add', value: 0.08 }, { stat: 'defense', op: 'add', value: 0.08 }] },
+    exclusiveSkills: ['mt_shrapnel', 'mt_armor', 'mt_railgun'],
+    ultimate: { id: 'ut_metal', name: '⛓️ 钢铁要塞', faction: 'metal', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '钢铁之力完全觉醒，不破壁垒',
+      effects: [{ stat: 'armorPierce', op: 'add', value: 0.3 }, { stat: 'defense', op: 'multiply', value: 0.5 }, { stat: 'shrapnelCount', op: 'add', value: 5 }],
+      visualColor: '#455a64', visualType: 'fire' }
+  },
+  glass: {
+    corePassive: { effects: [{ stat: 'glassShardChance', op: 'add', value: 0.1 }, { stat: 'critRate', op: 'add', value: 0.05 }] },
+    exclusiveSkills: ['gl_fragile', 'gl_splinter', 'gl_mirrorBlade'],
+    ultimate: { id: 'ut_glass', name: '💠 琉璃碎梦', faction: 'glass', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '琉璃粉碎，万物崩裂',
+      effects: [{ stat: 'glassShardChance', op: 'add', value: 0.3 }, { stat: 'shardDamage', op: 'multiply', value: 2.0 }, { stat: 'glassExplosion', op: 'set', value: { damage: 100, radius: 180 } }],
+      visualColor: '#80deea', visualType: 'ice' }
+  },
+  silk: {
+    corePassive: { effects: [{ stat: 'silkSnareChance', op: 'add', value: 0.06 }, { stat: 'silkSnareDuration', op: 'add', value: 500 }] },
+    exclusiveSkills: ['si_weave', 'si_cocoon', 'si_webTrap'],
+    ultimate: { id: 'ut_silk', name: '🧣 天罗地网', faction: 'silk', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '丝线编织天罗地网，困住一切敌人',
+      effects: [{ stat: 'silkSnareChance', op: 'add', value: 0.3 }, { stat: 'silkSnareDuration', op: 'multiply', value: 2.0 }, { stat: 'silkAuraSlow', op: 'set', value: 0.4 }],
+      visualColor: '#f06292', visualType: 'poison' }
+  },
+  bone: {
+    corePassive: { effects: [{ stat: 'boneSpikeDamage', op: 'add', value: 5 }, { stat: 'boneArmor', op: 'add', value: 0.03 }] },
+    exclusiveSkills: ['bn_spike', 'bn_ossify', 'bn_skeleton'],
+    ultimate: { id: 'ut_bone', name: '🦴 骸骨王朝', faction: 'bone', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '骸骨之力觉醒，亡者大军降临',
+      effects: [{ stat: 'boneSpikeDamage', op: 'multiply', value: 2.0 }, { stat: 'boneArmor', op: 'add', value: 0.2 }, { stat: 'boneMinionCount', op: 'set', value: 2 }],
+      visualColor: '#bcaaa4', visualType: 'holy' }
+  },
+  arrow: {
+    corePassive: { effects: [{ stat: 'arrowPrecision', op: 'add', value: 0.1 }, { stat: 'critRate', op: 'add', value: 0.04 }] },
+    exclusiveSkills: ['ar_pierce', 'ar_volley', 'ar_trueshot'],
+    ultimate: { id: 'ut_arrow', name: '🎯 穿云一箭', faction: 'arrow', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '一箭穿云，万物可破',
+      effects: [{ stat: 'arrowPrecision', op: 'add', value: 0.4 }, { stat: 'arrowCritBonus', op: 'multiply', value: 1.5 }, { stat: 'arrowGuaranteedCrit', op: 'set', value: 3 }],
+      visualColor: '#ff6d00', visualType: 'lightning' }
+  },
+  spear: {
+    corePassive: { effects: [{ stat: 'spearPierceCount', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.08 }] },
+    exclusiveSkills: ['sp_thrust', 'sp_impale', 'sp_whirlwind'],
+    ultimate: { id: 'ut_spear', name: '🔱 破阵之枪', faction: 'spear', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '枪出破阵，贯穿一切',
+      effects: [{ stat: 'spearPierceCount', op: 'add', value: 3 }, { stat: 'spearRange', op: 'multiply', value: 1.0 }, { stat: 'spearAoeDamage', op: 'set', value: 0.5 }],
+      visualColor: '#00695c', visualType: 'lightning' }
+  },
+  hammer: {
+    corePassive: { effects: [{ stat: 'hammerStunChance', op: 'add', value: 0.05 }, { stat: 'attack', op: 'multiply', value: 0.12 }] },
+    exclusiveSkills: ['hm_smash', 'hm_quake', 'hm_megaton'],
+    ultimate: { id: 'ut_hammer', name: '🔨 碎星之锤', faction: 'hammer', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '巨锤碎星，大地震颤',
+      effects: [{ stat: 'hammerStunChance', op: 'add', value: 0.25 }, { stat: 'hammerRadius', op: 'multiply', value: 1.5 }, { stat: 'hammerStunDuration', op: 'set', value: 2000 }],
+      visualColor: '#4e342e', visualType: 'fire' }
+  },
+  whip: {
+    corePassive: { effects: [{ stat: 'whipChainCount', op: 'add', value: 1 }, { stat: 'whipRange', op: 'add', value: 10 }] },
+    exclusiveSkills: ['wh_lash', 'wh_snare', 'wh_cascade'],
+    ultimate: { id: 'ut_whip', name: '🪢 万蛇噬体', faction: 'whip', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '长鞭化万蛇，缠绕吞噬',
+      effects: [{ stat: 'whipChainCount', op: 'multiply', value: 2.0 }, { stat: 'whipRange', op: 'multiply', value: 1.0 }, { stat: 'whipChainDamage', op: 'add', value: 0.3 }],
+      visualColor: '#ad1457', visualType: 'poison' }
+  },
+  sword: {
+    corePassive: { effects: [{ stat: 'swordComboCount', op: 'add', value: 1 }, { stat: 'swordComboBonus', op: 'add', value: 0.05 }] },
+    exclusiveSkills: ['sw_slash', 'sw_bladeFury', 'sw_iaijutsu'],
+    ultimate: { id: 'ut_sword', name: '⚔️ 无想剑域', faction: 'sword', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '剑心通明，万剑归宗',
+      effects: [{ stat: 'swordComboCount', op: 'add', value: 4 }, { stat: 'swordComboBonus', op: 'multiply', value: 2.0 }, { stat: 'swordFinalSlash', op: 'set', value: { damage: 200, radius: 300 } }],
+      visualColor: '#78909c', visualType: 'lightning' }
+  },
+  ax: {
+    corePassive: { effects: [{ stat: 'axCleaveRadius', op: 'add', value: 10 }, { stat: 'axCleaveDamage', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['ax_cleave', 'ax_brutal', 'ax_whirlwind'],
+    ultimate: { id: 'ut_ax', name: '🪓 开天辟地', faction: 'ax', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '巨斧开天，一斩破万法',
+      effects: [{ stat: 'axCleaveRadius', op: 'multiply', value: 2.0 }, { stat: 'axCleaveDamage', op: 'multiply', value: 1.5 }, { stat: 'axExecuteThreshold', op: 'set', value: 0.25 }],
+      visualColor: '#e64a19', visualType: 'fire' }
+  },
+  dagger: {
+    corePassive: { effects: [{ stat: 'daggerBackstabMult', op: 'add', value: 0.3 }, { stat: 'daggerCritChance', op: 'add', value: 0.05 }] },
+    exclusiveSkills: ['da_backstab', 'da_poisonBlade', 'da_shadowStrike'],
+    ultimate: { id: 'ut_dagger', name: '🗡️ 暗杀之星', faction: 'dagger', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '暗影中的致命刺杀',
+      effects: [{ stat: 'daggerBackstabMult', op: 'multiply', value: 2.0 }, { stat: 'daggerCritChance', op: 'add', value: 0.2 }, { stat: 'daggerAutocritStealth', op: 'set', value: true }],
+      visualColor: '#263238', visualType: 'holy' }
+  },
+  staff: {
+    corePassive: { effects: [{ stat: 'magicCharge', op: 'add', value: 5 }, { stat: 'magicBurstDamage', op: 'add', value: 15 }] },
+    exclusiveSkills: ['sf_arcane', 'sf_manaSurge', 'sf_arcaneStorm'],
+    ultimate: { id: 'ut_staff', name: '🪄 奥术洪流', faction: 'staff', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '奥术能量完全释放，魔力洪流席卷一切',
+      effects: [{ stat: 'magicCharge', op: 'multiply', value: 3.0 }, { stat: 'magicBurstDamage', op: 'multiply', value: 2.0 }, { stat: 'magicChain', op: 'set', value: true }],
+      visualColor: '#6a1b9a', visualType: 'holy' }
+  },
+  bow: {
+    corePassive: { effects: [{ stat: 'bowVolleyCount', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['bw_rapid', 'bw_rain', 'bw_barrage'],
+    ultimate: { id: 'ut_bow', name: '🏹 流星箭雨', faction: 'bow', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '万箭齐发，如流星坠落',
+      effects: [{ stat: 'bowVolleyCount', op: 'multiply', value: 3.0 }, { stat: 'bowRangeBonus', op: 'multiply', value: 1.0 }, { stat: 'bowRainDamage', op: 'set', value: 0.8 }],
+      visualColor: '#2e7d32', visualType: 'lightning' }
+  },
+  wolf: {
+    corePassive: { effects: [{ stat: 'wolfPackAttack', op: 'add', value: 0.06 }, { stat: 'speed', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['wf_howl', 'wf_pack', 'wf_hunt'],
+    ultimate: { id: 'ut_wolf', name: '🐺 狼神降世', faction: 'wolf', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '狼神之力附体，族群共战',
+      effects: [{ stat: 'wolfPackAttack', op: 'add', value: 0.3 }, { stat: 'wolfSummonCount', op: 'set', value: 2 }, { stat: 'wolfPackRadius', op: 'multiply', value: 1.5 }],
+      visualColor: '#5d4037', visualType: 'fire' }
+  },
+  bear: {
+    corePassive: { effects: [{ stat: 'bearFortify', op: 'add', value: 0.06 }, { stat: 'maxHp', op: 'multiply', value: 0.1 }] },
+    exclusiveSkills: ['br_roar', 'br_hibernate', 'br_maul'],
+    ultimate: { id: 'ut_bear', name: '🐻 熊王之力', faction: 'bear', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '熊王觉醒，不动如山',
+      effects: [{ stat: 'bearFortify', op: 'add', value: 0.3 }, { stat: 'maxHp', op: 'multiply', value: 0.5 }, { stat: 'bearRegen', op: 'set', value: 0.02 }],
+      visualColor: '#3e2723', visualType: 'fire' }
+  },
+  eagle: {
+    corePassive: { effects: [{ stat: 'eagleSwoopDamage', op: 'add', value: 0.15 }, { stat: 'eagleSwoopRange', op: 'add', value: 20 }] },
+    exclusiveSkills: ['eg_dive', 'eg_keen', 'eg_storm'],
+    ultimate: { id: 'ut_eagle', name: '🦅 鹰击长空', faction: 'eagle', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '雄鹰展翅，俯瞰万物',
+      effects: [{ stat: 'eagleSwoopDamage', op: 'multiply', value: 2.0 }, { stat: 'eagleSwoopRange', op: 'multiply', value: 1.5 }, { stat: 'eagleAerialCrit', op: 'set', value: 1.0 }],
+      visualColor: '#0d47a1', visualType: 'lightning' }
+  },
+  snake: {
+    corePassive: { effects: [{ stat: 'snakeVenomDamage', op: 'add', value: 3 }, { stat: 'snakeVenomDuration', op: 'add', value: 500 }] },
+    exclusiveSkills: ['sa_coil', 'sa_venomFang', 'sa_serpent'],
+    ultimate: { id: 'ut_snake', name: '🐍 蛇影缠身', faction: 'snake', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '万蛇缠绕，毒噬一切',
+      effects: [{ stat: 'snakeVenomDamage', op: 'multiply', value: 2.0 }, { stat: 'snakeVenomDuration', op: 'multiply', value: 2.0 }, { stat: 'snakeVenomSpread', op: 'set', value: true }],
+      visualColor: '#1b5e20', visualType: 'poison' }
+  },
+  lion: {
+    corePassive: { effects: [{ stat: 'lionAuraDamage', op: 'add', value: 0.08 }, { stat: 'lionAuraRadius', op: 'add', value: 30 }] },
+    exclusiveSkills: ['li_majesty', 'li_pride', 'li_territory'],
+    ultimate: { id: 'ut_lion', name: '🦁 狮王领域', faction: 'lion', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '狮王领域展开，万兽臣服',
+      effects: [{ stat: 'lionAuraDamage', op: 'multiply', value: 2.0 }, { stat: 'lionAuraRadius', op: 'multiply', value: 1.5 }, { stat: 'lionAuraFear', op: 'set', value: 0.3 }],
+      visualColor: '#f9a825', visualType: 'fire' }
+  },
+  tiger: {
+    corePassive: { effects: [{ stat: 'tigerPounceDamage', op: 'add', value: 0.2 }, { stat: 'tigerPounceRange', op: 'add', value: 15 }] },
+    exclusiveSkills: ['ti_pounce', 'ti_fury', 'ti_stalk'],
+    ultimate: { id: 'ut_tiger', name: '🐯 猛虎下山', faction: 'tiger', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '猛虎出山，势不可挡',
+      effects: [{ stat: 'tigerPounceDamage', op: 'multiply', value: 2.0 }, { stat: 'tigerPounceRange', op: 'multiply', value: 2.0 }, { stat: 'tigerBerserk', op: 'set', value: { speed: 0.4, attackSpeed: -0.3 } }],
+      visualColor: '#e65100', visualType: 'fire' }
+  },
+  fox: {
+    corePassive: { effects: [{ stat: 'foxDodgeChance', op: 'add', value: 0.03 }, { stat: 'foxTrickDamage', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['fx_trick', 'fx_evade', 'fx_willowisp'],
+    ultimate: { id: 'ut_fox', name: '🦊 狐火燎原', faction: 'fox', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '狐火漫天，灵巧致命',
+      effects: [{ stat: 'foxDodgeChance', op: 'add', value: 0.15 }, { stat: 'foxTrickDamage', op: 'multiply', value: 2.0 }, { stat: 'foxAfterimage', op: 'set', value: true }],
+      visualColor: '#880e4f', visualType: 'poison' }
+  },
+  crane: {
+    corePassive: { effects: [{ stat: 'craneDanceChance', op: 'add', value: 0.04 }, { stat: 'craneDanceDuration', op: 'add', value: 500 }] },
+    exclusiveSkills: ['cn_glide', 'cn_wing', 'cn_tranquility'],
+    ultimate: { id: 'ut_crane', name: '🕊️ 千鹤翔天', faction: 'crane', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '千鹤齐飞，舞动苍穹',
+      effects: [{ stat: 'craneDanceChance', op: 'add', value: 0.2 }, { stat: 'craneDanceDuration', op: 'multiply', value: 2.0 }, { stat: 'craneDanceHeal', op: 'set', value: 3 }],
+      visualColor: '#006064', visualType: 'ice' }
+  },
+  dragon: {
+    corePassive: { effects: [{ stat: 'dragonBreathDamage', op: 'add', value: 5 }, { stat: 'dragonBreathRadius', op: 'add', value: 20 }] },
+    exclusiveSkills: ['dr_breath', 'dr_scales', 'dr_ascend'],
+    ultimate: { id: 'ut_dragon', name: '🐉 龙神天降', faction: 'dragon', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '神龙降世，毁天灭地',
+      effects: [{ stat: 'dragonBreathDamage', op: 'multiply', value: 2.0 }, { stat: 'dragonBreathRadius', op: 'multiply', value: 1.5 }, { stat: 'dragonMight', op: 'set', value: { damage: 1.5, defense: 0.3 } }],
+      visualColor: '#283593', visualType: 'fire' }
+  },
+  phoenix: {
+    corePassive: { effects: [{ stat: 'phoenixFireDamage', op: 'add', value: 5 }, { stat: 'phoenixRebirthHp', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['px_flame', 'px_rebirth', 'px_inferno'],
+    ultimate: { id: 'ut_phoenix', name: '🌅 凤凰涅槃', faction: 'phoenix', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '凤凰浴火，九转重生',
+      effects: [{ stat: 'phoenixFireDamage', op: 'multiply', value: 2.0 }, { stat: 'phoenixRebirthHp', op: 'add', value: 0.5 }, { stat: 'phoenixAura', op: 'set', value: { damage: 30, radius: 200 } }],
+      visualColor: '#b71c1c', visualType: 'fire' }
+  },
+  dream: {
+    corePassive: { effects: [{ stat: 'dreamConfuseChance', op: 'add', value: 0.05 }, { stat: 'dreamConfuseDuration', op: 'add', value: 500 }] },
+    exclusiveSkills: ['dm_sleep', 'dm_nightmare', 'dm_illusion'],
+    ultimate: { id: 'ut_dream', name: '💭 梦境之主', faction: 'dream', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '梦境与现实交织，万物沉睡',
+      effects: [{ stat: 'dreamConfuseChance', op: 'add', value: 0.3 }, { stat: 'dreamConfuseDuration', op: 'multiply', value: 2.0 }, { stat: 'dreamMassSleep', op: 'set', value: { radius: 300, duration: 3000 } }],
+      visualColor: '#7b1fa2', visualType: 'holy' }
+  },
+  nightmare: {
+    corePassive: { effects: [{ stat: 'nightmareFearChance', op: 'add', value: 0.04 }, { stat: 'nightmareFearDuration', op: 'add', value: 300 }] },
+    exclusiveSkills: ['nm_terror', 'nm_haunt', 'nm_abyss'],
+    ultimate: { id: 'ut_nightmare', name: '🌘 永夜梦魇', faction: 'nightmare', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '永夜降临，恐惧吞噬灵魂',
+      effects: [{ stat: 'nightmareFearChance', op: 'add', value: 0.25 }, { stat: 'nightmareFearDuration', op: 'multiply', value: 2.0 }, { stat: 'nightmareAura', op: 'set', value: { fear: 0.2, radius: 250 } }],
+      visualColor: '#4a148c', visualType: 'poison' }
+  },
+  fate: {
+    corePassive: { effects: [{ stat: 'fateMarkChance', op: 'add', value: 0.1 }, { stat: 'fateMarkBonus', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['ft_weave', 'ft_inevitable', 'ft_redemption'],
+    ultimate: { id: 'ut_fate', name: '🎴 命运之轮', faction: 'fate', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '命运之轮转动，万物皆定',
+      effects: [{ stat: 'fateMarkChance', op: 'set', value: 1.0 }, { stat: 'fateMarkBonus', op: 'multiply', value: 2.0 }, { stat: 'fateReversal', op: 'set', value: true }],
+      visualColor: '#33691e', visualType: 'holy' }
+  },
+  destiny: {
+    corePassive: { effects: [{ stat: 'destinyBuffChance', op: 'add', value: 0.08 }, { stat: 'destinyBuffAmount', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['dy_bless', 'dy_vision', 'dy_manifest'],
+    ultimate: { id: 'ut_destiny', name: '✨ 天命所归', faction: 'destiny', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '天命之子的终极觉醒',
+      effects: [{ stat: 'destinyBuffChance', op: 'add', value: 0.4 }, { stat: 'destinyBuffAmount', op: 'multiply', value: 2.0 }, { stat: 'destinyAllBuff', op: 'set', value: true }],
+      visualColor: '#e040fb', visualType: 'holy' }
+  },
+  karma: {
+    corePassive: { effects: [{ stat: 'karmaReflect', op: 'add', value: 0.05 }, { stat: 'karmaStackBonus', op: 'add', value: 0.03 }] },
+    exclusiveSkills: ['km_retribution', 'km_balance', 'km_cycle'],
+    ultimate: { id: 'ut_karma', name: '☯️ 因果报应', faction: 'karma', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '善恶终有报，天道好轮回',
+      effects: [{ stat: 'karmaReflect', op: 'multiply', value: 2.0 }, { stat: 'karmaStackBonus', op: 'multiply', value: 2.0 }, { stat: 'karmaFinalJudgment', op: 'set', value: { damage: 200, radius: 300 } }],
+      visualColor: '#1de9b6', visualType: 'holy' }
+  },
+  order: {
+    corePassive: { effects: [{ stat: 'orderRuneCount', op: 'add', value: 1 }, { stat: 'orderRuneDamage', op: 'add', value: 5 }] },
+    exclusiveSkills: ['or_law', 'or_discipline', 'or_sanction'],
+    ultimate: { id: 'ut_order', name: '⚖️ 绝对秩序', faction: 'order', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '秩序法则绝对化，掌控战场规律',
+      effects: [{ stat: 'orderRuneCount', op: 'multiply', value: 2.0 }, { stat: 'orderRuneDamage', op: 'multiply', value: 2.0 }, { stat: 'orderEnemySlow', op: 'set', value: 0.5 }],
+      visualColor: '#1565c0', visualType: 'holy' }
+  },
+  truth: {
+    corePassive: { effects: [{ stat: 'trueSightChance', op: 'add', value: 0.06 }, { stat: 'trueDamageBonus', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['tr_reveal', 'tr_pierce', 'tr_judgment'],
+    ultimate: { id: 'ut_truth', name: '👁️ 真实之眼', faction: 'truth', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '洞悉一切真实，无视所有虚妄',
+      effects: [{ stat: 'trueSightChance', op: 'add', value: 0.4 }, { stat: 'trueDamageBonus', op: 'multiply', value: 2.0 }, { stat: 'trueSightAll', op: 'set', value: true }],
+      visualColor: '#00acc1', visualType: 'holy' }
+  },
+  lies: {
+    corePassive: { effects: [{ stat: 'liesDeceiveChance', op: 'add', value: 0.08 }, { stat: 'liesDeceiveDamage', op: 'add', value: 0.15 }] },
+    exclusiveSkills: ['le_mirage', 'le_betray', 'le_puppet'],
+    ultimate: { id: 'ut_lies', name: '🕸️ 谎言之网', faction: 'lies', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '谎言编织成网，迷惑众生',
+      effects: [{ stat: 'liesDeceiveChance', op: 'add', value: 0.3 }, { stat: 'liesDeceiveDamage', op: 'multiply', value: 2.0 }, { stat: 'liesDuplicate', op: 'set', value: 0.5 }],
+      visualColor: '#8e24aa', visualType: 'poison' }
+  },
+  forest: {
+    corePassive: { effects: [{ stat: 'forestRegen', op: 'add', value: 0.003 }, { stat: 'forestThornDamage', op: 'add', value: 0.08 }] },
+    exclusiveSkills: ['fo_growth', 'fo_bramble', 'fo_entangle'],
+    ultimate: { id: 'ut_forest', name: '🌲 森罗万象', faction: 'forest', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '森林之力觉醒，万物生长不息',
+      effects: [{ stat: 'forestRegen', op: 'multiply', value: 2.0 }, { stat: 'forestThornDamage', op: 'multiply', value: 2.0 }, { stat: 'forestAura', op: 'set', value: { heal: 5, damage: 10, radius: 200 } }],
+      visualColor: '#004d40', visualType: 'poison' }
+  },
+  mountain: {
+    corePassive: { effects: [{ stat: 'mountainDefense', op: 'add', value: 0.08 }, { stat: 'mountainCrush', op: 'add', value: 0.05 }] },
+    exclusiveSkills: ['mo_stone', 'mo_bulwark', 'mo_landslide'],
+    ultimate: { id: 'ut_mountain', name: '⛰️ 不动明王', faction: 'mountain', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '如山岳般巍峨，不可撼动',
+      effects: [{ stat: 'mountainDefense', op: 'multiply', value: 2.0 }, { stat: 'maxHp', op: 'multiply', value: 0.5 }, { stat: 'mountainAvalanche', op: 'set', value: { damage: 150, radius: 350 } }],
+      visualColor: '#37474f', visualType: 'fire' }
+  },
+  river: {
+    corePassive: { effects: [{ stat: 'riverFlowStack', op: 'add', value: 1 }, { stat: 'riverFlowBonus', op: 'add', value: 0.02 }] },
+    exclusiveSkills: ['rv_current', 'rv_rapids', 'rv_deluge'],
+    ultimate: { id: 'ut_river', name: '🏞️ 川流不息', faction: 'river', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '川流长存，连绵不绝',
+      effects: [{ stat: 'riverFlowStack', op: 'multiply', value: 2.0 }, { stat: 'riverFlowBonus', op: 'multiply', value: 2.0 }, { stat: 'riverMaxStacks', op: 'set', value: 20 }],
+      visualColor: '#0277bd', visualType: 'ice' }
+  },
+  ocean: {
+    corePassive: { effects: [{ stat: 'oceanDepthDamage', op: 'add', value: 3 }, { stat: 'oceanCurrentSlow', op: 'add', value: 0.06 }] },
+    exclusiveSkills: ['oc_tide', 'oc_whirlpool', 'oc_tsunami'],
+    ultimate: { id: 'ut_ocean', name: '🌏 深海渊啸', faction: 'ocean', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '深海之力爆发，暗流吞噬一切',
+      effects: [{ stat: 'oceanDepthDamage', op: 'multiply', value: 2.0 }, { stat: 'oceanCurrentSlow', op: 'add', value: 0.3 }, { stat: 'oceanTidalWave', op: 'set', value: { damage: 100, radius: 400, pushForce: 200 } }],
+      visualColor: '#002171', visualType: 'ice' }
+  },
+  desert: {
+    corePassive: { effects: [{ stat: 'desertScorchDamage', op: 'add', value: 3 }, { stat: 'desertThirstSlow', op: 'add', value: 0.06 }] },
+    exclusiveSkills: ['de_scorch', 'de_mirage', 'de_sandstorm'],
+    ultimate: { id: 'ut_desert', name: '🏜️ 炙热地狱', faction: 'desert', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '沙漠变得如同地狱般炙热',
+      effects: [{ stat: 'desertScorchDamage', op: 'multiply', value: 2.0 }, { stat: 'desertThirstSlow', op: 'add', value: 0.25 }, { stat: 'desertBurnAura', op: 'set', value: { damage: 25, radius: 200 } }],
+      visualColor: '#d4a574', visualType: 'fire' }
+  },
+  tundra: {
+    corePassive: { effects: [{ stat: 'tundraFrostChance', op: 'add', value: 0.06 }, { stat: 'tundraFrostDuration', op: 'add', value: 500 }] },
+    exclusiveSkills: ['tn_blizzard', 'tn_permfrost', 'tn_glacier'],
+    ultimate: { id: 'ut_tundra', name: '🧊 永冻冰原', faction: 'tundra', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '极寒之力爆发，万物冰封',
+      effects: [{ stat: 'tundraFrostChance', op: 'add', value: 0.3 }, { stat: 'tundraFrostDuration', op: 'multiply', value: 2.0 }, { stat: 'tundraGlacierCrush', op: 'set', value: { damage: 100, radius: 250 } }],
+      visualColor: '#eceff1', visualType: 'ice' }
   }
 };
 
@@ -337,7 +682,6 @@ class SkillManager {
 
     // Weapon levels: Map of weaponId → level (0 = not owned, 1-5 = owned)
     this.weaponLevels = new Map();
-    this.currentWeaponId = 'normal';
 
     // Reference to WeaponManager (set externally by main.js)
     this.weaponManager = null;
@@ -359,6 +703,13 @@ class SkillManager {
     this._pendingLevelUps = 0;
     this._isChoosing = false;
     this._nextTempId = 1;
+
+    // Slot expansion system
+    this.MAX_WEAPON_SLOTS = 6;
+    this.MAX_PASSIVE_SLOTS = 6;
+    this.weaponSlotsUnlocked = 2;   // Start with 2 weapon slots
+    this.passiveSlotsUnlocked = 0;  // Passive slots unlock at level 5
+    this._slotUnlockLevel = 5;      // Minimum level for passive slot expansion
 
     // Fusion system state
     this.fusedWeapons = new Set();   // Set of fused weapon IDs already created
@@ -700,7 +1051,6 @@ class SkillManager {
   _showLevelUpChoices() {
     if (this._isChoosing) return; // Prevent re-entry during choice
     this._isChoosing = true;
-    window.game.pause();
     if (this.onLevelUp) {
       this.onLevelUp(this.getSkillChoices(3));
     }
@@ -748,12 +1098,16 @@ class SkillManager {
     var weapons = GAME_CONFIG.WEAPONS;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var wm = this.weaponManager;
+    var hasEmptySlot = wm && wm.weaponSlots ? wm.weaponSlots.some(function(s) { return !s; }) : true;
     for (var wid in weapons) {
       if (!weapons.hasOwnProperty(wid)) continue;
       var w = weapons[wid];
       if (w.fused) continue; // Fused weapons don't appear in normal choices
       var curLvl = this.weaponLevels.get(wid) || 0;
       if (curLvl >= maxLvl) continue; // Already max level, skip
+      // If weapon is not yet owned, only offer it when a slot is available
+      if (curLvl === 0 && !hasEmptySlot) continue;
       // Create a weapon choice entry
       var wChoice = {
         _choiceType: 'weapon',
@@ -761,8 +1115,42 @@ class SkillManager {
         _weaponId: wid,
         _currentLevel: curLvl,
         _nextLevel: curLvl + 1,
+        _hasEmptySlot: hasEmptySlot,
       };
       pool.push(wChoice);
+    }
+
+    // --- Slot expansion choices ---
+    // Count empty weapon slots
+    var emptyWeaponSlots = this.MAX_WEAPON_SLOTS - this.weaponSlotsUnlocked;
+    // Count empty passive slots (only if level >= _slotUnlockLevel)
+    var emptyPassiveSlots = (this.level >= this._slotUnlockLevel)
+      ? this.MAX_PASSIVE_SLOTS - this.passiveSlotsUnlocked
+      : 0;
+
+    if (emptyWeaponSlots > 0) {
+      pool.push({
+        _choiceType: 'slot',
+        _slotType: 'weapon',
+        _data: {
+          icon: '🔫',
+          name: '新武器槽',
+          rarity: 'rare',
+          description: '增加一个武器槽位 (' + this.weaponSlotsUnlocked + '/' + this.MAX_WEAPON_SLOTS + ')'
+        }
+      });
+    }
+    if (emptyPassiveSlots > 0) {
+      pool.push({
+        _choiceType: 'slot',
+        _slotType: 'passive',
+        _data: {
+          icon: '🛡️',
+          name: '新被动槽',
+          rarity: 'rare',
+          description: '增加一个被动槽位 (' + this.passiveSlotsUnlocked + '/' + this.MAX_PASSIVE_SLOTS + ')'
+        }
+      });
     }
 
     // Nothing left to choose
@@ -788,6 +1176,13 @@ class SkillManager {
         // Weapon upgrade: slight weight boost for already-owned weapons (encourage upgrading)
         if (item._choiceType === 'weapon' && item._currentLevel > 0) {
           weight *= 1.5;
+        }
+        // Slot choices: high priority when slots are empty (weight = emptySlots * 20)
+        if (item._choiceType === 'slot') {
+          var emptyCount = (item._slotType === 'weapon')
+            ? (this.MAX_WEAPON_SLOTS - this.weaponSlotsUnlocked)
+            : (this.MAX_PASSIVE_SLOTS - this.passiveSlotsUnlocked);
+          weight = Math.max(10, emptyCount * 20);
         }
         totalWeight += weight;
         weightedList.push({ item: item, weight: weight, cumulative: totalWeight });
@@ -903,9 +1298,9 @@ class SkillManager {
 
   /**
    * Select or upgrade a weapon by ID.
-   * If weapon is new: acquire at level 1 and switch to it.
-   * If weapon is already owned: upgrade its level (up to max).
-   * Applies upgrade stat modifiers to the weapon manager.
+   * If weapon is new: find first empty slot in weaponManager.weaponSlots, assign it there.
+   *   If all slots full, auto-replace slot 0 with a warning.
+   * If weapon is already owned: upgrade its level (up to max) in its current slot.
    * @param {string} weaponId - key in GAME_CONFIG.WEAPONS
    */
   selectWeapon(weaponId) {
@@ -915,23 +1310,53 @@ class SkillManager {
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
     var curLvl = this.weaponLevels.get(weaponId) || 0;
+    var isNew = curLvl === 0;
 
+    // Level or acquire
     if (curLvl < maxLvl) {
       curLvl++;
       this.weaponLevels.set(weaponId, curLvl);
     }
 
-    // Switch to this weapon
-    this.currentWeaponId = weaponId;
+    // Slot management via WeaponManager
     if (this.weaponManager) {
-      this.weaponManager.setWeapon(weaponId);
+      var wmSlots = this.weaponManager.weaponSlots;
+
+      if (isNew) {
+        // New weapon: find first empty slot or replace slot 0
+        var slotIdx = -1;
+        for (var i = 0; i < wmSlots.length; i++) {
+          if (!wmSlots[i]) { slotIdx = i; break; }
+        }
+        if (slotIdx === -1) {
+          // All slots full — auto-replace slot 0
+          slotIdx = 0;
+          var replacedId = wmSlots[slotIdx] ? wmSlots[slotIdx].weaponId : null;
+          this.weaponManager.removeWeaponFromSlot(0);
+          this.weaponManager.addWeaponToSlot(weaponId, 0);
+          if (window.ui && replacedId) {
+            window.ui.showToast('⚠️ 武器槽已满! ' + (GAME_CONFIG.WEAPONS[replacedId]?.name || replacedId) + ' 已被替换', 2500, '#ff6644');
+          }
+        } else {
+          this.weaponManager.addWeaponToSlot(weaponId, slotIdx);
+        }
+      }
+
+      // Sync the slot's level to match weaponLevels (source of truth for damage/fire-rate calcs)
+      for (var i = 0; i < wmSlots.length; i++) {
+        if (wmSlots[i] && wmSlots[i].weaponId === weaponId) {
+          wmSlots[i].level = curLvl;
+          break;
+        }
+      }
+
       this._applyWeaponUpgrades(weaponId);
     }
 
     // Show toast notification
     if (window.ui) {
       var label = upgradeCfg && upgradeCfg.descriptions ? upgradeCfg.descriptions[curLvl] : ('Lv' + curLvl);
-      if (curLvl === 1) {
+      if (isNew) {
         window.ui.showToast(wCfg.icon + ' 获得武器: ' + wCfg.name, 2000, wCfg.bulletColor || '#ffdd00');
       } else {
         window.ui.showToast(wCfg.icon + ' ' + wCfg.name + ' 升级至 ' + label, 2000, wCfg.bulletColor || '#ffdd00');
@@ -945,6 +1370,45 @@ class SkillManager {
     }
 
     // Handle pending level-ups (same logic as learnSkill)
+    this._pendingLevelUps--;
+    if (this._pendingLevelUps > 0) {
+      this._isChoosing = false;
+      this._showLevelUpChoices();
+    } else {
+      this._isChoosing = false;
+      window.game.resume();
+    }
+  }
+
+  // ====================================================================
+  //  SLOT EXPANSION
+  // ====================================================================
+
+  /**
+   * Assign a new weapon or passive slot.
+   * Called when player selects a slot expansion card in the level-up choices.
+   * @param {string} slotType - 'weapon' or 'passive'
+   */
+  _assignSlot(slotType) {
+    if (slotType === 'weapon') {
+      if (this.weaponSlotsUnlocked >= this.MAX_WEAPON_SLOTS) return;
+      this.weaponSlotsUnlocked++;
+      // Notify WeaponManager to mark the new slot as usable
+      if (this.weaponManager && typeof this.weaponManager.addWeaponToSlot === 'function') {
+        this.weaponManager.addWeaponToSlot(null, this.weaponSlotsUnlocked - 1);
+      }
+      if (window.ui) {
+        window.ui.showToast('🔫 新武器槽已解锁 (' + this.weaponSlotsUnlocked + '/' + this.MAX_WEAPON_SLOTS + ')', 2000, '#ffdd44');
+      }
+    } else if (slotType === 'passive') {
+      if (this.passiveSlotsUnlocked >= this.MAX_PASSIVE_SLOTS) return;
+      this.passiveSlotsUnlocked++;
+      if (window.ui) {
+        window.ui.showToast('🛡️ 新被动槽已解锁 (' + this.passiveSlotsUnlocked + '/' + this.MAX_PASSIVE_SLOTS + ')', 2000, '#44ddff');
+      }
+    }
+
+    // Handle pending level-ups (same pattern as learnSkill / selectWeapon)
     this._pendingLevelUps--;
     if (this._pendingLevelUps > 0) {
       this._isChoosing = false;
@@ -1080,10 +1544,33 @@ class SkillManager {
     var fusedWeaponId = recipe.result;
     this.weaponLevels.set(fusedWeaponId, GAME_CONFIG.WEAPON_UPGRADE.maxLevel || 5);
 
-    // Switch to the fused weapon
-    this.currentWeaponId = fusedWeaponId;
+    // Remove ingredient weapons from their slots and place the fused weapon
     if (this.weaponManager) {
-      this.weaponManager.setWeapon(fusedWeaponId);
+      var wmSlots = this.weaponManager.weaponSlots;
+
+      // Clear ingredient weapons from their slots
+      for (var i = 0; i < wmSlots.length; i++) {
+        if (wmSlots[i] && (wmSlots[i].weaponId === recipe.ingredientA || wmSlots[i].weaponId === recipe.ingredientB)) {
+          this.weaponManager.removeWeaponFromSlot(i);
+        }
+      }
+
+      // Place fused weapon in first empty slot (or slot 0)
+      var slotIdx = -1;
+      for (var i = 0; i < wmSlots.length; i++) {
+        if (!wmSlots[i]) { slotIdx = i; break; }
+      }
+      if (slotIdx === -1) slotIdx = 0;
+      this.weaponManager.addWeaponToSlot(fusedWeaponId, slotIdx);
+
+      // Sync level on the slot
+      var maxLevel = GAME_CONFIG.WEAPON_UPGRADE.maxLevel || 5;
+      for (var i = 0; i < wmSlots.length; i++) {
+        if (wmSlots[i] && wmSlots[i].weaponId === fusedWeaponId) {
+          wmSlots[i].level = maxLevel;
+          break;
+        }
+      }
     }
 
     // Show toast

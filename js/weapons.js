@@ -219,108 +219,242 @@ class WeaponManager {
    */
   constructor(player) {
     this.player = player;
-    /** @type {string} current weapon config ID */
-    this.currentWeapon = 'normal';
-    /** @type {number} time accumulator in ms */
-    this.fireTimer = 0;
+
+    var maxWeapon = GAME_CONFIG.BALANCE.MAX_WEAPON_SLOTS || 6;
+    var maxPassive = GAME_CONFIG.BALANCE.MAX_PASSIVE_SLOTS || 6;
+
+    /** @type {Array<{weaponId:string, level:number, fireTimer:number}>} */
+    this.weaponSlots = new Array(maxWeapon).fill(null);
+    /** @type {Array<{weaponId:string, level:number}>} */
+    this.passiveSlots = new Array(maxPassive).fill(null);
     /** @type {OrbitalDrone[]} active orbital drone entities */
     this.orbitals = [];
   }
 
   // ============================================================
-  //  WEAPON SWITCHING
+  //  BACKWARD-COMPATIBLE GETTER
   // ============================================================
 
   /**
-   * Switch to a different weapon by its config ID.
-   * Cleans up previous weapon state (e.g. orbital drones).
-   * @param {string} weaponId - key in GAME_CONFIG.WEAPONS
+   * Returns the first equipped weapon ID, or 'normal' if no weapons equipped.
+   * @returns {string}
    */
-  setWeapon(weaponId) {
-    var cfg = GAME_CONFIG.WEAPONS[weaponId];
-    if (!cfg) return;
-
-    // Teardown previous weapon state
-    if (this.currentWeapon === 'orbital' || this.currentWeapon === 'teslaOrbital') {
-      this._cleanupOrbitals();
+  get currentWeapon() {
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (this.weaponSlots[i]) return this.weaponSlots[i].weaponId;
     }
-
-    this.currentWeapon = weaponId;
-    this.fireTimer = 0;
-
-    // Setup new weapon state
-    if (weaponId === 'orbital' || weaponId === 'teslaOrbital') {
-      this._initOrbitals();
-    }
+    return 'normal';
   }
 
   // ============================================================
-  //  MAIN UPDATE LOOP
+  //  WEAPON SLOT MANAGEMENT
+  // ============================================================
+
+  /**
+   * Find the index of the first empty weapon slot.
+   * @returns {number} -1 if all slots full
+   */
+  _findEmptySlot() {
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (!this.weaponSlots[i]) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Assign a weapon to the first empty slot.
+   * If the weapon is already equipped in a slot, returns that slot index.
+   * @param {string} weaponId - key in GAME_CONFIG.WEAPONS
+   * @returns {number} slot index, or -1 if failed
+   */
+  setWeapon(weaponId) {
+    var cfg = GAME_CONFIG.WEAPONS[weaponId];
+    if (!cfg) return -1;
+
+    // Check if already equipped
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (this.weaponSlots[i] && this.weaponSlots[i].weaponId === weaponId) {
+        return i;
+      }
+    }
+
+    var idx = this._findEmptySlot();
+    if (idx === -1) return -1;
+
+    this.weaponSlots[idx] = {
+      weaponId: weaponId,
+      level: 1,
+      fireTimer: 0
+    };
+
+    // Setup orbital state for orbital-type weapons
+    if (weaponId === 'orbital' || weaponId === 'teslaOrbital') {
+      this._initOrbitals(weaponId);
+    }
+
+    return idx;
+  }
+
+  /**
+   * Assign a weapon to a specific slot index.
+   * When weaponId is null, simply marks the slot as usable (empty) — called by
+   * SkillManager._assignSlot('weapon') for slot expansion.
+   * @param {string|null} weaponId
+   * @param {number} slotIndex
+   * @returns {boolean} success
+   */
+  addWeaponToSlot(weaponId, slotIndex) {
+    if (slotIndex < 0 || slotIndex >= this.weaponSlots.length) return false;
+
+    // null weaponId = just mark slot as unlocked (empty slot)
+    if (weaponId === null) {
+      this.weaponSlots[slotIndex] = null;
+      return true;
+    }
+
+    var cfg = GAME_CONFIG.WEAPONS[weaponId];
+    if (!cfg) return false;
+
+    this.weaponSlots[slotIndex] = {
+      weaponId: weaponId,
+      level: 1,
+      fireTimer: 0
+    };
+
+    if (weaponId === 'orbital' || weaponId === 'teslaOrbital') {
+      this._initOrbitals(weaponId);
+    }
+    return true;
+  }
+
+  /**
+   * Remove the weapon at the given slot index.
+   * @param {number} slotIndex
+   * @returns {boolean} success
+   */
+  removeWeaponFromSlot(slotIndex) {
+    if (slotIndex < 0 || slotIndex >= this.weaponSlots.length) return false;
+    var slot = this.weaponSlots[slotIndex];
+    if (!slot) return false;
+
+    if (slot.weaponId === 'orbital' || slot.weaponId === 'teslaOrbital') {
+      this._cleanupOrbitals();
+    }
+
+    this.weaponSlots[slotIndex] = null;
+    return true;
+  }
+
+  /**
+   * Check if a specific weapon is equipped in any slot.
+   * @param {string} weaponId
+   * @returns {boolean}
+   */
+  hasWeapon(weaponId) {
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (this.weaponSlots[i] && this.weaponSlots[i].weaponId === weaponId) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get slot data for UI display.
+   * Returns array of objects with index, weaponId, level, name, icon, description.
+   * @returns {Array<object|null>}
+   */
+  getSlots() {
+    return this.weaponSlots.map(function(slot, index) {
+      if (!slot) return null;
+      var cfg = GAME_CONFIG.WEAPONS[slot.weaponId];
+      return {
+        index: index,
+        weaponId: slot.weaponId,
+        level: slot.level,
+        name: cfg ? cfg.name : slot.weaponId,
+        icon: cfg ? (cfg.icon || '🔫') : '🔫',
+        description: cfg ? cfg.description : ''
+      };
+    });
+  }
+
+  // ============================================================
+  //  MAIN UPDATE LOOP — iterates ALL weapon slots independently
   // ============================================================
 
   /**
    * Called every frame from player.update().
-   * Accumulates fire timer and dispatches fire() when ready.
-   * Also updates orbital drone positions and independent fire timers.
+   * Accumulates fire timer for each weapon slot and fires independently.
    * @param {number} dt - delta time in seconds
    */
   update(dt) {
-    var cfg = GAME_CONFIG.WEAPONS[this.currentWeapon];
-    if (!cfg) return;
-
     var stats = this._getStats();
     var dtMs = dt * 1000;
+    var hasOrbital = false;
 
-    // Orbital drones fire independently (their own timers)
-    if (this.currentWeapon === 'orbital' || this.currentWeapon === 'teslaOrbital') {
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      var slot = this.weaponSlots[i];
+      if (!slot) continue;
+
+      var cfg = GAME_CONFIG.WEAPONS[slot.weaponId];
+      if (!cfg) continue;
+
+      // Orbital weapons fire via their own independent drone system
+      if (slot.weaponId === 'orbital' || slot.weaponId === 'teslaOrbital') {
+        hasOrbital = true;
+        continue;
+      }
+
+      // Standard weapons: compute effective fire rate for THIS weapon
+      var effectiveFireRate = cfg.fireRate * (stats.attackSpeed || 1);
+      if (stats.cooldownReduction && stats.cooldownReduction > 0) {
+        effectiveFireRate *= (1 - Math.min(stats.cooldownReduction, 0.9));
+      }
+      var skillMgr = this._getSkillManager();
+      if (skillMgr) {
+        effectiveFireRate *= skillMgr.getWeaponFireRateMult(slot.weaponId);
+      }
+      if (effectiveFireRate < 30) effectiveFireRate = 30;
+
+      // Each slot has its own independent fire timer
+      slot.fireTimer += dtMs;
+
+      while (slot.fireTimer >= effectiveFireRate) {
+        slot.fireTimer -= effectiveFireRate;
+        this._fireWeapon(slot.weaponId, cfg, stats);
+      }
+    }
+
+    // Update orbital drones once if any slot has an orbital weapon
+    if (hasOrbital && this.orbitals.length > 0) {
       this._updateOrbitals(dt, stats);
-      return;
-    }
-
-    // Standard weapons: accumulate timer and fire when ready
-    var effectiveFireRate = cfg.fireRate * (stats.attackSpeed || 1);
-    // Time faction: cooldown reduction
-    if (stats.cooldownReduction && stats.cooldownReduction > 0) {
-      effectiveFireRate *= (1 - Math.min(stats.cooldownReduction, 0.9)); // cap at 90%
-    }
-    // Apply weapon upgrade fire rate multiplier (lower = faster)
-    var skillMgr = this._getSkillManager();
-    if (skillMgr) {
-      effectiveFireRate *= skillMgr.getWeaponFireRateMult(this.currentWeapon);
-    }
-    // Clamp to minimum 30ms to avoid degenerate fire loops
-    if (effectiveFireRate < 30) effectiveFireRate = 30;
-
-    this.fireTimer += dtMs;
-
-    while (this.fireTimer >= effectiveFireRate) {
-      this.fireTimer -= effectiveFireRate;
-      this.fire();
     }
   }
 
   // ============================================================
-  //  FIRE — pattern dispatch
+  //  CORE FIRE — per-weapon pattern dispatch (extracted from old fire())
   // ============================================================
 
   /**
-   * Read current weapon config, apply stat modifiers, dispatch to pattern.
-   * Includes random elements for variety.
+   * Fire a specific weapon by its config ID.
+   * @param {string} weaponId
+   * @param {object} cfg - weapon config
+   * @param {object} stats - player stats
    */
-  fire() {
-    var cfg = GAME_CONFIG.WEAPONS[this.currentWeapon];
-    if (!cfg) return;
+  _fireWeapon(weaponId, cfg, stats) {
+    if (!cfg) {
+      cfg = GAME_CONFIG.WEAPONS[weaponId];
+      if (!cfg) return;
+    }
+    if (!stats) stats = this._getStats();
 
     var x = this.player ? this.player.x : 0;
     var y = this.player ? this.player.y : 0;
-    var stats = this._getStats();
 
     // Stat-modified values
     var dmg = (cfg.damage || 1) * (stats.attack || 1);
-    // Apply weapon upgrade damage multiplier
     var skillMgr = this._getSkillManager();
     if (skillMgr) {
-      dmg *= skillMgr.getWeaponDamageMult(this.currentWeapon);
+      dmg *= skillMgr.getWeaponDamageMult(weaponId);
     }
     var spd = (cfg.bulletSpeed || 400) * (stats.bulletSpeed || 1);
     var size = (cfg.bulletSize || 3) * (stats.bulletSize || 1);
@@ -328,35 +462,30 @@ class WeaponManager {
     var trail = cfg.trailColor || color;
 
     // === RANDOM ELEMENTS ===
-    // 1. Critical hit chance (10% base, can be boosted by skills)
     var critChance = (stats.critRate || 0) + 0.10;
     var isCrit = Math.random() < critChance;
     if (isCrit) {
       dmg *= (stats.critMult || 2.0);
       size *= 1.5;
-      color = '#ffff00'; // Yellow for crits
+      color = '#ffff00';
       trail = '#ffaa00';
     }
 
-    // 2. Random bullet count variance for spread weapons
     var bulletCount = cfg.bulletCount || 5;
     if (cfg.pattern === 'spread') {
-      // ±2 bullets random variance
       bulletCount = Math.max(3, bulletCount + Math.floor(Math.random() * 5) - 2);
     }
 
-    // 3. Super homing chance for homing weapons (5% chance)
     var homingStrength = cfg.homingStrength || 0.05;
     if (cfg.pattern === 'homing' && Math.random() < 0.05) {
-      homingStrength *= 2; // Double homing strength
-      color = '#ff44ff'; // Purple for super homing
+      homingStrength *= 2;
+      color = '#ff44ff';
       trail = '#cc22cc';
     }
 
     var B = window.BulletPatterns;
-    var angleUp = -Math.PI / 2; // -90 degrees = straight up
+    var angleUp = -Math.PI / 2;
 
-    // 自动瞄准：触摸模式下朝最近敌人射击
     if (this.player && this.player._autoShootTarget) {
       var tgt = this.player._autoShootTarget;
       if (tgt.active) {
@@ -386,7 +515,6 @@ class WeaponManager {
         break;
 
       case 'orbital':
-        // Orbital drones fire on their own independent timers — handled in _updateOrbitals
         break;
 
       case 'arc':
@@ -449,7 +577,6 @@ class WeaponManager {
         if (B) B.photonBeam(x, y, angleUp, spd, dmg, cfg.beamWidth || 8, color, trail);
         break;
 
-      // ---- Fusion Weapon Patterns ----
       case 'plasmaGun':
         if (B) B.plasmaGun(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, color, trail);
         break;
@@ -459,7 +586,6 @@ class WeaponManager {
         break;
 
       case 'teslaOrbital':
-        // Tesla orbital drones fire on their own — handled in _updateOrbitals with chain logic
         break;
 
       case 'phantomBlade':
@@ -470,7 +596,6 @@ class WeaponManager {
         if (B) B.shockwaveWep(x, y, angleUp, spd, dmg, cfg.waveAmplitude || 4, cfg.waveFrequency || 0.05, cfg.explosionRadius || 55, color, trail);
         break;
 
-      // ---- More Fusion Weapon Patterns (10 new) ----
       case 'plagueFlame':
         if (B) B.plagueFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, color, trail);
         break;
@@ -511,7 +636,6 @@ class WeaponManager {
         if (B) B.photonNeedle(x, y, angleUp, spd, dmg, cfg.bulletCount || 3, cfg.pierceCount || 4, color, trail);
         break;
 
-      // ---- New Special Weapon Patterns (10) ----
       case 'flameThrower':
         if (B) B.flameThrower(x, y, angleUp, spd, dmg, cfg.flameAngle || 50, cfg.flameCount || 5, cfg.burnDamage || 6, cfg.burnDuration || 2000, color, trail);
         break;
@@ -552,7 +676,6 @@ class WeaponManager {
         if (B) B.blackHoleGen(x, y, angleUp, spd, dmg, cfg.wellRadius || 200, cfg.pullForce || 150, cfg.wellDamage || 15, cfg.executeThreshold || 0.15, color, trail);
         break;
 
-      // ---- Fusion Weapon Patterns (10 new) ----
       case 'venomFlame':
         if (B) B.venomFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, color, trail);
         break;
@@ -592,12 +715,134 @@ class WeaponManager {
       case 'piercingExplosive':
         if (B) B.piercingExplosive(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, cfg.explosionRadius || 70, cfg.explosionDamage || 20, color, trail);
         break;
+
+      // ============ Beam Weapons ============
+      case 'beamRifle':
+        if (B) B.beamRifle(x, y, angleUp, spd, dmg, cfg.pierceCount || 3, cfg.beamWidth || 3, color, trail);
+        break;
+
+      case 'spreadBeam':
+        if (B) B.spreadBeam(x, y, angleUp, cfg.bulletCount || 5, cfg.spreadAngle || 20, spd, dmg, color, trail);
+        break;
+
+      case 'pulseBeam':
+        if (B) B.pulseBeam(x, y, angleUp, spd, dmg, cfg.pulseCount || 3, cfg.pulseInterval || 0.15, color, trail);
+        break;
+
+      case 'sniperBeam':
+        if (B) B.sniperBeam(x, y, angleUp, spd, dmg, cfg.beamWidth || 2, color, trail);
+        break;
+
+      case 'crossBeam':
+        if (B) B.crossBeam(x, y, angleUp, spd, dmg, cfg.beamCount || 5, color, trail);
+        break;
+
+      // ============ Projectile/Melee Weapons ============
+      case 'buckshot':
+        if (B) B.buckshot(x, y, angleUp, spd, dmg, cfg.pelletCount || 8, cfg.spreadAngle || 40, color, trail);
+        break;
+
+      case 'railgun':
+        if (B) B.railgun(x, y, angleUp, spd, dmg, cfg.pierceCount || 10, color, trail);
+        break;
+
+      case 'slugRound':
+        if (B) B.slugRound(x, y, angleUp, spd, dmg, color, trail);
+        break;
+
+      case 'plasmaCutter':
+        if (B) B.plasmaCutter(x, y, angleUp, spd, dmg, cfg.cutCount || 3, cfg.cutAngle || 15, color, trail);
+        break;
+
+      case 'chainSaw':
+        if (B) B.chainSaw(x, y, angleUp, spd, dmg, cfg.sawCount || 5, cfg.sawAngle || 60, cfg.pierceCount || 3, cfg.spinSpeed || 15, color, trail);
+        break;
+
+      // ============ Area/Summon Weapons ============
+      case 'teslaField':
+        if (B) B.teslaField(x, y, angleUp, spd, dmg, cfg.chainCount || 3, cfg.chainRange || 130, cfg.fieldDuration || 3000, color, trail);
+        break;
+
+      case 'flamePuddle':
+        if (B) B.flamePuddle(x, y, angleUp, spd, dmg, cfg.puddleDuration || 2000, cfg.burnDamage || 6, cfg.burnDuration || 2000, color, trail);
+        break;
+
+      case 'frostMine':
+        if (B) B.frostMine(x, y, angleUp, spd, dmg, cfg.mineCount || 3, cfg.explosionRadius || 70, cfg.slowAmount || 0.5, cfg.slowDuration || 2500, color, trail);
+        break;
+
+      case 'acidSplash':
+        if (B) B.acidSplash(x, y, angleUp, spd, dmg, cfg.pierceCount || 1, cfg.burnDamage || 5, cfg.burnDuration || 3000, color, trail);
+        break;
+
+      case 'droneSwarm':
+        if (B) B.droneSwarm(x, y, angleUp, spd, dmg, cfg.droneCount || 4, cfg.homingStrength || 0.06, cfg.homingRange || 350, color, trail);
+        break;
+
+      // ============ Special/Unique Weapons ============
+      case 'bouncingBullet':
+        if (B) B.bouncingBullet(x, y, angleUp, spd, dmg, cfg.bounceCount || 3, color, trail);
+        break;
+
+      case 'sonicWave':
+        if (B) B.sonicWave(x, y, angleUp, spd, dmg, cfg.waveCount || 7, cfg.spreadAngle || 60, color, trail);
+        break;
+
+      case 'phaseBlade':
+        if (B) B.phaseBlade(x, y, angleUp, spd, dmg, cfg.pierceCount || 5, cfg.waveAmplitude || 2, cfg.waveFrequency || 0.08, color, trail);
+        break;
+
+      case 'lifestealBlade':
+        if (B) B.lifestealBlade(x, y, angleUp, spd, dmg, cfg.lifestealPercent || 0.15, color, trail);
+        break;
+
+      case 'delayedBomb':
+        if (B) B.delayedBomb(x, y, angleUp, spd, dmg, cfg.delayTime || 1.5, cfg.explosionRadius || 120, color, trail);
+        break;
+
+      // ============ Hybrid/Fusion Weapons ============
+      case 'iceFlame':
+        if (B) B.iceFlame(x, y, angleUp, spd, dmg, cfg.burnDamage || 8, cfg.burnDuration || 2000, cfg.slowAmount || 0.4, cfg.slowDuration || 2000, color, trail);
+        break;
+
+      case 'plasmaStorm':
+        if (B) B.plasmaStorm(x, y, angleUp, spd, dmg, cfg.chainCount || 4, cfg.chainRange || 160, cfg.explosionRadius || 50, color, trail);
+        break;
+
+      case 'voidBeam':
+        if (B) B.voidBeam(x, y, angleUp, spd, dmg, cfg.pierceCount || 5, cfg.executeThreshold || 0.12, color, trail);
+        break;
+
+      case 'gravityMissile':
+        if (B) B.gravityMissile(x, y, angleUp, spd, dmg, cfg.homingStrength || 0.05, cfg.explosionRadius || 70, cfg.wellRadius || 100, cfg.pullForce || 80, color, trail);
+        break;
+
+      case 'thunderBoomerang':
+        if (B) B.thunderBoomerang(x, y, angleUp, spd, dmg, cfg.range || 350, cfg.chainCount || 3, cfg.chainRange || 140, color, trail);
+        break;
     }
 
-    // Extra bullets from stats (dual-wield style spread)
+    // Extra bullets from stats applied to EACH firing weapon
     var extra = (stats.extraBullets || 0) + (stats.bulletCount || 0);
     if (extra > 0) {
       this._fireExtraBullets(x, y, extra, spd, dmg, color, trail);
+    }
+  }
+
+  /**
+   * Legacy fire method — fires the first equipped weapon.
+   * Kept for backward compatibility.
+   */
+  fire() {
+    var firstSlot = null;
+    for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (this.weaponSlots[i]) {
+        firstSlot = this.weaponSlots[i];
+        break;
+      }
+    }
+    if (firstSlot) {
+      this._fireWeapon(firstSlot.weaponId, null, null);
     }
   }
 
@@ -679,16 +924,16 @@ class WeaponManager {
   //  ORBITAL WEAPON (drones that circle player and auto-fire)
   // ============================================================
 
-  /** Spawn orbital drone entities. Called on setWeapon('orbital'). */
-  _initOrbitals() {
-    var cfg = GAME_CONFIG.WEAPONS.orbital;
+  /** Spawn orbital drone entities. Called when an orbital weapon is added to a slot. */
+  _initOrbitals(weaponId) {
+    var cfg = GAME_CONFIG.WEAPONS[weaponId];
     if (!cfg) return;
 
     var count = cfg.orbitCount || 4;
     this.orbitals = [];
 
     for (var i = 0; i < count; i++) {
-      var drone = new OrbitalDrone(this, i, count, cfg);
+      var drone = new OrbitalDrone(this, i, count, cfg, weaponId);
       game.addEntity(drone);
       this.orbitals.push(drone);
     }
@@ -720,7 +965,7 @@ class WeaponManager {
       // Apply weapon upgrade fire rate multiplier
       var skillMgr = this._getSkillManager();
       if (skillMgr) {
-        droneFireRate *= skillMgr.getWeaponFireRateMult('orbital');
+        droneFireRate *= skillMgr.getWeaponFireRateMult(drone.weaponId);
       }
       if (droneFireRate < 50) droneFireRate = 50;
 
@@ -864,9 +1109,10 @@ class WeaponManager {
  * A drone that orbits the player and fires bullets independently.
  * Registered as a game entity with category 'playerBullet' for correct draw layering.
  */
-function OrbitalDrone(wm, index, total, cfg) {
+function OrbitalDrone(wm, index, total, cfg, weaponId) {
   this.wm = wm;                 // parent WeaponManager
   this.cfg = cfg;               // orbital weapon config
+  this.weaponId = weaponId || 'orbital'; // which weapon these orbitals belong to
 
   this.active = true;
   this.category = 'playerBullet'; // draw on player-bullet layer
@@ -898,7 +1144,7 @@ OrbitalDrone.prototype = {
     var B = window.BulletPatterns;
     if (!B) return;
 
-    var weaponId = this.wm.currentWeapon;
+    var weaponId = this.weaponId;
     var dmg = (this.cfg.damage || 5) * (stats.attack || 1);
     // Apply weapon upgrade damage multiplier
     var skillMgr = window._skillManagerRef;

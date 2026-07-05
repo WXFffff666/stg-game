@@ -197,20 +197,49 @@ canvas {
 .hud-weapon-bar {
   position: absolute; left: 50%; transform: translateX(-50%);
   bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  display: none; gap: 4px; align-items: center;
+  display: none; flex-direction: column; align-items: center; gap: 2px;
   background: rgba(0,0,0,0.5); border-radius: 6px; padding: 4px 8px;
+  pointer-events: auto;
+}
+.hud-weapon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 40px);
+  gap: 4px;
 }
 .hud-weapon-slot {
   width: 40px; height: 40px; background: rgba(0,0,0,0.4);
   border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; position: relative;
+  font-size: 20px; position: relative; overflow: hidden;
+  cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.hud-weapon-slot:hover {
+  border-color: rgba(255,255,255,0.6);
 }
 .hud-weapon-slot.active-weapon { border-color: #ffdd00; box-shadow: 0 0 6px rgba(255,221,0,0.5); }
+.hud-weapon-slot.active-weapon:hover { border-color: #ffee44; }
+.hud-weapon-slot.empty {
+  border: 2px dashed rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.02);
+  opacity: 0.4; cursor: default;
+}
 .hud-weapon-slot .weapon-level-badge {
   position: absolute; bottom: 1px; right: 2px;
   font-size: 9px; font-weight: bold; color: #44ffaa;
   text-shadow: 0 0 2px #000;
+}
+.hud-weapon-slot .weapon-cooldown-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.7); transition: height 0.1s;
+}
+.hud-weapon-passive-row {
+  display: none; gap: 4px; justify-content: center; margin-top: 2px;
+}
+.hud-weapon-slot.passive {
+  width: 28px; height: 28px; font-size: 14px;
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  cursor: default;
 }
 
 /* Menu Screens */
@@ -651,9 +680,15 @@ canvas {
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     border: 1px solid rgba(255,255,255,0.1);
   }
+  .hud-weapon-grid {
+    grid-template-columns: repeat(3, 44px);
+  }
   .hud-weapon-slot {
     width: 44px; height: 44px; font-size: 20px;
     background: rgba(0,0,0,0.5); border-radius: 8px;
+  }
+  .hud-weapon-slot.passive {
+    width: 30px; height: 30px; font-size: 15px;
   }
 
   /* 全屏切换按钮 */
@@ -682,6 +717,382 @@ canvas {
 
   /* Combo显示适配 */
   .combo-text { font-size: 22px; }
+}
+
+/* ============ Mobile Landscape (<768px, landscape orientation) ============ */
+@media (max-width: 768px) and (orientation: landscape) {
+  /* HP bar: top-left, smaller */
+  .hud-hp-container {
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    left: 8px;
+    bottom: auto;
+    transform: none;
+    width: min(180px, 25vw);
+    padding: 3px 8px;
+    gap: 4px;
+  }
+  .hud-hp-bar { height: 8px; }
+  .hud-hp-text { font-size: 10px; min-width: 40px; }
+
+  /* Top area: compact, to the right of HP bar */
+  .hud-top {
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    left: calc(200px + 8px);
+    right: 8px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .hud-top-left, .hud-top-right {
+    flex-direction: row;
+    gap: 6px;
+    padding: 2px 8px;
+  }
+  .hud-level { font-size: 12px; }
+  .hud-xp-bar { width: 70px; height: 3px; }
+  .hud-coins { font-size: 12px; }
+  .hud-kills { font-size: 10px; }
+  .game-timer-hud { font-size: 11px; padding: 1px 6px; }
+  .hud-wave { font-size: 14px; padding: 2px 10px; }
+  .hud-wave-progress { width: 120px; height: 4px; top: 30px; }
+
+  /* Skills: vertical right side, bottom-half */
+  .hud-skill-bar {
+    left: auto;
+    right: 6px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    align-items: flex-end;
+  }
+  .hud-skill-label { font-size: 9px; text-align: right; }
+  .hud-skill-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .hud-skill-slot {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    border-radius: 6px;
+  }
+  .hud-skill-slot .skill-level-badge { font-size: 8px; }
+
+  /* Weapons: bottom full width */
+  .hud-weapon-bar {
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    padding: 3px 6px;
+  }
+  .hud-weapon-grid {
+    grid-template-columns: repeat(6, 38px);
+    gap: 3px;
+  }
+  .hud-weapon-slot {
+    width: 38px;
+    height: 38px;
+    font-size: 17px;
+    border-radius: 5px;
+  }
+
+  /* Boss bar: thinner */
+  .hud-boss-bar { padding: 2px 8px; }
+  .hud-boss-name { font-size: 10px; }
+  .hud-boss-hp-bar { height: 14px; }
+  .hud-boss-hp-pct { font-size: 9px; }
+
+  /* Pause button: smaller in landscape */
+  .hud-pause-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    right: calc(6px + env(safe-area-inset-right, 0px));
+  }
+
+  /* Fullscreen toggle: reposition */
+  .fs-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  /* Menu screens: compact */
+  .menu-screen h1 { font-size: 22px; }
+  .menu-btn { width: 160px; padding: 10px 0; font-size: 13px; min-height: 38px; }
+  .skill-card { width: 100px; padding: 8px 6px; }
+}
+
+/* ============ Tablet (481px - 768px, portrait & landscape) ============ */
+@media (min-width: 481px) and (max-width: 768px) {
+  /* 48px min touch targets for all interactive elements */
+  .hud-pause-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+  .hud-weapon-slot {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+  .hud-skill-slot {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+  .menu-btn {
+    min-height: 48px;
+    font-size: 15px;
+    padding: 14px 0;
+  }
+  .char-card {
+    min-height: 48px;
+    width: 130px;
+    padding: 12px;
+  }
+  .character-card {
+    min-height: 48px;
+  }
+  .skill-card {
+    min-height: 48px;
+    width: 130px;
+    padding: 12px 10px;
+  }
+  .codex-tab {
+    min-height: 48px;
+    font-size: 15px;
+    padding: 8px 16px;
+  }
+  .shop-item-btn,
+  .wave-shop-item-btn,
+  .meta-shop-buy {
+    min-height: 48px;
+    font-size: 14px;
+  }
+  .upgrade-btn {
+    min-height: 48px;
+  }
+  .faction-char-card {
+    min-height: 48px;
+  }
+
+  /* Two-column layout for codex content */
+  .codex-content {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 600px;
+  }
+  .codex-card-boss {
+    grid-column: span 2;
+  }
+
+  /* Two-column layout for meta shop */
+  .meta-shop-items {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Two-column layout for settlement stats */
+  #settlement-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    width: min(450px, 85vw);
+  }
+
+  /* Two-column wave shop items */
+  #wave-shop-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  /* Larger HP bar */
+  .hud-hp-container {
+    width: min(350px, 50vw);
+    padding: 6px 12px;
+  }
+  .hud-hp-bar { height: 12px; }
+  .hud-hp-text { font-size: 13px; min-width: 70px; }
+
+  /* Larger top info */
+  .hud-top { gap: 12px; }
+  .hud-level { font-size: 15px; }
+  .hud-xp-bar { width: 120px; height: 5px; }
+  .hud-coins { font-size: 14px; }
+  .hud-kills { font-size: 13px; }
+
+  /* Full weapon grid */
+  .hud-weapon-grid {
+    grid-template-columns: repeat(6, 48px);
+    gap: 6px;
+  }
+
+  /* Larger skill bar */
+  .hud-skill-row {
+    gap: 6px;
+  }
+
+  /* Boss bar */
+  .hud-boss-bar { padding: 4px 12px; }
+  .hud-boss-name { font-size: 12px; }
+  .hud-boss-hp-bar { height: 22px; }
+  .hud-boss-hp-pct { font-size: 11px; }
+
+  /* Game over / settlement */
+  #game-over .final-score { font-size: 52px; }
+  .stat-row { font-size: 14px; }
+}
+
+/* ============ Desktop (>768px) - Full HUD with larger spacing ============ */
+@media (min-width: 769px) {
+  /* Base HUD font */
+  #hud { font-size: 14px; }
+
+  /* Top bar: more spacing */
+  .hud-top {
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: 16px;
+    right: 16px;
+    gap: 16px;
+  }
+  .hud-top-left, .hud-top-right {
+    padding: 8px 16px;
+    border-radius: 10px;
+    gap: 6px;
+  }
+  .hud-level { font-size: 16px; }
+  .hud-xp-bar { width: 160px; height: 6px; border-radius: 3px; }
+  .hud-coins { font-size: 15px; }
+  .hud-kills { font-size: 13px; }
+  .hud-wave { font-size: 28px; padding: 6px 24px; }
+  .hud-wave-progress { width: 280px; height: 8px; top: 50px; }
+
+  /* HP bar: larger */
+  .hud-hp-container {
+    width: min(400px, 35vw);
+    padding: 6px 14px;
+    gap: 8px;
+  }
+  .hud-hp-bar { height: 14px; border-radius: 7px; }
+  .hud-hp-text { font-size: 14px; min-width: 80px; }
+
+  /* Skill bar */
+  .hud-skill-slot {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    border-radius: 6px;
+  }
+
+  /* Weapon grid: full 6 slots with larger targets */
+  .hud-weapon-grid {
+    grid-template-columns: repeat(6, 50px);
+    gap: 6px;
+  }
+  .hud-weapon-slot {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    border-radius: 8px;
+  }
+  .hud-weapon-slot.passive {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  /* Pause button: visible on hover */
+  .hud-pause-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .hud-pause-btn:hover {
+    opacity: 1;
+    background: rgba(255,255,255,0.15);
+  }
+
+  /* Timer */
+  .game-timer-hud {
+    font-size: 15px;
+    padding: 4px 14px;
+  }
+
+  /* Boss HP bar */
+  .hud-boss-bar {
+    padding: 6px 20px;
+  }
+  .hud-boss-name { font-size: 14px; }
+  .hud-boss-hp-bar { height: 26px; }
+  .hud-boss-hp-pct { font-size: 13px; }
+
+  /* Combo */
+  .combo-text { font-size: 36px; }
+
+  /* Menu screens: larger spacing */
+  .menu-screen h1 { font-size: 42px; }
+  .menu-btn {
+    width: 260px;
+    padding: 16px 0;
+    font-size: 17px;
+    letter-spacing: 3px;
+    margin: 8px 0;
+  }
+  .char-card { width: 140px; padding: 14px; }
+  .skill-card { width: 150px; padding: 16px 12px; }
+  .character-card { width: 150px; padding: 16px 12px; }
+  .faction-char-card { width: 140px; padding: 12px; }
+
+  /* Codex: three-column grid */
+  .codex-content {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 750px;
+    max-height: 50vh;
+    gap: 12px;
+  }
+  .codex-card-boss {
+    grid-column: span 3;
+  }
+
+  /* Settlement stats */
+  #settlement-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: min(500px, 40vw);
+  }
+  #game-over .final-score { font-size: 64px; }
+  .stat-row { padding: 10px 18px; font-size: 14px; }
+
+  /* Two-column layouts for shop */
+  .meta-shop-items {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  #wave-shop-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* Fullscreen toggle */
+  .fs-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  /* Starfield layer (desktop full size) */
+  .hud-weapon-bar {
+    border-radius: 10px;
+    padding: 6px 14px;
+  }
+
+  /* Confirmation overlays larger text */
+  .pause-title { font-size: 42px; }
+  .pause-btn { min-width: 240px; padding: 16px 50px; font-size: 17px; }
 }
 
 /* PWA display-mode overrides */
@@ -1632,19 +2043,20 @@ canvas {
 </script>
 
 <!-- Scripts loaded in dependency order -->
-<script src="js/config.js?v=4"></script>
-<script src="js/core.js?v=4"></script>
-<script src="js/storage.js?v=4"></script>
-<script src="js/audio.js?v=4"></script>
-<script src="js/particles.js?v=4"></script>
-<script src="js/player.js?v=4"></script>
-<script src="js/bullets.js?v=4"></script>
-<script src="js/weapons.js?v=4"></script>
-<script src="js/enemies.js?v=4"></script>
-<script src="js/items.js?v=4"></script>
-<script src="js/skills.js?v=4"></script>
-<script src="js/ui.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/core.js?v=5"></script>
+<script src="js/storage.js?v=5"></script>
+<script src="js/audio.js?v=5"></script>
+<script src="js/codex.js?v=5"></script>
+<script src="js/particles.js?v=5"></script>
+<script src="js/player.js?v=5"></script>
+<script src="js/bullets.js?v=5"></script>
+<script src="js/weapons.js?v=5"></script>
+<script src="js/enemies.js?v=5"></script>
+<script src="js/items.js?v=5"></script>
+<script src="js/skills.js?v=5"></script>
+<script src="js/ui.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 
 <!-- Service Worker Registration -->
 <script>

@@ -1026,34 +1026,108 @@ class UIManager {
   // ====================================================================
 
   /**
-   * Update weapon bar.
-   * @param {Array} weapons - [{icon, level, id}] — first is active
+   * Update weapon bar — 6-slot grid with cooldown overlays and passive row.
+   * @param {Array} weaponSlots - up to 6 items ({id, icon, level, cooldownPct}) or null for empty
    * @param {string} activeWeaponId - currently selected weapon ID
+   * @param {Array} [passiveSlots] - optional array of passive weapon objects ({icon, level})
    */
-  updateWeaponBar(weapons, activeWeaponId) {
+  updateWeaponBar(weaponSlots, activeWeaponId, passiveSlots) {
     if (!this.elWeaponBar) return;
-    if (!weapons || weapons.length === 0) {
-      this.elWeaponBar.style.display = 'none';
-      return;
-    }
-    this.elWeaponBar.style.display = 'flex';
-    this.elWeaponBar.innerHTML = '';
 
-    for (var i = 0; i < weapons.length; i++) {
-      var w = weapons[i];
+    var hasWeapons = weaponSlots && weaponSlots.length > 0;
+    this.elWeaponBar.style.display = hasWeapons ? 'flex' : 'none';
+    if (!hasWeapons) return;
+
+    // === Grid: 6 main weapon slots ===
+    var grid = document.getElementById('weapon-grid');
+    if (!grid) {
+      this.elWeaponBar.innerHTML = '';
+      grid = document.createElement('div');
+      grid.className = 'hud-weapon-grid';
+      grid.id = 'weapon-grid';
+      this.elWeaponBar.appendChild(grid);
+    }
+    grid.innerHTML = '';
+
+    // Normalize to exactly 6 slots
+    var slots = weaponSlots.slice(0, 6);
+    while (slots.length < 6) slots.push(null);
+
+    for (var i = 0; i < 6; i++) {
+      var w = slots[i];
       var slot = document.createElement('div');
       slot.className = 'hud-weapon-slot';
-      if (w.id === activeWeaponId) slot.classList.add('active-weapon');
-      slot.textContent = w.icon || '🔫';
 
-      if (w.level > 0) {
-        var badge = document.createElement('div');
-        badge.className = 'weapon-level-badge';
-        badge.textContent = 'Lv' + w.level;
-        slot.appendChild(badge);
+      if (w && w.id) {
+        // ——— Filled slot ———
+        slot.dataset.weaponId = w.id;
+        if (w.id === activeWeaponId) {
+          slot.classList.add('active-weapon');
+        }
+        slot.textContent = w.icon || '🔫';
+
+        // Cooldown overlay (bottom-up fill)
+        if (w.cooldownPct > 0) {
+          var cd = document.createElement('div');
+          cd.className = 'weapon-cooldown-overlay';
+          cd.style.height = (w.cooldownPct * 100) + '%';
+          slot.appendChild(cd);
+        }
+
+        // Level badge
+        if (w.level > 0) {
+          var badge = document.createElement('div');
+          badge.className = 'weapon-level-badge';
+          badge.textContent = 'Lv' + w.level;
+          slot.appendChild(badge);
+        }
+
+        // Click-to-switch (optional, only for non-active weapons)
+        if (w.id !== activeWeaponId) {
+          (function(wId) {
+            slot.addEventListener('click', function() {
+              if (window.weaponManager && typeof window.weaponManager.setWeapon === 'function') {
+                window.weaponManager.setWeapon(wId);
+              }
+            });
+          })(w.id);
+        }
+      } else {
+        // ——— Empty slot ———
+        slot.classList.add('empty');
+        slot.textContent = '－';
       }
 
-      this.elWeaponBar.appendChild(slot);
+      grid.appendChild(slot);
+    }
+
+    // === Passive row (orbital drones, etc.) ===
+    var passiveRow = document.getElementById('weapon-passive-row');
+    if (!passiveRow) {
+      passiveRow = document.createElement('div');
+      passiveRow.className = 'hud-weapon-passive-row';
+      passiveRow.id = 'weapon-passive-row';
+      this.elWeaponBar.appendChild(passiveRow);
+    }
+    passiveRow.innerHTML = '';
+
+    if (passiveSlots && passiveSlots.length > 0) {
+      passiveRow.style.display = 'flex';
+      for (var j = 0; j < passiveSlots.length; j++) {
+        var ps = passiveSlots[j];
+        var pSlot = document.createElement('div');
+        pSlot.className = 'hud-weapon-slot passive';
+        pSlot.textContent = ps.icon || '🛸';
+        if (ps.level > 0) {
+          var pBadge = document.createElement('div');
+          pBadge.className = 'weapon-level-badge';
+          pBadge.textContent = 'Lv' + ps.level;
+          pSlot.appendChild(pBadge);
+        }
+        passiveRow.appendChild(pSlot);
+      }
+    } else {
+      passiveRow.style.display = 'none';
     }
   }
 
@@ -1161,32 +1235,59 @@ class UIManager {
       this.updateSkillBar(activeSkills, passiveSkills);
     }
 
-    // Weapon bar
+    // Weapon bar — 6-slot grid with cooldown
     if (typeof weaponManager !== 'undefined' && weaponManager) {
-      var weapons = [];
       var cfg2 = GAME_CONFIG;
-      // Current weapon
-      var curWeaponId = weaponManager.currentWeapon || 'normal';
-      var curWeaponCfg = cfg2.WEAPONS ? cfg2.WEAPONS[curWeaponId] : null;
-      if (curWeaponCfg) {
-        weapons.push({
-          id: curWeaponId,
-          icon: curWeaponCfg.icon || '🔫',
-          level: (skillManager && skillManager.weaponLevels) ? (skillManager.weaponLevels.get(curWeaponId) || 0) : 0
+      var slotData = weaponManager.weaponSlots;
+      var displaySlots = weaponManager.getSlots();
+
+      // ——— Helper: compute cooldown percentage for a specific weapon slot ———
+      function _weaponCooldownPct(wId, slot) {
+        var fCfg = cfg2.WEAPONS ? cfg2.WEAPONS[wId] : null;
+        if (!fCfg || !fCfg.fireRate || fCfg.fireRate <= 0) return 0;
+        if (!slot || typeof slot.fireTimer !== 'number') return 0;
+        var stats = (typeof weaponManager._getStats === 'function') ? weaponManager._getStats() : {};
+        var effRate = fCfg.fireRate * (stats.attackSpeed || 1);
+        if (stats.cooldownReduction && stats.cooldownReduction > 0) {
+          effRate *= (1 - Math.min(stats.cooldownReduction, 0.9));
+        }
+        var skRef = window._skillManagerRef;
+        if (skRef && typeof skRef.getWeaponFireRateMult === 'function') {
+          effRate *= skRef.getWeaponFireRateMult(wId);
+        }
+        if (effRate < 30) effRate = 30;
+        return 1 - Math.min(1, slot.fireTimer / effRate);
+      }
+
+      // Build weapon slots from weaponManager slots
+      var weaponSlots = [];
+      for (var si = 0; si < displaySlots.length; si++) {
+        var s = displaySlots[si];
+        if (!s) {
+          weaponSlots.push(null);
+          continue;
+        }
+        var level = (skillManager && skillManager.weaponLevels)
+          ? (skillManager.weaponLevels.get(s.weaponId) || 0) : 0;
+        weaponSlots.push({
+          id: s.weaponId,
+          icon: s.icon,
+          level: level,
+          cooldownPct: _weaponCooldownPct(s.weaponId, slotData[si])
         });
       }
-      // Other owned weapons from skillManager.weaponLevels
-      if (skillManager && skillManager.weaponLevels) {
-        skillManager.weaponLevels.forEach(function(level, id) {
-          if (id !== curWeaponId && level > 0) {
-            var wCfg = cfg2.WEAPONS ? cfg2.WEAPONS[id] : null;
-            if (wCfg) {
-              weapons.push({ id: id, icon: wCfg.icon || '🔫', level: level });
-            }
-          }
+
+      // Passive weapon slots (orbital drones, etc.)
+      var passiveSlots = [];
+      if (weaponManager.orbitals && weaponManager.orbitals.length > 0) {
+        passiveSlots.push({
+          icon: '🛸',
+          level: 0
         });
       }
-      this.updateWeaponBar(weapons, curWeaponId);
+
+      // In multi-slot mode all equipped weapons fire simultaneously; pass null for activeWeaponId
+      this.updateWeaponBar(weaponSlots, null, passiveSlots);
     }
 
     // Pause overlay
