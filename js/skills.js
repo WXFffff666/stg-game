@@ -1051,6 +1051,7 @@ class SkillManager {
   _showLevelUpChoices() {
     if (this._isChoosing) return; // Prevent re-entry during choice
     this._isChoosing = true;
+    window._isLevelingUp = true;
     if (this.onLevelUp) {
       this.onLevelUp(this.getSkillChoices(3));
     }
@@ -1288,7 +1289,7 @@ class SkillManager {
       this._showLevelUpChoices();
     } else {
       this._isChoosing = false;
-      window.game.resume();
+      window._isLevelingUp = false;
     }
   }
 
@@ -1376,7 +1377,7 @@ class SkillManager {
       this._showLevelUpChoices();
     } else {
       this._isChoosing = false;
-      window.game.resume();
+      window._isLevelingUp = false;
     }
   }
 
@@ -1415,7 +1416,7 @@ class SkillManager {
       this._showLevelUpChoices();
     } else {
       this._isChoosing = false;
-      window.game.resume();
+      window._isLevelingUp = false;
     }
   }
 

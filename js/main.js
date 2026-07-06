@@ -786,6 +786,7 @@
     game.difficulty = 0;
     game.timeScale = 1.0;
     game.shakeIntensity = 0;
+    game.gameTime = 0;
     game.hpMultiplier = 1;
     game.xpMultiplier = 1;
     game.dropMultiplier = 1;
@@ -1460,9 +1461,9 @@
     // Update HUD
     updateHUD();
 
-    // Check pause state
+    // Check pause state — don't show pause overlay during level-up
     const pauseOverlay = document.getElementById('pause-overlay');
-    if (game.isPaused && game.scene === cfg.SCENES.GAMEPLAY) {
+    if (game.isPaused && game.scene === cfg.SCENES.GAMEPLAY && !window._isLevelingUp) {
       pauseOverlay.style.display = 'flex';
     } else {
       pauseOverlay.style.display = 'none';

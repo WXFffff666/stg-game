@@ -794,48 +794,30 @@ class Game {
     // 更新设备检测
     this.isMobile = window.innerWidth < 768;
 
-    // 手机端使用竖屏canvas尺寸
-    if (this.isMobile) {
-      this.canvasW = 720;
-      this.canvasH = 1280;
-    } else {
-      this.canvasW = 1280;
-      this.canvasH = 720;
-    }
-
     const container = this.canvas.parentElement || document.body;
     const vpW = container.clientWidth || window.innerWidth;
     const vpH = container.clientHeight || window.innerHeight;
 
-    // Step 1: Enforce 16:9 letterbox envelope on viewport
-    const targetAspect = this.canvasW / this.canvasH; // 16/9
-    let envW, envH;
-    if (vpW / vpH > targetAspect) {
-      // Wider than 16:9 → black bars on sides
-      envH = vpH;
-      envW = envH * targetAspect;
-    } else {
-      // Taller than 16:9 → black bars on top/bottom
-      envW = vpW;
-      envH = envW / targetAspect;
-    }
+    // Canvas fills the entire viewport (no letterbox on canvas itself)
+    this.canvasW = vpW;
+    this.canvasH = vpH;
 
-    // Step 2: Scale for CSS display (canvas pixels → CSS pixels)
-    this.scale = envW / this.canvasW;
+    // Scale for CSS display (1:1 since canvas matches viewport)
+    this.scale = 1;
 
-    // Step 3: Game-to-canvas coordinate mapping
+    // Game-to-canvas coordinate mapping: center the game area (600x900) within the full viewport
     this.gameScale = Math.min(this.canvasW / this.width, this.canvasH / this.height);
     this.gameOffsetX = (this.canvasW - this.width * this.gameScale) / 2;
     this.gameOffsetY = (this.canvasH - this.height * this.gameScale) / 2;
 
-    // Step 4: Viewport centering offset
-    this.offsetX = (vpW - envW) / 2;
-    this.offsetY = (vpH - envH) / 2;
+    // No viewport centering offset needed (canvas fills viewport)
+    this.offsetX = 0;
+    this.offsetY = 0;
 
-    // Step 5: Apply canvas element sizing and persistent transform
+    // Apply canvas element sizing and persistent transform
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.style.width = envW + 'px';
-    this.canvas.style.height = envH + 'px';
+    this.canvas.style.width = vpW + 'px';
+    this.canvas.style.height = vpH + 'px';
     this.canvas.width = this.canvasW * dpr;
     this.canvas.height = this.canvasH * dpr;
 

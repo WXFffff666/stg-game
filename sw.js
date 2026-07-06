@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stg-game-v2';
+const CACHE_NAME = 'stg-game-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './js/core.js',
   './js/storage.js',
   './js/audio.js',
+  './js/codex.js',
   './js/particles.js',
   './js/player.js',
   './js/bullets.js',
@@ -39,32 +40,26 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch: Cache First strategy
+// Fetch: Network First strategy (for development, prevents stale cache issues)
 self.addEventListener('fetch', event => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        // Serve from cache, update in background
-        fetch(event.request).then(response => {
-          if (response && response.status === 200) {
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, response);
-            });
-          }
-        }).catch(() => {});
-        return cached;
-      }
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, clone);
+          });
         }
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, clone);
-        });
         return response;
-      });
-    })
+      })
+      .catch(() => {
+        // Network failed, try cache
+        return caches.match(event.request);
+      })
   );
 });
 
