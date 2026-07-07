@@ -46,6 +46,12 @@ const GAME_CONFIG = {
     COMBO_TIMEOUT: 3000,
     COMBO_MULTIPLIER: 0.1,
 
+    // ============ Damage Cap (anti one-shot) ============
+    // Max % of player HP that a single hit can deal (after all modifiers)
+    NORMAL_ENEMY_DAMAGE_CAP: 0.30,   // Normal enemies: max 30% HP per hit
+    ELITE_ENEMY_DAMAGE_CAP: 0.50,    // Elite/sniper enemies: max 50% HP per hit
+    BOSS_DAMAGE_CAP: 1.0,            // Bosses can still one-shot with special attacks
+
     // ============ 难度曲线配置 ============
     // 前期(0-5分钟)：轻松上手
     EARLY_PHASE_END: 300000,       // 前期结束时间(ms) = 5分钟
@@ -2782,6 +2788,18 @@ const GAME_CONFIG = {
       dropRate: 0.05,
       explodeDamage: 40, explodeRadius: 80,
     },
+    timeBomb: {
+      type: 'timeBomb', name: '定时炸弹',
+      hp: 35, speed: 80, damage: 10, score: 120, xp: 20,
+      size: 12, color: '#ff6600',
+      ai: 'follow', fireRate: 3000, bulletSpeed: 200, bulletDamage: 8, bulletColor: '#ff8844',
+      dropRate: 0.15,
+      // On death: delayed explosion that creates a dangerous area
+      timeBombDelay: 2000,     // 2 second warning before explosion
+      timeBombDamage: 25,      // damage per tick in the zone
+      timeBombRadius: 100,     // explosion radius
+      timeBombDuration: 5000,  // zone lingers for 5 seconds
+    },
     // ============ 30种新敌人 ============
     // --- 元素系 ---
     fireElement: {
@@ -3207,6 +3225,10 @@ const GAME_CONFIG = {
       spawner:    { weight: 5, minWave: 12 },
       // Extreme enemies (wave 15+)
       kamikaze:   { weight: 8, minWave: 15 },
+      // Support enemies (wave 10+)
+      healer:     { weight: 6, minWave: 10 },
+      // Hazard enemies (wave 18+)
+      timeBomb:   { weight: 7, minWave: 18 },
     },
 
     // Spawn count per wave: base + wave * multiplier, with random variance
@@ -3674,6 +3696,43 @@ const GAME_CONFIG = {
     speed: { id: 'speed', name: '移速强化', icon: '💨', description: '每级+2%移动速度', maxLevel: 10, effectPerLevel: { stat: 'speed', op: 'multiply', value: 0.02 }, costFormula: function(level) { return Math.floor(80 * Math.pow(1.5, level)); } },
     xp: { id: 'xp', name: '经验强化', icon: '📈', description: '每级+5%经验获取', maxLevel: 15, effectPerLevel: { stat: 'xpMultiplier', op: 'multiply', value: 0.05 }, costFormula: function(level) { return Math.floor(70 * Math.pow(1.5, level)); } },
     dropRate: { id: 'dropRate', name: '掉落强化', icon: '💎', description: '每级+3%掉落率', maxLevel: 10, effectPerLevel: { stat: 'dropRate', op: 'multiply', value: 0.03 }, costFormula: function(level) { return Math.floor(100 * Math.pow(1.5, level)); } },
+  },
+
+  // ============ META_SHOP (Between-Run Star Coin Shop) ============
+  // Weapons and upgrades purchasable with star coins between runs
+  META_SHOP: {
+    // Weapon purchases: buy to unlock for loadout selection
+    weapons: {
+      normal:   { id: 'normal',   weaponId: 'normal',   name: '标准弹', icon: '🔫', price: 0,   description: '标准直射弹幕（默认武器）' },
+      homing:   { id: 'homing',   weaponId: 'homing',   name: '追踪弹', icon: '🎯', price: 80,  description: '自动追踪最近敌人' },
+      laser:    { id: 'laser',    weaponId: 'laser',    name: '激光炮', icon: '⚡', price: 100, description: '超高射速直线光束' },
+      spread:   { id: 'spread',   weaponId: 'spread',   name: '散射弹', icon: '💫', price: 60,  description: '扇形散射多发弹幕' },
+      orbital:  { id: 'orbital',  weaponId: 'orbital',  name: '浮游炮', icon: '🛰️', price: 150, description: '环绕浮游炮自动射击' },
+      arc:      { id: 'arc',      weaponId: 'arc',      name: '电弧链', icon: '⚡', price: 140, description: '雷电链式传导伤害' },
+      boomerang:{ id: 'boomerang',weaponId: 'boomerang', name: '回旋镖', icon: '🪃', price: 90,  description: '飞出后回旋造成双段伤害' },
+      pierce:   { id: 'pierce',   weaponId: 'pierce',   name: '穿甲弹', icon: '🗡️', price: 100, description: '穿透多个敌人' },
+      explosive:{ id: 'explosive',weaponId: 'explosive', name: '爆破弹', icon: '💣', price: 160, description: '命中爆炸范围伤害' },
+      wave:     { id: 'wave',     weaponId: 'wave',     name: '波动炮', icon: '〰️', price: 90,  description: '波浪形弹道覆盖更广' },
+      missile:  { id: 'missile',  weaponId: 'missile',  name: '导弹群', icon: '🚀', price: 200, description: '多发追踪导弹爆炸范围伤害' },
+      needle:   { id: 'needle',   weaponId: 'needle',   name: '针弹',   icon: '📌', price: 80,  description: '极速连射穿透针弹' },
+      gravityWell:{ id: 'gravityWell', weaponId: 'gravityWell', name: '重力井', icon: '🌀', price: 150, description: '发射引力井吸引并伤害敌人' },
+      flame:    { id: 'flame',    weaponId: 'flame',    name: '火焰喷射', icon: '🔥', price: 110, description: '近距离火焰持续灼烧' },
+      shuriken: { id: 'shuriken', weaponId: 'shuriken', name: '手里剑', icon: '🪃', price: 150, description: '旋转飞镖穿透多次' },
+      voidRift: { id: 'voidRift', weaponId: 'voidRift', name: '虚空裂隙', icon: '🕳️', price: 180, description: '召唤虚空裂隙持续伤害并斩杀' },
+      lightningBolt:{ id: 'lightningBolt', weaponId: 'lightningBolt', name: '雷电', icon: '⚡', price: 180, description: '闪电链式弹射多个敌人' },
+      iceCrystal:{ id: 'iceCrystal', weaponId: 'iceCrystal', name: '冰晶', icon: '❄️', price: 130, description: '冰冻减速弹幕' },
+      rocketBarrage:{ id: 'rocketBarrage', weaponId: 'rocketBarrage', name: '火箭弹幕', icon: '🚀', price: 170, description: '密集火箭弹幕覆盖' },
+      photonBeam:{ id: 'photonBeam', weaponId: 'photonBeam', name: '光子束', icon: '✨', price: 200, description: '强力光子直线攻击' },
+    },
+    // Permanent upgrades purchasable with star coins
+    upgrades: {
+      attackBoost:  { id: 'attackBoost',  name: '攻击强化', icon: '⚔️', price: 120, maxLevel: 5, description: '每级攻击力+5%', effect: { stat: 'attack', op: 'multiply', value: 0.05 } },
+      hpBoost:      { id: 'hpBoost',      name: '生命强化', icon: '❤️', price: 100, maxLevel: 5, description: '每级最大生命+10%', effect: { stat: 'hp', op: 'multiply', value: 0.10 } },
+      speedBoost:   { id: 'speedBoost',   name: '移速强化', icon: '💨', price: 100, maxLevel: 3, description: '每级移动速度+3%', effect: { stat: 'speed', op: 'multiply', value: 0.03 } },
+      critBoost:    { id: 'critBoost',    name: '暴击强化', icon: '💥', price: 150, maxLevel: 3, description: '每级暴击率+2%', effect: { stat: 'critRate', op: 'add', value: 0.02 } },
+      xpBoost:      { id: 'xpBoost',      name: '经验强化', icon: '📈', price: 80,  maxLevel: 5, description: '每级经验获取+8%', effect: { stat: 'xpMultiplier', op: 'multiply', value: 0.08 } },
+      pickupBoost:  { id: 'pickupBoost',  name: '拾取强化', icon: '🧲', price: 60,  maxLevel: 3, description: '每级拾取范围+25', effect: { stat: 'pickupRange', op: 'add', value: 25 } },
+    },
   },
 };
 

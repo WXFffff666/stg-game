@@ -743,8 +743,9 @@ class Game {
 
     // Clear full canvas (reset to DPR-only transform, then restore)
     ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, this.canvasW, this.canvasH);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#050515';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.restore();
 
     // Persistent game transform is now active
@@ -806,7 +807,7 @@ class Game {
     this.scale = 1;
 
     // Game-to-canvas coordinate mapping: center the game area (600x900) within the full viewport
-    this.gameScale = Math.min(this.canvasW / this.width, this.canvasH / this.height);
+	    this.gameScale = Math.min(this.canvasW / this.width, this.canvasH / this.height);
     this.gameOffsetX = (this.canvasW - this.width * this.gameScale) / 2;
     this.gameOffsetY = (this.canvasH - this.height * this.gameScale) / 2;
 

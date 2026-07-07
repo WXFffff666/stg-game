@@ -106,19 +106,21 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, game.width, game.height);
 
-    // Stars
-    for (const star of backgroundStars) {
-      star.y += star.speed * 0.016;
-      if (star.y > game.height + 5) {
-        star.y = -5;
-        star.x = Math.random() * game.width;
-      }
-      star.twinkle += star.twinkleSpeed * 0.016;
-      const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(star.twinkle));
-      ctx.fillStyle = star.color;
-      ctx.globalAlpha = alpha;
-      ctx.fillRect(star.x, star.y, star.size, star.size);
-    }
+	    // Stars (pause-aware: stop motion when paused)
+	    for (const star of backgroundStars) {
+	      if (!game.isPaused) {
+	        star.y += star.speed * 0.016;
+	        if (star.y > game.height + 5) {
+	          star.y = -5;
+	          star.x = Math.random() * game.width;
+	        }
+	        star.twinkle += star.twinkleSpeed * 0.016;
+	      }
+	      const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(star.twinkle));
+	      ctx.fillStyle = star.color;
+	      ctx.globalAlpha = alpha;
+	      ctx.fillRect(star.x, star.y, star.size, star.size);
+	    }
     ctx.globalAlpha = 1;
   }
 
@@ -334,9 +336,11 @@
     if (!container) return;
 
     var html = '<h3>✨ 已学技能</h3>';
-    if (skillManager && skillManager.learnedSkills && skillManager.learnedSkills.length > 0) {
-      for (var i = 0; i < skillManager.learnedSkills.length; i++) {
-        var skillId = skillManager.learnedSkills[i];
+    if (skillManager && skillManager.learnedSkills && skillManager.learnedSkills.size > 0) {
+      var skillIds = Array.from(skillManager.learnedSkills.keys());
+      for (var i = 0; i < skillIds.length; i++) {
+        var skillId = skillIds[i];
+        var stackCount = skillManager.learnedSkills.get(skillId) || 1;
         var skillCfg = null;
         // Search in GAME_CONFIG.SKILLS
         for (var j = 0; j < cfg.SKILLS.length; j++) {
@@ -345,9 +349,10 @@
         var name = skillCfg ? skillCfg.name : skillId;
         var desc = skillCfg ? (skillCfg.description || '') : '';
         var icon = skillCfg ? (skillCfg.icon || '✨') : '✨';
+        var stackLabel = stackCount > 1 ? ' <span style="color:#ffaa44;font-size:11px;">x' + stackCount + '</span>' : '';
         html += '<div class="pause-sub-item">' +
           '<div class="item-icon">' + icon + '</div>' +
-          '<div><div class="item-name">' + name + '</div>' +
+          '<div><div class="item-name">' + name + stackLabel + '</div>' +
           '<div class="item-desc">' + desc + '</div></div></div>';
       }
     } else {
@@ -481,22 +486,27 @@
     return shuffled.slice(0, count);
   }
 
-  function showWaveShop() {
-    var wave = waveSpawner ? waveSpawner.waveNumber : 0;
-    if (wave % cfg.SHOP.waveInterval !== 0 || wave === waveShopLastWave) return;
+	  function showWaveShop() {
+	    var wave = waveSpawner ? waveSpawner.waveNumber : 0;
+	    if (wave % cfg.SHOP.waveInterval !== 0 || wave === waveShopLastWave) return;
 
-    waveShopLastWave = wave;
-    waveShopRefreshCount = 0;
-    waveShopCurrentItems = getRandomShopItems(cfg.SHOP.displayCount);
+	    waveShopLastWave = wave;
+	    waveShopRefreshCount = 0;
+	    waveShopCurrentItems = getRandomShopItems(cfg.SHOP.displayCount);
 
-    game.pause();
-    ui.showWaveShop(waveShopCurrentItems, inRunGold, purchaseWaveShopItem, refreshWaveShopItems, hideWaveShop);
-  }
+	    window._isWaveShopOpen = true;
+	    game.pause();
+	    // 隐藏暂停覆盖层，避免与商店界面重叠
+	    var po = document.getElementById('pause-overlay');
+	    if (po) po.style.display = 'none';
+	    ui.showWaveShop(waveShopCurrentItems, inRunGold, purchaseWaveShopItem, refreshWaveShopItems, hideWaveShop);
+	  }
 
-  function hideWaveShop() {
-    ui.hideWaveShop();
-    game.resume();
-  }
+	  function hideWaveShop() {
+	    window._isWaveShopOpen = false;
+	    ui.hideWaveShop();
+	    game.resume();
+	  }
 
   function refreshWaveShopItems() {
     var cost = cfg.SHOP.refreshCost;
@@ -777,6 +787,89 @@
       selectedFaction = 'attackSpeed'; // Default
     }
 
+    // Check if loadout selection is needed (player has unlocked more weapons than max slots)
+    var maxSlots = (window.WeaponLoadoutManager) ? window.WeaponLoadoutManager.getMaxSlots() : 6;
+    var ownedWeapons = _getOwnedWeapons();
+
+    if (ownedWeapons.length > maxSlots) {
+      var savedLoadout = (window.WeaponLoadoutManager) ? window.WeaponLoadoutManager.load() : [];
+      // If no saved loadout, default to first maxSlots weapons
+      if (savedLoadout.length === 0) {
+        savedLoadout = ownedWeapons.slice(0, maxSlots);
+      }
+      ui.showLoadoutSelection(ownedWeapons, savedLoadout, function(selectedIds) {
+        _initGameState(selectedIds);
+      });
+      return;
+    }
+
+    // Proceed with default loadout (all owned weapons)
+    _initGameState(ownedWeapons);
+  }
+
+  /**
+   * Get all weapons the player has unlocked (via meta shop purchases).
+   * @returns {Array<string>} weapon IDs
+   */
+  function _getOwnedWeapons() {
+    var weapons = ['normal']; // always have the default weapon
+    try {
+      var raw = localStorage.getItem('stg_meta_purchases');
+      if (raw) {
+        var purchases = JSON.parse(raw);
+        var metaShop = (window.GAME_CONFIG && window.GAME_CONFIG.META_SHOP && window.GAME_CONFIG.META_SHOP.weapons)
+          ? window.GAME_CONFIG.META_SHOP.weapons : {};
+        var keys = Object.keys(metaShop);
+        for (var i = 0; i < keys.length; i++) {
+          var item = metaShop[keys[i]];
+          if (item.id !== 'normal' && purchases['weapon_' + item.id]) {
+            weapons.push(item.weaponId || item.id);
+          }
+        }
+      }
+    } catch (e) { /* ignore parse errors */ }
+    return weapons;
+  }
+
+  /**
+   * Apply meta shop permanent upgrade effects to the player entity.
+   * Reads purchased upgrades from localStorage and applies stat modifiers.
+   * @param {Object} player - the Player entity
+   */
+  function _applyMetaShopUpgrades(player) {
+    if (!player) return;
+    try {
+      var raw = localStorage.getItem('stg_meta_purchases');
+      if (!raw) return;
+      var purchases = JSON.parse(raw);
+      var metaShop = (window.GAME_CONFIG && window.GAME_CONFIG.META_SHOP && window.GAME_CONFIG.META_SHOP.upgrades)
+        ? window.GAME_CONFIG.META_SHOP.upgrades : {};
+      var effects = [];
+      var keys = Object.keys(metaShop);
+      for (var i = 0; i < keys.length; i++) {
+        var item = metaShop[keys[i]];
+        var level = purchases['upgrade_' + item.id] || 0;
+        if (level > 0 && item.effect) {
+          effects.push({
+            stat: item.effect.stat,
+            op: item.effect.op,
+            value: item.effect.value * level,
+          });
+        }
+      }
+      if (effects.length > 0) {
+        player.applyStatModifiers(effects);
+      }
+    } catch (e) { /* ignore parse errors */ }
+  }
+
+  /**
+   * Initialize game state and start the run.
+   * Called after faction selection (and optional loadout selection).
+   * @param {Array<string>} loadoutWeaponIds - weapons to equip at start
+   */
+  function _initGameState(loadoutWeaponIds) {
+
     // Reset game state
     game.score = 0;
     game.kills = 0;
@@ -837,6 +930,9 @@
       talentManager.applyAllTalents(playerEntity);
     }
 
+    // Apply meta shop permanent upgrades
+    _applyMetaShopUpgrades(playerEntity);
+
     // Reset boss-defeated flag for this run
     bossDefeatedThisRun = false;
     bossKillsThisRun = 0;
@@ -849,10 +945,18 @@
     skillManager._pendingLevelUps = 0;
     skillManager._isChoosing = false;
     weaponManager = new window.WeaponManager(playerEntity);
-    weaponManager.setWeapon('normal');
-    // Codex: discover initial weapon
+    // Equip loadout weapons (first weapon via setWeapon, rest via addWeaponToSlot)
+    var loadoutWeapons = (typeof loadoutWeaponIds !== 'undefined' && loadoutWeaponIds.length > 0)
+      ? loadoutWeaponIds : ['normal'];
+    weaponManager.setWeapon(loadoutWeapons[0]);
+    for (var wi = 1; wi < loadoutWeapons.length; wi++) {
+      weaponManager.addWeaponToSlot(loadoutWeapons[wi]);
+    }
+    // Codex: discover initial weapons
     if (window.CodexProgressManager) {
-      CodexProgressManager.discoverWeapon('normal');
+      for (var cd = 0; cd < loadoutWeapons.length; cd++) {
+        CodexProgressManager.discoverWeapon(loadoutWeapons[cd]);
+      }
     }
 
     itemSpawner = new window.ItemSpawner();
@@ -1041,8 +1145,8 @@
     document.getElementById('talent-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('level-up').style.display = 'none';
-    document.getElementById('hud').style.display = 'flex';
-    document.getElementById('pause-overlay').style.display = 'none';
+	    ui.showHUD();
+	    if (ui.elPauseOverlay) ui.elPauseOverlay.style.display = 'none';
 
     game.setScene(cfg.SCENES.GAMEPLAY);
 
@@ -1082,6 +1186,43 @@
 
     // Check character unlocks
     ui.checkCharacterUnlocks(game.kills, bossDefeatedThisRun);
+
+    // Compute run stats for achievements and star coins
+    var runStats = {
+      kills: game.kills,
+      bossKills: bossKillsThisRun,
+      time: game.gameTime,
+      score: game.score,
+      level: skillManager ? skillManager.level : 1,
+      maxCombo: game.maxCombo,
+      eliteKills: game._eliteKills || 0,
+      fusions: (skillManager && skillManager._fusionCount) ? skillManager._fusionCount : 0,
+    };
+
+    // Award star coins based on run performance
+    if (window.GAME_CONFIG && window.GAME_CONFIG.PERMANENT_UPGRADES && window.GAME_CONFIG.PERMANENT_UPGRADES.starCoinFormula) {
+      var minutes = game.gameTime / 60000;
+      var coinsEarned = window.GAME_CONFIG.PERMANENT_UPGRADES.starCoinFormula(minutes, game.kills, bossKillsThisRun);
+      if (coinsEarned > 0 && window.UpgradeManager) {
+        window.UpgradeManager.addStarCoins(coinsEarned);
+      }
+    }
+
+    // Check and award achievements
+    if (window.AchievementManager) {
+      window.AchievementManager.checkAndAward(runStats);
+    }
+
+    // Record stats
+    if (window.StatsManager) {
+      window.StatsManager.recordGame({
+        kills: game.kills,
+        deaths: 1,
+        survivalTime: game.gameTime,
+        score: game.score,
+        playTime: game.gameTime,
+      });
+    }
 
     // Show game over screen
     setTimeout(() => {
@@ -1429,6 +1570,8 @@
       for (let ei = 0; ei < maxCheck; ei++) {
         const enemy = game.enemies[ei];
         if (!enemy.active) continue;
+        // Skip enemies far off-screen to prevent invisible contact damage
+        if (enemy._isInVisibleArea && !enemy._isInVisibleArea()) continue;
         if (game.checkCollision(enemy, playerEntity)) {
           handleEnemyBodyHitPlayer(enemy);
           break;
@@ -1461,13 +1604,13 @@
     // Update HUD
     updateHUD();
 
-    // Check pause state — don't show pause overlay during level-up
-    const pauseOverlay = document.getElementById('pause-overlay');
-    if (game.isPaused && game.scene === cfg.SCENES.GAMEPLAY && !window._isLevelingUp) {
-      pauseOverlay.style.display = 'flex';
-    } else {
-      pauseOverlay.style.display = 'none';
-    }
+	    // Check pause state — don't show pause overlay during level-up or wave shop
+	    const pauseOverlay = document.getElementById('pause-overlay');
+	    if (game.isPaused && game.scene === cfg.SCENES.GAMEPLAY && !window._isLevelingUp && !window._isWaveShopOpen) {
+	      pauseOverlay.style.display = 'flex';
+	    } else {
+	      pauseOverlay.style.display = 'none';
+	    }
   };
 
   // ============ COLLISION HANDLERS ============
@@ -1808,7 +1951,7 @@
     game.removeEntity(bullet);
     // 触发玩家受击事件（供流派效果系统使用）
     if (window.eventBus) window.eventBus.emit('playerHit', {damage: bullet.damage || cfg.BALANCE.ENEMY_BULLET_DAMAGE, source: 'bullet'});
-    playerTakeDamage(bullet.damage || cfg.BALANCE.ENEMY_BULLET_DAMAGE);
+    playerTakeDamage(bullet.damage || cfg.BALANCE.ENEMY_BULLET_DAMAGE, bullet.sourceCategory || 'normal');
   }
 
   function handleEnemyBodyHitPlayer(enemy) {
@@ -1825,10 +1968,14 @@
     }
     // 触发玩家受击事件（供流派效果系统使用）
     if (window.eventBus) window.eventBus.emit('playerHit', {damage: cfg.BALANCE.COLLISION_DAMAGE, source: 'body'});
-    playerTakeDamage(cfg.BALANCE.COLLISION_DAMAGE);
+    // Determine source category from enemy type
+    var sourceCategory = enemy.isBoss ? 'boss'
+      : (enemy.type === 'elite' || enemy.type === 'sniperElite' || enemy.type === 'titan' || enemy.type === 'colossus' || enemy.type === 'berserker') ? 'elite'
+      : 'normal';
+    playerTakeDamage(cfg.BALANCE.COLLISION_DAMAGE, sourceCategory);
   }
 
-  function playerTakeDamage(damage) {
+  function playerTakeDamage(damage, sourceCategory) {
     // Check dodge
     if (playerEntity.stats.dodgeChance && Math.random() < playerEntity.stats.dodgeChance) {
       window.ParticleSystem.spark(playerEntity.x, playerEntity.y);
@@ -1836,6 +1983,15 @@
       if (window.audio) window.audio.playSelect();
       return;
     }
+
+    // Enforce damage cap based on source category
+    var bCfg = GAME_CONFIG.BALANCE;
+    var maxHp = playerEntity.maxHp || bCfg.PLAYER_BASE_HP;
+    var capPct = bCfg.NORMAL_ENEMY_DAMAGE_CAP || 0.30;
+    if (sourceCategory === 'elite') capPct = bCfg.ELITE_ENEMY_DAMAGE_CAP || 0.50;
+    else if (sourceCategory === 'boss') capPct = bCfg.BOSS_DAMAGE_CAP || 1.0;
+    var maxDamage = Math.floor(maxHp * capPct);
+    if (damage > maxDamage) damage = maxDamage;
 
     const alive = playerEntity.takeDamage(damage);
     game.addShake(5);

@@ -318,6 +318,12 @@ class Enemy {
 
     this.moveTimer += dt * 1000;
     if (this.flashTimer > 0) this.flashTimer -= dt * 1000;
+    // Boss phase tint timer (visual glow after phase transition)
+    if (this._phaseTintTimer > 0) {
+      this._phaseTintTimer -= dt * 1000;
+      this._phaseTintIntensity = Math.max(0, this._phaseTintTimer / 1500);
+      if (this._phaseTintTimer <= 0) this._phaseTintTimer = 0;
+    }
 
     // --- Status Effects (before AI so speed mods take effect) ---
     // Freeze: stop movement
@@ -475,8 +481,6 @@ class Enemy {
         if (hpPercent <= phase.hpThreshold && this.bossPhase < i) {
           this.bossPhase = i;
           this._applyBossPhase(phase);
-          // Phase transition effect
-          if (game.addShake) game.addShake(8);
           break;
         }
       }
@@ -1022,7 +1026,7 @@ class Enemy {
           }
           // 激光充能和发射
           this.laserTimer += dt * 1000;
-          if (!this.isFiringLaser && this.laserTimer >= this.fireRate) {
+          if (!this.isFiringLaser && this.laserTimer >= this.fireRate && this._isInVisibleArea()) {
             this.isFiringLaser = true;
             this.laserTimer = 0;
             // 锁定玩家角度
@@ -1493,6 +1497,7 @@ class Enemy {
   // ---------------------------------------------------------------------------
   _fireBurst(game) {
     if (!game.player) return;
+    if (!this._isInVisibleArea()) return;
     const count = 12;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 / count) * i;
@@ -1602,6 +1607,72 @@ class Enemy {
     if (phase.spreadAngle !== undefined) this.bulletConfig.spreadAngle = phase.spreadAngle;
     if (phase.fireRate !== undefined) this.fireRate = phase.fireRate;
     if (phase.bulletSpeed !== undefined) this.bulletConfig.speed = phase.bulletSpeed;
+
+    var game = window.game;
+    var phaseNum = this.bossPhase + 2; // Phase 1 is index 0, display as "Phase 2"
+
+    // Visual: flash and screen shake
+    if (game && game.addShake) game.addShake(12);
+
+    // Phase transition particles (burst of colored particles)
+    if (window.ParticleSystem) {
+      var phaseColors = ['#ff0000', '#ff4400', '#ff8800', '#ffff00', '#ffffff'];
+      window.ParticleSystem.spawn(this.x, this.y, {
+        count: 20, speed: 80, life: 600, colors: phaseColors, size: 4, gravity: -20
+      });
+      // Screen flash
+      window.ParticleSystem.screenFlash('rgba(255,100,0,0.25)', 200);
+    }
+
+    // Store phase tint for draw()
+    this._phaseTintTimer = 1500; // 1.5 seconds of tint effect
+    this._phaseTintIntensity = 1.0;
+
+    // Toast message
+    var bossName = this.name || 'BOSS';
+    var toastMsg = '';
+    var toastColor = '#ff4400';
+    if (this.bossPhase === 0) {
+      toastMsg = bossName + ' Phase 2 - Enraged!';
+      toastColor = '#ff8800';
+      // Phase 2: add tail swipe cooldown for dragon
+      if (this.ai === 'boss_dragon') {
+        this.tailSwipeCooldown = 3000;
+      }
+    } else if (this.bossPhase === 1) {
+      toastMsg = bossName + ' Phase 3 - Desperation!';
+      toastColor = '#ff0000';
+      // Phase 3: speed boost
+      this.speed = this.baseSpeed * 1.3;
+      this.baseSpeed = this.speed;
+      // Dragon: faster tail swipe
+      if (this.ai === 'boss_dragon') {
+        this.tailSwipeCooldown = 2000;
+        this.fireBreathCooldown = 2500;
+      }
+      // Summoner: spawn faster, stronger minions
+      if (this.ai === 'boss_summoner') {
+        this.bossSpawnInterval = Math.floor(this.bossSpawnInterval * 0.6);
+      }
+    } else if (this.bossPhase >= 2) {
+      toastMsg = bossName + ' - MAX ENRAGE!';
+      toastColor = '#ff0000';
+      // Further speed and fire rate boost
+      this.speed *= 1.2;
+      this.baseSpeed = this.speed;
+      this.fireRate = Math.floor(this.fireRate * 0.7);
+    }
+
+    if (toastMsg && window.ui && window.ui.showToast) {
+      window.ui.showToast(toastMsg, 2500, toastColor);
+    }
+
+    // Audio warning (if available)
+    if (window.audio && window.audio.playBossWarning) {
+      window.audio.playBossWarning();
+    } else if (window.audio && window.audio.playDamage) {
+      window.audio.playDamage();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1648,6 +1719,7 @@ class Enemy {
   // ---------------------------------------------------------------------------
   _fireBreath(game) {
     if (!game || !window.BulletPatterns) return;
+    if (!this._isInVisibleArea()) return;
     const player = game.player;
     if (!player || !player.active) return;
     // Fire cone toward player
@@ -1655,6 +1727,7 @@ class Enemy {
     const coneCount = 7;
     const coneSpread = 40 * (Math.PI / 180);
     const BP = window.BulletPatterns;
+    const sourceCategory = this.isBoss ? 'boss' : 'normal';
     for (let i = 0; i < coneCount; i++) {
       const a = angle - coneSpread / 2 + (coneSpread / (coneCount - 1)) * i;
       BP._create({
@@ -1671,6 +1744,7 @@ class Enemy {
         hitRadius: 5,
         lifetime: 3,
         drawLayer: 2,
+        sourceCategory: sourceCategory,
       });
     }
   }
@@ -1680,19 +1754,34 @@ class Enemy {
   // ---------------------------------------------------------------------------
   _tailSwipe(game) {
     if (!game || !window.BulletPatterns) return;
+    if (!this._isInVisibleArea()) return;
     // Sweep bullets in an arc
+    const sourceCategory = this.isBoss ? 'boss' : 'normal';
     window.BulletPatterns.circle(
       this.x,
       this.y + this.size,
       16,
       this.bulletConfig.speed * 1.1,
       this.bulletConfig.damage * 0.8,
-      '#ffaa00'
+      '#ffaa00',
+      { sourceCategory: sourceCategory }
     );
   }
+  // ---------------------------------------------------------------------------
+  // VISIBLE AREA CHECK
+  // ---------------------------------------------------------------------------
+  _isInVisibleArea() {
+    var margin = 80;
+    var w = GAME_CONFIG.BALANCE.CANVAS_WIDTH;
+    var h = GAME_CONFIG.BALANCE.CANVAS_HEIGHT;
+    return this.x > -margin && this.x < w + margin &&
+           this.y > -margin && this.y < h + margin;
+  }
+
   _fire(game) {
     const BulletPatterns = window.BulletPatterns;
     if (!BulletPatterns) return;
+    if (!this._isInVisibleArea()) return;
 
     // Blind (steam reaction): chance to miss entirely
     if (this._blindTimer > 0 && this._blindAmount && Math.random() < this._blindAmount) {
@@ -1737,13 +1826,19 @@ class Enemy {
     const baseX = this.x;
     const baseY = this.y + this.size;
 
+    // Determine source category for damage cap enforcement
+    const sourceCategory = this.isBoss ? 'boss'
+      : (this.type === 'elite' || this.type === 'sniperElite' || this.type === 'titan' || this.type === 'colossus' || this.type === 'berserker') ? 'elite'
+      : 'normal';
+    const fireOpts = { sourceCategory: sourceCategory };
+
     // Fire based on pattern
     if (pattern === 'circle' && BulletPatterns.circle) {
-      BulletPatterns.circle(baseX, baseY, cfg.count || 12, cfg.speed, cfg.damage, cfg.color);
+      BulletPatterns.circle(baseX, baseY, cfg.count || 12, cfg.speed, cfg.damage, cfg.color, fireOpts);
     } else if (pattern === 'aimed' && BulletPatterns.aimed) {
-      BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0);
+      BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0, fireOpts);
     } else if (pattern === 'spiralOut' && BulletPatterns.spiralOut) {
-      BulletPatterns.spiralOut(baseX, baseY, cfg.count || 8, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 30);
+      BulletPatterns.spiralOut(baseX, baseY, cfg.count || 8, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 30, fireOpts);
     } else if (pattern === 'spread' && BulletPatterns.spread) {
       // Spread pattern: fan of bullets toward player
       const count = cfg.count || 5;
@@ -1751,11 +1846,11 @@ class Enemy {
       BulletPatterns.spread(baseX, baseY, count, cfg.spreadAngle || 45, cfg.speed, cfg.damage, cfg.color, angle);
     } else if (pattern === 'burst' && BulletPatterns.circle) {
       // Burst: rapid fire circle
-      BulletPatterns.circle(baseX, baseY, (cfg.count || 8) + 4, cfg.speed * 1.2, cfg.damage * 0.7, cfg.color);
+      BulletPatterns.circle(baseX, baseY, (cfg.count || 8) + 4, cfg.speed * 1.2, cfg.damage * 0.7, cfg.color, fireOpts);
     } else {
       // Fallback to aimed
       if (BulletPatterns.aimed) {
-        BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0);
+        BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0, fireOpts);
       }
     }
   }
@@ -1890,7 +1985,7 @@ class Enemy {
     }
 
     // Kamikaze: explode on death, damage player in radius
-    if (this.type === 'kamikaze' && this.explodeRadius > 0) {
+    if (this.type === 'kamikaze' && this.explodeRadius > 0 && this._isInVisibleArea()) {
       if (game.player && game.player.active) {
         const dx = game.player.x - this.x;
         const dy = game.player.y - this.y;
@@ -1909,8 +2004,112 @@ class Enemy {
       }
     }
 
+    // TimeBomb: delayed explosion that creates a lingering danger zone
+    if (this.type === 'timeBomb' && this._isInVisibleArea()) {
+      var bombX = this.x;
+      var bombY = this.y;
+      var bombDelay = this.timeBombDelay || 2000;
+      var bombDamage = this.timeBombDamage || 25;
+      var bombRadius = this.timeBombRadius || 100;
+      var bombDuration = this.timeBombDuration || 5000;
+
+      // Warning indicator (pulsing circle during delay)
+      if (window.ParticleSystem) {
+        window.ParticleSystem.spawn(bombX, bombY, {
+          count: 6, speed: 30, life: bombDelay, colors: ['#ff6600', '#ff8800', '#ffaa00'], size: 3, gravity: 0
+        });
+      }
+
+      // After delay: create danger zone entity
+      var zone = {
+        x: bombX, y: bombY,
+        active: true, category: 'hazard',
+        drawLayer: 1,
+        _zoneTimer: 0,
+        _zoneDuration: bombDuration,
+        _zoneDamage: bombDamage,
+        _zoneRadius: bombRadius,
+        _zoneTickInterval: 500, // damage every 0.5s
+        _zoneTickTimer: 0,
+        _zoneDelay: bombDelay,
+        _zoneDelayed: false,
+        _zoneAlpha: 0,
+        update: function(dt) {
+          if (!this.active) return;
+          this._zoneTimer += dt * 1000;
+
+          // Delay phase: show warning
+          if (!this._zoneDelayed) {
+            this._zoneAlpha = Math.min(0.5, this._zoneAlpha + dt * 2);
+            if (this._zoneTimer >= this._zoneDelay) {
+              this._zoneDelayed = true;
+              this._zoneTimer = 0;
+              this._zoneAlpha = 0.6;
+              // Explosion effect on activation
+              if (window.ParticleSystem) {
+                window.ParticleSystem.explosion(this.x, this.y, 'normal');
+              }
+              if (window.game && window.game.addShake) window.game.addShake(5);
+            }
+            return;
+          }
+
+          // Active phase: damage player in zone
+          var elapsed = this._zoneTimer;
+          if (elapsed >= this._zoneDuration) {
+            this.active = false;
+            if (window.game && window.game.removeEntity) window.game.removeEntity(this);
+            return;
+          }
+
+          // Fade out near end
+          var fadeStart = this._zoneDuration * 0.7;
+          if (elapsed > fadeStart) {
+            this._zoneAlpha = 0.6 * (1 - (elapsed - fadeStart) / (this._zoneDuration - fadeStart));
+          }
+
+          // Tick damage
+          this._zoneTickTimer += dt * 1000;
+          if (this._zoneTickTimer >= this._zoneTickInterval) {
+            this._zoneTickTimer = 0;
+            var player = window.game && window.game.player;
+            if (player && player.active) {
+              var dx = player.x - this.x;
+              var dy = player.y - this.y;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < this._zoneRadius) {
+                if (player.takeDamage) player.takeDamage(this._zoneDamage);
+              }
+            }
+          }
+        },
+        draw: function(ctx) {
+          if (!this.active || this._zoneAlpha <= 0) return;
+          ctx.save();
+          ctx.globalAlpha = this._zoneAlpha;
+          // Warning circle (pulsing during delay, solid during active)
+          var pulse = this._zoneDelayed ? 1 : 0.7 + Math.sin(this._zoneTimer * 0.01) * 0.3;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this._zoneRadius * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = this._zoneDelayed ? 'rgba(255,80,0,0.3)' : 'rgba(255,150,0,0.15)';
+          ctx.fill();
+          ctx.strokeStyle = this._zoneDelayed ? '#ff4400' : '#ff8800';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          // Inner ring
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this._zoneRadius * 0.5 * pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = this._zoneDelayed ? '#ff6600' : '#ffaa00';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+        }
+      };
+      game.addEntity(zone);
+    }
+
     // Volatile affix: explode on death
-    if (this._volatile && this._volatileRadius > 0) {
+    if (this._volatile && this._volatileRadius > 0 && this._isInVisibleArea()) {
       if (game.player && game.player.active) {
         const dx = game.player.x - this.x;
         const dy = game.player.y - this.y;
@@ -2030,6 +2229,7 @@ class Enemy {
       case 'time':          this._drawTimeUnit(ctx, color); break;
       case 'voidEnemy':     this._drawVoidUnit(ctx, color); break;
       case 'chaos':         this._drawChaosUnit(ctx, color); break;
+      case 'timeBomb':      this._drawSuicideDrone(ctx, color); break;
       default:            this._drawFighter(ctx, color, false); break;
     }
 
@@ -2119,6 +2319,32 @@ class Enemy {
     // Elite affix visual indicators
     if (this.affixes.length > 0) {
       this._drawAffixIndicators(ctx);
+    }
+
+    // Boss phase transition glow effect
+    if (this.isBoss && this.bossPhase >= 0) {
+      // Persistent phase aura (subtle tint based on phase)
+      var phaseIntensity = this.bossPhase === 0 ? 0.15 : this.bossPhase === 1 ? 0.25 : 0.35;
+      var phaseColor = this.bossPhase === 0 ? 'rgba(255,150,0,' : this.bossPhase === 1 ? 'rgba(255,50,0,' : 'rgba(255,0,0,';
+      ctx.fillStyle = phaseColor + phaseIntensity + ')';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Transition flash (decaying after phase change)
+      if (this._phaseTintTimer > 0) {
+        var flashAlpha = this._phaseTintIntensity * 0.5;
+        ctx.fillStyle = 'rgba(255,200,0,' + flashAlpha + ')';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * (1.4 + Math.sin(Date.now() * 0.01) * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+        // Outer ring pulse
+        ctx.strokeStyle = 'rgba(255,100,0,' + (flashAlpha * 0.8) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * (1.6 + Math.sin(Date.now() * 0.015) * 0.3), 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     ctx.restore();

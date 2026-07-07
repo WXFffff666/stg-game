@@ -1206,10 +1206,12 @@ class UIManager {
     if (typeof skillManager !== 'undefined' && skillManager) {
       var activeSkills = [];
       var passiveSkills = [];
-      var learnedSkills = skillManager.learnedSkills || [];
+      var learnedSkills = skillManager.learnedSkills || new Map();
       var cfg = GAME_CONFIG;
-      for (var s = 0; s < learnedSkills.length; s++) {
-        var skillId = learnedSkills[s];
+      var skillIds = Array.from(learnedSkills.keys());
+      for (var s = 0; s < skillIds.length; s++) {
+        var skillId = skillIds[s];
+        var stackCount = learnedSkills.get(skillId) || 1;
         var skillCfg = null;
         if (cfg.SKILLS) {
           for (var sk = 0; sk < cfg.SKILLS.length; sk++) {
@@ -1219,7 +1221,7 @@ class UIManager {
         if (!skillCfg) continue;
         var skillData = {
           icon: skillCfg.icon || '✨',
-          level: 1,
+          level: stackCount,
           cooldownPct: 0
         };
         // Check cooldown for active skills
@@ -1340,6 +1342,10 @@ class UIManager {
         }
       } else {
         nameEl.textContent = data.name || data.id;
+        // Show stack indicator for already-learned skills
+        if (item._stackCount > 0) {
+          nameEl.textContent += ' (Stack +1)';
+        }
       }
       card.appendChild(nameEl);
 
@@ -1382,6 +1388,17 @@ class UIManager {
         typeEl.style.color = item._currentLevel > 0 ? '#ffdd44' : '#44ddff';
         typeEl.style.marginTop = '2px';
         card.appendChild(typeEl);
+      }
+
+      // Stack badge (for already-learned skills)
+      if (!isWeapon && item._stackCount > 0) {
+        const stackEl = document.createElement('div');
+        stackEl.className = 'skill-type';
+        stackEl.textContent = '📈 堆叠 Lv' + (item._stackCount + 1);
+        stackEl.style.fontSize = '9px';
+        stackEl.style.color = '#ffaa44';
+        stackEl.style.marginTop = '2px';
+        card.appendChild(stackEl);
       }
 
       // Rarity label
@@ -2121,6 +2138,14 @@ class UIManager {
   }
 
   _renderMetaShopItems(category) {
+    if (category === 'weapons') {
+      this._renderMetaShopWeapons();
+      return;
+    }
+    if (category === 'upgrades') {
+      this._renderMetaShopUpgrades();
+      return;
+    }
     var container = this.elMetaShopItems;
     if (!container) return;
     container.innerHTML = '';
@@ -2250,6 +2275,360 @@ class UIManager {
       var raw = localStorage.getItem('stg_active_consumables');
       return raw ? JSON.parse(raw) : {};
     } catch (e) { return {}; }
+  }
+
+  // ====================================================================
+  //  Meta Shop - Weapons & Upgrades (META_SHOP)
+  // ====================================================================
+
+  _getMetaPurchases() {
+    try {
+      var raw = localStorage.getItem('stg_meta_purchases');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+
+  _saveMetaPurchases(data) {
+    try { localStorage.setItem('stg_meta_purchases', JSON.stringify(data)); } catch (e) {}
+  }
+
+  _renderMetaShopWeapons() {
+    var container = this.elMetaShopItems;
+    if (!container) return;
+    container.innerHTML = '';
+
+    var metaShop = GAME_CONFIG.META_SHOP;
+    if (!metaShop || !metaShop.weapons) return;
+
+    var purchases = this._getMetaPurchases();
+    var starCoins = (window.UpgradeManager && typeof window.UpgradeManager.getStarCoins === 'function')
+      ? window.UpgradeManager.getStarCoins() : 0;
+
+    var keys = Object.keys(metaShop.weapons);
+    for (var i = 0; i < keys.length; i++) {
+      var item = metaShop.weapons[keys[i]];
+      var owned = !!purchases['weapon_' + item.id];
+      var canAfford = starCoins >= item.price;
+
+      var card = document.createElement('div');
+      card.className = 'meta-shop-card' + (owned ? ' owned' : '');
+
+      var iconEl = document.createElement('div');
+      iconEl.className = 'meta-shop-icon';
+      iconEl.textContent = item.icon || '?';
+      card.appendChild(iconEl);
+
+      var infoEl = document.createElement('div');
+      infoEl.className = 'meta-shop-info';
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'meta-shop-name';
+      nameEl.textContent = item.name;
+      infoEl.appendChild(nameEl);
+
+      var descEl = document.createElement('div');
+      descEl.className = 'meta-shop-desc';
+      descEl.textContent = item.description;
+      infoEl.appendChild(descEl);
+
+      var catEl = document.createElement('div');
+      catEl.className = 'meta-shop-category';
+      catEl.textContent = owned ? '✓ 已解锁' : '武器解锁';
+      infoEl.appendChild(catEl);
+
+      card.appendChild(infoEl);
+
+      var btnEl = document.createElement('button');
+      btnEl.className = 'meta-shop-buy' + (owned ? ' owned-btn' : '');
+
+      if (owned) {
+        btnEl.textContent = '已拥有';
+        btnEl.disabled = true;
+      } else if (item.price === 0) {
+        btnEl.textContent = '免费';
+        btnEl.disabled = true;
+      } else {
+        btnEl.textContent = '⭐ ' + item.price;
+        btnEl.disabled = !canAfford;
+        (function(self, shopItem) {
+          btnEl.addEventListener('click', function() {
+            self._purchaseMetaWeapon(shopItem);
+          });
+        })(this, item);
+      }
+
+      card.appendChild(btnEl);
+      container.appendChild(card);
+    }
+  }
+
+  _renderMetaShopUpgrades() {
+    var container = this.elMetaShopItems;
+    if (!container) return;
+    container.innerHTML = '';
+
+    var metaShop = GAME_CONFIG.META_SHOP;
+    if (!metaShop || !metaShop.upgrades) return;
+
+    var purchases = this._getMetaPurchases();
+    var starCoins = (window.UpgradeManager && typeof window.UpgradeManager.getStarCoins === 'function')
+      ? window.UpgradeManager.getStarCoins() : 0;
+
+    var keys = Object.keys(metaShop.upgrades);
+    for (var i = 0; i < keys.length; i++) {
+      var item = metaShop.upgrades[keys[i]];
+      var currentLevel = purchases['upgrade_' + item.id] || 0;
+      var maxed = currentLevel >= item.maxLevel;
+      var cost = maxed ? 0 : Math.floor(item.price * Math.pow(1.3, currentLevel));
+      var canAfford = starCoins >= cost;
+
+      var card = document.createElement('div');
+      card.className = 'meta-shop-card' + (maxed ? ' owned' : '');
+
+      var iconEl = document.createElement('div');
+      iconEl.className = 'meta-shop-icon';
+      iconEl.textContent = item.icon || '?';
+      card.appendChild(iconEl);
+
+      var infoEl = document.createElement('div');
+      infoEl.className = 'meta-shop-info';
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'meta-shop-name';
+      nameEl.textContent = item.name + (currentLevel > 0 ? ' Lv.' + currentLevel : '');
+      infoEl.appendChild(nameEl);
+
+      var descEl = document.createElement('div');
+      descEl.className = 'meta-shop-desc';
+      descEl.textContent = item.description;
+      infoEl.appendChild(descEl);
+
+      var catEl = document.createElement('div');
+      catEl.className = 'meta-shop-category';
+      catEl.textContent = maxed ? '✓ 已满级' : ('Lv.' + currentLevel + '/' + item.maxLevel);
+      infoEl.appendChild(catEl);
+
+      card.appendChild(infoEl);
+
+      var btnEl = document.createElement('button');
+      btnEl.className = 'meta-shop-buy' + (maxed ? ' owned-btn' : '');
+
+      if (maxed) {
+        btnEl.textContent = '已满级';
+        btnEl.disabled = true;
+      } else {
+        btnEl.textContent = '⭐ ' + cost;
+        btnEl.disabled = !canAfford;
+        (function(self, shopItem, upgradeCost) {
+          btnEl.addEventListener('click', function() {
+            self._purchaseMetaUpgrade(shopItem, upgradeCost);
+          });
+        })(this, item, cost);
+      }
+
+      card.appendChild(btnEl);
+      container.appendChild(card);
+    }
+  }
+
+  _purchaseMetaWeapon(item) {
+    var starCoins = (window.UpgradeManager && typeof window.UpgradeManager.getStarCoins === 'function')
+      ? window.UpgradeManager.getStarCoins() : 0;
+
+    if (starCoins < item.price) {
+      this.showToast('⭐ 星币不足！', 2000);
+      return;
+    }
+
+    // Deduct star coins
+    if (window.UpgradeManager && typeof window.UpgradeManager.addStarCoins === 'function') {
+      window.UpgradeManager.addStarCoins(-item.price);
+    }
+
+    // Record purchase
+    var purchases = this._getMetaPurchases();
+    purchases['weapon_' + item.id] = true;
+    this._saveMetaPurchases(purchases);
+
+    // Refresh UI
+    this._updateMetaShopCoins();
+    this._renderMetaShopWeapons();
+    this.showToast('🔫 武器解锁: ' + item.name + '！', 2000, '#44ff44');
+  }
+
+  _purchaseMetaUpgrade(item, cost) {
+    var starCoins = (window.UpgradeManager && typeof window.UpgradeManager.getStarCoins === 'function')
+      ? window.UpgradeManager.getStarCoins() : 0;
+
+    if (starCoins < cost) {
+      this.showToast('⭐ 星币不足！', 2000);
+      return;
+    }
+
+    var purchases = this._getMetaPurchases();
+    var currentLevel = purchases['upgrade_' + item.id] || 0;
+    if (currentLevel >= item.maxLevel) {
+      this.showToast('已达到最高等级！', 2000);
+      return;
+    }
+
+    // Deduct star coins
+    if (window.UpgradeManager && typeof window.UpgradeManager.addStarCoins === 'function') {
+      window.UpgradeManager.addStarCoins(-cost);
+    }
+
+    // Record purchase
+    purchases['upgrade_' + item.id] = currentLevel + 1;
+    this._saveMetaPurchases(purchases);
+
+    // Refresh UI
+    this._updateMetaShopCoins();
+    this._renderMetaShopUpgrades();
+    this.showToast('⬆️ 升级成功: ' + item.name + ' Lv.' + (currentLevel + 1) + '！', 2000, '#44ff44');
+  }
+
+  // ====================================================================
+  //  Loadout Selection (Between-Run Weapon Selection)
+  // ====================================================================
+
+  /**
+   * Show loadout selection screen for choosing which weapons to bring.
+   * @param {Array<string>} ownedWeaponIds - all weapon IDs the player has unlocked
+   * @param {Array<string>} currentLoadout - currently selected weapon IDs (up to 6)
+   * @param {Function} onConfirm - callback(selectedIds) when player confirms
+   */
+  showLoadoutSelection(ownedWeaponIds, currentLoadout, onConfirm) {
+    var maxSlots = (window.WeaponLoadoutManager) ? window.WeaponLoadoutManager.getMaxSlots() : 6;
+    var selectedIds = currentLoadout.slice(0, maxSlots);
+
+    // Create or reuse loadout screen
+    var screen = document.getElementById('loadout-screen');
+    if (!screen) {
+      screen = document.createElement('div');
+      screen.id = 'loadout-screen';
+      screen.className = 'menu-screen';
+      screen.style.display = 'none';
+      document.body.appendChild(screen);
+    }
+
+    screen.innerHTML = '';
+
+    // Title
+    var title = document.createElement('h1');
+    title.style.fontSize = '24px';
+    title.textContent = '选择武器配置';
+    screen.appendChild(title);
+
+    var subtitle = document.createElement('div');
+    subtitle.className = 'subtitle';
+    subtitle.textContent = 'SELECT LOADOUT';
+    screen.appendChild(subtitle);
+
+    // Selection counter
+    var counter = document.createElement('div');
+    counter.style.cssText = 'color:#ffdd00;font-size:14px;margin:8px 0;';
+    counter.textContent = '已选择: ' + selectedIds.length + ' / ' + maxSlots;
+    screen.appendChild(counter);
+
+    // Weapon grid
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:55vh;overflow-y:auto;padding:4px;';
+    screen.appendChild(grid);
+
+    var cfg = window.GAME_CONFIG;
+    var self = this;
+
+    function renderGrid() {
+      grid.innerHTML = '';
+      counter.textContent = '已选择: ' + selectedIds.length + ' / ' + maxSlots;
+
+      for (var i = 0; i < ownedWeaponIds.length; i++) {
+        var wid = ownedWeaponIds[i];
+        var wCfg = (cfg && cfg.WEAPONS && cfg.WEAPONS[wid]) ? cfg.WEAPONS[wid] : null;
+        var isSelected = selectedIds.indexOf(wid) !== -1;
+
+        var card = document.createElement('div');
+        card.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:2px solid ' +
+          (isSelected ? '#ffdd00' : '#334') + ';background:' + (isSelected ? 'rgba(255,221,0,0.12)' : 'rgba(255,255,255,0.04)') + ';transition:border-color 0.15s,background 0.15s;';
+
+        var iconSpan = document.createElement('span');
+        iconSpan.style.cssText = 'font-size:24px;flex-shrink:0;';
+        iconSpan.textContent = wCfg ? (wCfg.icon || '?') : '?';
+        card.appendChild(iconSpan);
+
+        var infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'flex:1;text-align:left;';
+
+        var nameDiv = document.createElement('div');
+        nameDiv.style.cssText = 'font-size:13px;font-weight:bold;color:#fff;';
+        nameDiv.textContent = wCfg ? (wCfg.name || wid) : wid;
+        infoDiv.appendChild(nameDiv);
+
+        var descDiv = document.createElement('div');
+        descDiv.style.cssText = 'font-size:10px;color:#88ccff;margin-top:2px;line-height:1.3;';
+        descDiv.textContent = wCfg ? (wCfg.description || '') : '';
+        infoDiv.appendChild(descDiv);
+
+        card.appendChild(infoDiv);
+
+        if (isSelected) {
+          var checkMark = document.createElement('span');
+          checkMark.style.cssText = 'color:#ffdd00;font-size:18px;flex-shrink:0;';
+          checkMark.textContent = '✓';
+          card.appendChild(checkMark);
+        }
+
+        (function(weaponId) {
+          card.addEventListener('click', function() {
+            var idx = selectedIds.indexOf(weaponId);
+            if (idx !== -1) {
+              selectedIds.splice(idx, 1);
+            } else if (selectedIds.length < maxSlots) {
+              selectedIds.push(weaponId);
+            } else {
+              self.showToast('最多选择 ' + maxSlots + ' 把武器！', 1500);
+              return;
+            }
+            renderGrid();
+          });
+        })(wid);
+
+        grid.appendChild(card);
+      }
+    }
+
+    renderGrid();
+
+    // Confirm button
+    var confirmBtn = document.createElement('button');
+    confirmBtn.className = 'menu-btn';
+    confirmBtn.style.marginTop = '12px';
+    confirmBtn.textContent = '确认配置 (' + selectedIds.length + '/' + maxSlots + ')';
+    confirmBtn.addEventListener('click', function() {
+      if (selectedIds.length === 0) {
+        self.showToast('请至少选择1把武器！', 1500);
+        return;
+      }
+      // Save loadout
+      if (window.WeaponLoadoutManager) {
+        window.WeaponLoadoutManager.save(selectedIds);
+      }
+      // Hide loadout screen
+      screen.style.display = 'none';
+      // Callback
+      if (onConfirm) onConfirm(selectedIds);
+    });
+    screen.appendChild(confirmBtn);
+
+    // Update confirm button text on re-render
+    var origRender = renderGrid;
+    renderGrid = function() {
+      origRender();
+      confirmBtn.textContent = '确认配置 (' + selectedIds.length + '/' + maxSlots + ')';
+    };
+
+    // Show the screen
+    this.showScreen('loadout-screen');
   }
 
   // ====================================================================

@@ -2137,6 +2137,13 @@ class Player {
       }
     }
 
+    // Hard damage cap: no single hit should exceed 40% of max HP.
+    // Enemies that call takeDamage() directly (explosions, latch, boss
+    // reflection, etc.) bypass the per-enemy-type caps in playerTakeDamage()
+    // in main.js.  This safety net prevents huge one-shots from those paths.
+    var hardCap = Math.floor(this.maxHp * 0.4);
+    if (amount > hardCap) amount = hardCap;
+
     var wasShieldActive = this.shield > 0;
 
     // Shield absorbs damage first

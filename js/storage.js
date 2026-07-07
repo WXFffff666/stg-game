@@ -62,14 +62,29 @@ var StorageManager = {
     if (typeof state.kills === 'number') hash ^= state.kills;
     if (typeof state.gameTime === 'number') hash ^= Math.floor(state.gameTime);
     // Include learnedSkills count and skill id hashes
-    if (state.learnedSkills && state.learnedSkills.length) {
-      hash ^= state.learnedSkills.length;
-      for (var i = 0; i < state.learnedSkills.length; i++) {
-        if (typeof state.learnedSkills[i] === 'string') {
+    // learnedSkills can be a Map (live) or array of [key, count] pairs (deserialized)
+    var lsEntries = null;
+    if (state.learnedSkills) {
+      if (state.learnedSkills instanceof Map) {
+        lsEntries = Array.from(state.learnedSkills.entries());
+      } else if (Array.isArray(state.learnedSkills)) {
+        lsEntries = state.learnedSkills;
+      }
+    }
+    if (lsEntries && lsEntries.length) {
+      hash ^= lsEntries.length;
+      for (var i = 0; i < lsEntries.length; i++) {
+        var entry = lsEntries[i];
+        var skillKey = Array.isArray(entry) ? entry[0] : entry;
+        if (typeof skillKey === 'string') {
           // Simple string hash contribution
-          for (var j = 0; j < state.learnedSkills[i].length; j++) {
-            hash ^= state.learnedSkills[i].charCodeAt(j) << (j % 8);
+          for (var j = 0; j < skillKey.length; j++) {
+            hash ^= skillKey.charCodeAt(j) << (j % 8);
           }
+        }
+        // Include stack count in hash
+        if (Array.isArray(entry) && typeof entry[1] === 'number') {
+          hash ^= entry[1];
         }
       }
     }
@@ -78,14 +93,23 @@ var StorageManager = {
 
   /**
    * Save current game state.
-   * @param {Object} state — { score, level, xp, faction, learnedSkills[], gameTime, kills }
+   * @param {Object} state — { score, level, xp, faction, learnedSkills (Map), gameTime, kills }
    */
   saveGame: function (state) {
     if (!state) return false;
     try {
-      var jsonStr = JSON.stringify(state);
+      // Convert Map to array of [key, count] pairs for JSON serialization
+      var saveState = state;
+      if (state.learnedSkills instanceof Map) {
+        saveState = {};
+        for (var k in state) {
+          if (state.hasOwnProperty(k)) saveState[k] = state[k];
+        }
+        saveState.learnedSkills = Array.from(state.learnedSkills.entries());
+      }
+      var jsonStr = JSON.stringify(saveState);
       var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-      var checksum = this._checksum(state);
+      var checksum = this._checksum(saveState);
       var payload = JSON.stringify({ v: this._VERSION, d: encoded, c: checksum });
       _safeStorage.setItem(this._KEY, payload);
       return true;
@@ -98,6 +122,7 @@ var StorageManager = {
   /**
    * Load saved game state.
    * @returns {Object|null} Parsed state, or null if no save / invalid checksum.
+   *   learnedSkills is restored as a Map of skillId → stack count.
    */
   loadGame: function () {
     try {
@@ -116,6 +141,11 @@ var StorageManager = {
       if (this._checksum(state) !== payload.c) {
         console.warn('StorageManager: checksum mismatch — save may have been tampered');
         return null;
+      }
+
+      // Convert learnedSkills from array of [key, count] pairs back to Map
+      if (state.learnedSkills && Array.isArray(state.learnedSkills)) {
+        state.learnedSkills = new Map(state.learnedSkills);
       }
 
       return state;
@@ -396,13 +426,13 @@ var UpgradeManager = {
   },
 
   /**
-   * Add star coins (e.g. after a game run).
+   * Add star coins (e.g. after a game run). Supports negative amounts for purchases.
    * @param {number} amount
    * @returns {number} new total
    */
   addStarCoins: function (amount) {
     var data = this.load();
-    data.starCoins = (data.starCoins || 0) + Math.max(0, amount);
+    data.starCoins = Math.max(0, (data.starCoins || 0) + amount);
     this._save(data);
     return data.starCoins;
   },
@@ -560,6 +590,118 @@ var AchievementManager = {
 
     achievements.push({ id: id, unlockedAt: Date.now() });
     return this._save(achievements);
+  },
+
+  /**
+   * Award an achievement: mark unlocked, show toast, grant star coin reward.
+   * Prevents double-award. Reads reward config from GAME_CONFIG.ACHIEVEMENTS.
+   * @param {string} id — achievement identifier
+   * @returns {boolean} true if newly awarded, false if already unlocked
+   */
+  awardAchievement: function (id) {
+    if (!id) return false;
+
+    // Prevent double-award
+    if (this.isUnlocked(id)) return false;
+
+    // Mark as unlocked
+    this.unlock(id);
+
+    // Find achievement definition for name and reward
+    var cfg = window.GAME_CONFIG;
+    var achDef = null;
+    if (cfg && cfg.ACHIEVEMENTS) {
+      for (var i = 0; i < cfg.ACHIEVEMENTS.length; i++) {
+        if (cfg.ACHIEVEMENTS[i].id === id) {
+          achDef = cfg.ACHIEVEMENTS[i];
+          break;
+        }
+      }
+    }
+
+    var name = achDef ? achDef.name : id;
+    var icon = achDef ? (achDef.icon || '') : '';
+    var coinReward = (achDef && achDef.reward && achDef.reward.starCoins) ? achDef.reward.starCoins : 10;
+
+    // Show toast notification
+    if (window.ui) {
+      window.ui.showToast('🏆 成就解锁: ' + icon + ' ' + name + ' (+' + coinReward + '⭐)', 3500, '#ffdd44');
+    }
+
+    // Award star coins via UpgradeManager
+    if (window.UpgradeManager && typeof window.UpgradeManager.addStarCoins === 'function') {
+      window.UpgradeManager.addStarCoins(coinReward);
+    }
+
+    return true;
+  },
+
+  /**
+   * Check and award all achievements based on run stats.
+   * Called after a game ends. Iterates ACHIEVEMENTS config and evaluates conditions.
+   * @param {Object} stats — { kills, bossKills, surviveTime, score, level, maxCombo, ... }
+   * @returns {number} count of newly awarded achievements
+   */
+  checkAndAward: function (stats) {
+    if (!stats) return 0;
+    var cfg = window.GAME_CONFIG;
+    if (!cfg || !cfg.ACHIEVEMENTS) return 0;
+
+    var awarded = 0;
+    for (var i = 0; i < cfg.ACHIEVEMENTS.length; i++) {
+      var ach = cfg.ACHIEVEMENTS[i];
+      if (!ach.condition) continue;
+
+      var met = false;
+      switch (ach.condition.type) {
+        case 'kills':
+          met = (stats.kills || 0) >= ach.condition.value;
+          break;
+        case 'bossKills':
+          met = (stats.bossKills || 0) >= ach.condition.value;
+          break;
+        case 'survive':
+          met = ((stats.time || 0) / 1000) >= ach.condition.value;
+          break;
+        case 'score':
+          met = (stats.score || 0) >= ach.condition.value;
+          break;
+        case 'level':
+          met = (stats.level || 1) >= ach.condition.value;
+          break;
+        case 'maxCombo':
+          met = (stats.maxCombo || 0) >= ach.condition.value;
+          break;
+        case 'eliteKills':
+          met = (stats.eliteKills || 0) >= ach.condition.value;
+          break;
+        case 'fusions':
+          met = (stats.fusions || 0) >= ach.condition.value;
+          break;
+        case 'maxLevelWeapons':
+          met = (stats.maxLevelWeapons || 0) >= ach.condition.value;
+          break;
+        case 'uniqueBossKills':
+          met = (stats.uniqueBossKills || 0) >= ach.condition.value;
+          break;
+        case 'uniqueFactionWins':
+          met = (stats.uniqueFactionWins || 0) >= ach.condition.value;
+          break;
+        case 'noHitStreak':
+          met = (stats.noHitStreak || 0) >= ach.condition.value;
+          break;
+        case 'bossKillTime':
+          if (stats.bossKills > 0 && stats.bossKillTime > 0) {
+            met = (stats.bossKillTime / 1000) <= ach.condition.value;
+          }
+          break;
+      }
+
+      if (met && this.awardAchievement(ach.id)) {
+        awarded++;
+      }
+    }
+    return awarded;
   },
 
   /**
@@ -941,6 +1083,64 @@ var SettingsManager = {
 };
 
 // ====================================================================
+//  WeaponLoadoutManager — between-run weapon loadout persistence
+// ====================================================================
+
+var WeaponLoadoutManager = {
+  _KEY: 'stg_weapon_loadout',
+  _MAX_SLOTS: 6,
+
+  /**
+   * Load saved weapon loadout.
+   * @returns {Array<string>} array of weapon IDs (up to 6)
+   */
+  load: function () {
+    try {
+      var raw = _safeStorage.getItem(this._KEY);
+      if (!raw) return [];
+      var data = JSON.parse(raw);
+      if (!Array.isArray(data)) return [];
+      return data.slice(0, this._MAX_SLOTS);
+    } catch (e) {
+      return [];
+    }
+  },
+
+  /**
+   * Save weapon loadout.
+   * @param {Array<string>} weaponIds — array of weapon IDs to bring into the run
+   */
+  save: function (weaponIds) {
+    try {
+      var sanitized = [];
+      if (Array.isArray(weaponIds)) {
+        for (var i = 0; i < weaponIds.length && i < this._MAX_SLOTS; i++) {
+          if (typeof weaponIds[i] === 'string') sanitized.push(weaponIds[i]);
+        }
+      }
+      _safeStorage.setItem(this._KEY, JSON.stringify(sanitized));
+    } catch (e) {
+      console.warn('WeaponLoadoutManager.save failed:', e);
+    }
+  },
+
+  /**
+   * Get the number of weapon slots available.
+   * @returns {number}
+   */
+  getMaxSlots: function () {
+    return this._MAX_SLOTS;
+  },
+
+  /**
+   * Clear saved loadout.
+   */
+  clear: function () {
+    _safeStorage.removeItem(this._KEY);
+  }
+};
+
+// ====================================================================
 //  Export to window
 // ====================================================================
 
@@ -951,3 +1151,4 @@ window.AchievementManager = AchievementManager;
 window.StatsManager = StatsManager;
 window.UnlockManager = UnlockManager;
 window.SettingsManager = SettingsManager;
+window.WeaponLoadoutManager = WeaponLoadoutManager;

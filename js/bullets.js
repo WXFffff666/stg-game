@@ -1307,7 +1307,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  11. circle — N bullets in a full 360° circle
   // ----------------------------------------------------------
-  circle: function(x, y, count, speed, damage, color) {
+  circle: function(x, y, count, speed, damage, color, opts) {
     var bullets = [];
     if (count <= 0) return bullets;
 
@@ -1326,7 +1326,8 @@ var BulletPatterns = {
         size: 5,
         hitRadius: 4,
         lifetime: 4,
-        drawLayer: 2
+        drawLayer: 2,
+        sourceCategory: opts && opts.sourceCategory || 'normal'
       });
       bullets.push(bullet);
     }
@@ -1336,7 +1337,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  12. aimed — N bullets aimed at target position with spread
   // ----------------------------------------------------------
-  aimed: function(x, y, count, targetX, targetY, speed, damage, color, spreadAngle) {
+  aimed: function(x, y, count, targetX, targetY, speed, damage, color, spreadAngle, opts) {
     var bullets = [];
     if (count <= 0) return bullets;
 
@@ -1360,7 +1361,8 @@ var BulletPatterns = {
         size: 5,
         hitRadius: 4,
         lifetime: 4,
-        drawLayer: 2
+        drawLayer: 2,
+        sourceCategory: opts && opts.sourceCategory || 'normal'
       });
       bullets.push(bullet);
     }
@@ -1370,7 +1372,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  13. spiralOut — Bullets in expanding spiral pattern
   // ----------------------------------------------------------
-  spiralOut: function(x, y, count, speed, damage, color, spreadAngle) {
+  spiralOut: function(x, y, count, speed, damage, color, spreadAngle, opts) {
     var bullets = [];
     if (count <= 0) return bullets;
 
@@ -1392,7 +1394,8 @@ var BulletPatterns = {
         size: 5,
         hitRadius: 4,
         lifetime: 4,
-        drawLayer: 2
+        drawLayer: 2,
+        sourceCategory: opts && opts.sourceCategory || 'normal'
       });
       bullets.push(bullet);
     }

@@ -677,8 +677,8 @@ class SkillManager {
     this.level = 1;
     this.skillPoints = 0;
 
-    // Learned skills (array of skill IDs)
-    this.learnedSkills = [];
+    // Learned skills: Map of skillId → stack count (1 = base, 2+ = stacked)
+    this.learnedSkills = new Map();
 
     // Weapon levels: Map of weaponId → level (0 = not owned, 1-5 = owned)
     this.weaponLevels = new Map();
@@ -769,7 +769,7 @@ class SkillManager {
 
     var excList = fData.exclusiveSkills;
     for (var i = 0; i < excList.length; i++) {
-      if (this.learnedSkills.indexOf(excList[i]) === -1) return false;
+      if (!this.learnedSkills.has(excList[i])) return false;
     }
     return true;
   }
@@ -1071,7 +1071,7 @@ class SkillManager {
   getSkillChoices(count) {
     count = count || 3;
 
-    // Build pool of unlearned skills (exclude fused skills — they're created via fusion)
+    // Build pool of ALL skills (learned ones can be re-selected for stacking)
     var pool = [];
     var playerFaction = this.player.factionId;
 
@@ -1082,16 +1082,16 @@ class SkillManager {
       // Exclusive skills: only appear for matching faction
       var ownerFaction = _EXCLUSIVE_TO_FACTION[skill.id];
       if (ownerFaction && ownerFaction !== playerFaction) continue;
-      if (this.learnedSkills.indexOf(skill.id) === -1) {
-        pool.push({ _choiceType: 'skill', _data: skill });
-      }
+      var curStack = this.learnedSkills.get(skill.id) || 0;
+      pool.push({ _choiceType: 'skill', _data: skill, _stackCount: curStack });
     }
 
     // Check if ultimate talent should be offered
     if (playerFaction && this._checkUltimateUnlock(playerFaction)) {
       var ultSkill = FACTION_SYSTEM[playerFaction].ultimate;
-      if (ultSkill && this.learnedSkills.indexOf(ultSkill.id) === -1) {
-        pool.push({ _choiceType: 'skill', _data: ultSkill });
+      if (ultSkill) {
+        var ultStack = this.learnedSkills.get(ultSkill.id) || 0;
+        pool.push({ _choiceType: 'skill', _data: ultSkill, _stackCount: ultStack });
       }
     }
 
@@ -1227,21 +1227,25 @@ class SkillManager {
     var skill = this._findSkill(skillId);
     if (!skill) return;
 
-    this.learnedSkills.push(skillId);
+    // Track stack count: increment if already learned, start at 1 if new
+    var prevCount = this.learnedSkills.get(skillId) || 0;
+    this.learnedSkills.set(skillId, prevCount + 1);
 
     switch (skill.type) {
       case 'passive':
-        // Apply stat modifiers from effects array
+        // Apply stat modifiers from effects array (re-apply for each stack)
         this.player.applyStatModifiers(skill.effects);
         break;
       case 'active':
         // Register cooldown tracking; fires automatically when ready
-        this.activeCooldowns.set(skillId, 0);
+        if (prevCount === 0) {
+          this.activeCooldowns.set(skillId, 0);
+        }
         break;
       case 'conditional':
         // Conditional skills are handled by trigger methods (onKill, onHit, etc.)
-        // Register cooldown if skill has one
-        if (skill.cooldown) {
+        // Register cooldown if skill has one (only on first learn)
+        if (skill.cooldown && prevCount === 0) {
           this.conditionalCooldowns.set(skillId, 0);
         }
         break;
@@ -1509,8 +1513,8 @@ class SkillManager {
     for (var j = 0; j < recipes.skills.length; j++) {
       var sRecipe = recipes.skills[j];
       if (this.fusedSkills.has(sRecipe.id)) continue;
-      var hasA = this.learnedSkills.indexOf(sRecipe.ingredientA) !== -1;
-      var hasB = this.learnedSkills.indexOf(sRecipe.ingredientB) !== -1;
+      var hasA = this.learnedSkills.has(sRecipe.ingredientA);
+      var hasB = this.learnedSkills.has(sRecipe.ingredientB);
       // For skills, both must be learned (they don't have levels like weapons)
       // We check if the skill IDs exist in learnedSkills
       if (hasA && hasB) {
@@ -1593,13 +1597,11 @@ class SkillManager {
     this.fusedSkills.add(recipe.id);
 
     // Remove ingredient skills from learnedSkills (they're consumed)
-    var idxA = this.learnedSkills.indexOf(recipe.ingredientA);
-    if (idxA !== -1) this.learnedSkills.splice(idxA, 1);
-    var idxB = this.learnedSkills.indexOf(recipe.ingredientB);
-    if (idxB !== -1) this.learnedSkills.splice(idxB, 1);
+    this.learnedSkills.delete(recipe.ingredientA);
+    this.learnedSkills.delete(recipe.ingredientB);
 
     // Add the fused skill
-    this.learnedSkills.push(recipe.result);
+    this.learnedSkills.set(recipe.result, 1);
 
     // Apply the fused skill's effects
     var fusedSkill = this._findSkill(recipe.result);
@@ -1845,14 +1847,15 @@ class SkillManager {
    */
   _fireConditional(trigger, x, y) {
     var player = this.player;
-    for (var i = 0; i < this.learnedSkills.length; i++) {
-      var skill = this._findSkill(this.learnedSkills[i]);
-      if (!skill || skill.type !== 'conditional' || skill.trigger !== trigger) continue;
+    var self = this;
+    this.learnedSkills.forEach(function(count, skillId) {
+      var skill = self._findSkill(skillId);
+      if (!skill || skill.type !== 'conditional' || skill.trigger !== trigger) return;
 
       // Check conditional cooldown
       if (skill.cooldown) {
-        var cd = this.conditionalCooldowns.get(skill.id) || 0;
-        if (cd > 0) continue;
+        var cd = self.conditionalCooldowns.get(skill.id) || 0;
+        if (cd > 0) return;
       }
 
       // Check probability (chance field on individual effects)
@@ -1871,11 +1874,11 @@ class SkillManager {
       }
 
       var allFx = guaranteed.concat(byChance);
-      if (allFx.length === 0) continue;
+      if (allFx.length === 0) return;
 
       // Set cooldown if skill has one
       if (skill.cooldown) {
-        this.conditionalCooldowns.set(skill.id, skill.cooldown);
+        self.conditionalCooldowns.set(skill.id, skill.cooldown);
       }
 
       // Position for position-dependent effects
@@ -1884,14 +1887,14 @@ class SkillManager {
 
       // Apply effects
       for (var k = 0; k < allFx.length; k++) {
-        this._applyEffect(allFx[k], posX, posY, skill);
+        self._applyEffect(allFx[k], posX, posY, skill);
       }
 
       // If skill has a duration, register temp buff tracking
       if (skill.duration && allFx.length > 0) {
-        this._registerTempTimer(skill, allFx);
+        self._registerTempTimer(skill, allFx);
       }
-    }
+    });
   }
 
   /**
