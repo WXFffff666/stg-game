@@ -21,7 +21,13 @@ const GAME_CONFIG = {
     XP_PER_KILL_BASE: 10,
     XP_CURVE: [0, 40, 90, 160, 250, 375, 525, 700, 925, 1200, 3050, 3800, 4700, 5750, 7000, 8500, 10200, 12200, 14600, 17500,
       21000, 25000, 30000, 36000, 43000, 51000, 60000, 70000, 82000, 96000, 112000, 130000, 150000, 172000, 197000, 225000,
-      256000, 290000, 328000, 370000, 416000, 466000, 520000, 580000, 645000, 715000, 790000, 870000, 955000, 1045000
+      256000, 290000, 328000, 370000, 416000, 466000, 520000, 580000, 645000, 715000, 790000, 870000, 955000, 1045000,
+      // Extended levels 51-100 (formula: 40 * 1.12^(level-1))
+      11560, 12947, 14501, 16241, 18190, 20373, 22818, 25556, 28622, 32057,
+      35904, 40212, 45038, 50442, 56495, 63275, 70868, 79372, 88897, 99564,
+      111512, 124893, 139880, 156666, 175466, 196522, 220104, 246517, 276099, 309230,
+      346338, 387899, 434447, 486580, 544970, 610366, 683610, 765643, 857520, 960423,
+      1075673, 1204754, 1349325, 1511244, 1692593, 1895704, 2123189, 2377971, 2663328, 2982927
     ],
     DIFFICULTY_INTERVAL: 45000,
     DIFFICULTY_MULTIPLIER: 0.05,
@@ -45,6 +51,23 @@ const GAME_CONFIG = {
     MAX_BOSS_HP_MULTIPLIER: 5.0,
     COMBO_TIMEOUT: 3000,
     COMBO_MULTIPLIER: 0.1,
+
+    // ============ D4: Boss Scaling ============
+    BOSS_SCALE_PER_KILL: 0.12,
+    BOSS_DMG_PER_KILL: 0.08,
+    FIRST_BOSS_HP_MULTIPLIER: 0.7,
+    STAR_COIN_MILESTONES: [
+      { minutes: 10, bonus: 50 },
+      { minutes: 20, bonus: 150 },
+      { minutes: 30, bonus: 300 },
+    ],
+
+    // ============ D1: Time-based Difficulty ============
+    EARLY_GAME_DURATION: 300,
+    MID_GAME_DURATION: 900,
+    DIFFICULTY_EARLY_RATE: 0.002,
+    DIFFICULTY_MID_RATE: 0.003,
+    DIFFICULTY_LATE_RATE: 0.005,
 
     // ============ Damage Cap (anti one-shot) ============
     // Max % of player HP that a single hit can deal (after all modifiers)
@@ -88,7 +111,12 @@ const GAME_CONFIG = {
 
     // ============ 武器槽配置 ============
     MAX_WEAPON_SLOTS: 6,
-    MAX_PASSIVE_SLOTS: 6,         // 子弹上限
+    MAX_PASSIVE_SLOTS: 6,
+    // Slot expansion costs (gold): slot index → cost (0 for free/foundational slots)
+    WEAPON_SLOT_COST: [0, 0, 0, 0, 0, 0, 0, 300, 600],
+    PASSIVE_SLOT_COST: [0, 0, 0, 0, 0, 0, 0, 250, 500],
+    MAX_WEAPON_SLOT_TOTAL: 8,
+    MAX_PASSIVE_SLOT_TOTAL: 8,
   },
 
   // ============ SCENES ============
@@ -2200,6 +2228,32 @@ const GAME_CONFIG = {
     { id: 'ach_speed_run', name: '速通达人', icon: '⚡', description: '在3分钟内击败3个Boss', condition: { type: 'speedRun', value: 180000 } },
   ],
 
+  // ============ CHALLENGES (G5 - Challenge Modes) ============
+  CHALLENGES: [
+    { id: 'ch_no_weapons', name: '赤手空拳', icon: '✊', desc: '游戏开始时无武器', rules: { weaponSlots: 0 }, reward: 50 },
+    { id: 'ch_glass_cannon', name: '玻璃大炮', icon: '💔', desc: 'HP减半，攻击力3倍', rules: { hpMultiplier: 0.5, attackMultiplier: 3.0 }, reward: 40 },
+    { id: 'ch_pacifist', name: '和平主义', icon: '☮️', desc: '攻击力-80%，移速+60%', rules: { attackMultiplier: 0.2, speedMultiplier: 1.6 }, reward: 35 },
+    { id: 'ch_slow_motion', name: '慢动作', icon: '🐌', desc: '游戏速度-40%，经验+50%', rules: { timeScale: 0.6, xpMultiplier: 1.5 }, reward: 30 },
+    { id: 'ch_speedrun', name: '速通', icon: '⚡', desc: '游戏速度+40%，敌人HP-30%', rules: { timeScale: 1.4, enemyHpMultiplier: 0.7 }, reward: 35 },
+    { id: 'ch_magnet_only', name: '磁力大师', icon: '🧲', desc: '拾取范围+300%，攻击力-40%', rules: { pickupRangeBonus: 300, attackMultiplier: 0.6 }, reward: 25 },
+    { id: 'ch_double_trouble', name: '双重麻烦', icon: '👥', desc: '敌人生成数量翻倍，掉落翻倍', rules: { enemyCountMultiplier: 2.0, dropRateMultiplier: 2.0 }, reward: 45 },
+    { id: 'ch_fragile', name: '脆弱', icon: '💧', desc: '护甲归零，每3秒自动回血5%', rules: { defense: 0, regenPerSec: 0.0167 }, reward: 30 },
+    // D3/G5: New challenge modes
+    { id: 'one_weapon', name: '单武器大师', desc: '仅1个武器槽', icon: '🗡️', rules: { maxWeaponSlots: 1, skillEffectBonus: 0.5 } },
+    { id: 'pacifist', name: '和平主义者', desc: '不能射击', icon: '☮️', rules: { noWeapons: true, passiveDamageBonus: 3.0 } },
+    { id: 'glass_cannon', name: '玻璃大炮', desc: '50%HP,200%伤害', icon: '💥', rules: { hpMult: 0.5, damageMult: 2.0 } },
+    { id: 'bullet_hell', name: '弹幕地狱', desc: '3倍子弹', icon: '🔥', rules: { enemyBulletMult: 3.0, playerSpeedMult: 2.0 } },
+    { id: 'chaos', name: '混沌模式', desc: '每60秒随机更换', icon: '🌀', rules: { randomizeEvery: 60 } },
+  ],
+
+  // ============ ENDLESS MODE (G4) ============
+  ENDLESS_MODE: {
+    postWave30DiffScale: 1.1,   // 每波难度×1.1
+    regenChance: 0.03,          // 敌人3%概率再生
+    volatileChance: 0.03,       // 敌人3%概率易爆
+    regenAmount: 0.15,          // 再生回复15%HP
+  },
+
   // ============ CHARACTERS (3) ============
   // Each character has different base stat modifiers
   CHARACTERS: {
@@ -3686,10 +3740,18 @@ const GAME_CONFIG = {
   },
 
   // ============ PERMANENT_UPGRADES (Star Coin System) ============
-  // Star coins = minutes * 10 + kills * 2 + bossKills * 100
+  // Star coins = minutes * 10 + kills * 2 + bossKills * 100 + milestones + daily bonus
   PERMANENT_UPGRADES: {
     directions: ['attack', 'hp', 'speed', 'xp', 'dropRate'],
     starCoinFormula: function(minutes, kills, bossKills) { return Math.floor(minutes * 10 + kills * 2 + bossKills * 100); },
+    // Milestone bonuses for survival time (minutes)
+    starCoinMilestones: [
+      { minutes: 10, bonus: 50,  label: '生存10分钟' },
+      { minutes: 20, bonus: 150, label: '生存20分钟' },
+      { minutes: 30, bonus: 300, label: '生存30分钟' },
+    ],
+    // Daily first-clear bonus: 1.5x coins for first game each calendar day
+    dailyFirstClearMultiplier: 1.5,
     resetRefundRate: 0.8,
     attack: { id: 'attack', name: '攻击强化', icon: '⚔️', description: '每级+3%攻击力', maxLevel: 20, effectPerLevel: { stat: 'attack', op: 'multiply', value: 0.03 }, costFormula: function(level) { return Math.floor(50 * Math.pow(1.5, level)); } },
     hp: { id: 'hp', name: '生命强化', icon: '❤️', description: '每级+4%最大生命', maxLevel: 15, effectPerLevel: { stat: 'hp', op: 'multiply', value: 0.04 }, costFormula: function(level) { return Math.floor(60 * Math.pow(1.5, level)); } },
@@ -3749,3 +3811,6 @@ GAME_CONFIG.RARITY_WEIGHTS = {
 if (typeof window !== 'undefined') {
   window.GAME_CONFIG = GAME_CONFIG;
 }
+
+// ============ D3: Seeded RNG (mulberry32) ============
+function mulberry32(seed) { return function() { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; } }

@@ -992,7 +992,8 @@ var SettingsManager = {
     masterVolume: 1.0,
     musicVolume: 0.7,
     sfxVolume: 1.0,
-    effectsQuality: 'high' // 'low', 'medium', 'high'
+    effectsQuality: 'high', // 'low', 'medium', 'high'
+    screenShake: true
   },
 
   _checksum: function (settings) {
@@ -1005,6 +1006,7 @@ var SettingsManager = {
         hash ^= settings.effectsQuality.charCodeAt(i) << (i % 4);
       }
     }
+    if (typeof settings.screenShake === 'boolean') hash ^= settings.screenShake ? 0xFFFF : 0;
     return hash >>> 0;
   },
 

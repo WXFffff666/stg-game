@@ -118,6 +118,46 @@ class AudioManager {
     this._playNoise(0.2, 0.12, 1000);
   }
 
+  /** C2: Higher-pitched impact for critical hits */
+  playCrit() {
+    this._ensureContext();
+    if (this._muted) return;
+    var ctx = this._ctx;
+    var now = ctx.currentTime;
+
+    // High-pitched sharp tone
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain);
+    gain.connect(this._masterGain);
+    osc.start(now);
+    osc.stop(now + 0.2);
+
+    // Overlay: short noise burst for impact
+    var sampleRate = ctx.sampleRate;
+    var bufLen = Math.floor(sampleRate * 0.1);
+    var buffer = ctx.createBuffer(1, bufLen, sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+    }
+    var noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+    var noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.06, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    noiseSource.connect(noiseGain);
+    noiseGain.connect(this._masterGain);
+    noiseSource.start(now);
+    noiseSource.stop(now + 0.11);
+  }
+
   playBigExplosion() {
     this._ensureContext();
     if (this._muted) return;
