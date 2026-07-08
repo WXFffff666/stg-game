@@ -25,15 +25,19 @@ class Enemy {
     this.startX = this.x;
     this.moveTimer = 0;
 
+    // D2: Enemy level system - scales with player level ± random variance
+    var _skillManager = window.skillManager || (window.game ? window.game.skillManager : null);
+    this.enemyLevel = Math.max(1, Math.floor((_skillManager ? _skillManager.level : 1) + Math.random() * 6 - 3));
+
     // Stats (scaled by difficulty): HP = base × (1 + diff × 0.06)²
     var hpScale = Math.pow(1 + diff * 0.06, 2);
     // 难度曲线：前期HP×0.8，后期HP逐渐增加
     if (window.game && window.game.hpMultiplier) hpScale *= window.game.hpMultiplier;
-    this.maxHp = Math.floor(template.hp * hpScale);
+    this.maxHp = Math.floor(template.hp * hpScale * (1 + (this.enemyLevel - 1) * 0.08));
     this.hp = this.maxHp;
     this.speed = template.speed;
     this.baseSpeed = template.speed;
-    this.damage = Math.floor(template.damage * (1 + diff * 0.04));
+    this.damage = Math.floor(template.damage * (1 + diff * 0.04) * (1 + (this.enemyLevel - 1) * 0.05));
     this.bulletDamage = Math.floor((template.bulletDamage || template.damage) * (1 + diff * 0.04));
     this.score = template.score;
     this.xp = template.xp;
@@ -419,6 +423,61 @@ class Enemy {
         // Enemy died from burn DOT - trigger kill handler
         if (window.handleEnemyKilled) window.handleEnemyKilled(this, false, 0);
         return;
+      }
+    }
+
+    // C3: Shock status - periodic chain lightning tick
+    if (this._shockTimer > 0) {
+      // Shock tick timer
+      this._shockTickTimer = (this._shockTickTimer || 0) + dt;
+      var shockTickInterval = this._shockTickInterval || 0.5;
+      if (this._shockTickTimer >= shockTickInterval) {
+        this._shockTickTimer = 0;
+        var shockTickDmg = this._shockDamage || 5;
+        var alive3 = this.takeDamage(shockTickDmg);
+        // Show shock damage number
+        if (window.ParticleSystem) {
+          window.ParticleSystem.damageNumber(this.x + 12, this.y - this.size, Math.round(shockTickDmg), '#ffff44');
+        }
+        // Chain to near est enemies
+        if (game) {
+          var shockTargets = [];
+          for (var si = 0; si < game.enemies.length; si++) {
+            var se = game.enemies[si];
+            if (!se.active || se === this) continue;
+            var sdx = se.x - this.x;
+            var sdy = se.y - this.y;
+            var sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sdist < this._shockChainRange) {
+              shockTargets.push({ enemy: se, dist: sdist });
+            }
+          }
+          shockTargets.sort(function(a, b) { return a.dist - b.dist; });
+          var chainCount = Math.min(shockTargets.length, this._shockChainCount || 3);
+          for (var ci = 0; ci < chainCount; ci++) {
+            var chainTarget = shockTargets[ci].enemy;
+            var chainDmg = Math.floor(shockTickDmg * 0.5);
+            chainTarget.takeDamage(chainDmg);
+            if (window.ParticleSystem) {
+              window.ParticleSystem.lightning(this.x, this.y, chainTarget.x, chainTarget.y, '#ffff44');
+              window.ParticleSystem.damageNumber(chainTarget.x, chainTarget.y - chainTarget.size / 2, chainDmg, '#ffdd00');
+            }
+          }
+        }
+        // Shock particles
+        if (window.ParticleSystem) {
+          window.ParticleSystem.spawn(this.x + (Math.random() - 0.5) * this.size, this.y + (Math.random() - 0.5) * this.size, {
+            count: 1, speed: 40, life: 250, colors: ['#ffff44', '#ffff88', '#ffffff'], size: 2, isSquare: true, gravity: -20
+          });
+        }
+        if (!alive3) {
+          if (window.handleEnemyKilled) window.handleEnemyKilled(this, false, 0);
+          return;
+        }
+      }
+      this._shockTimer -= dt * 1000;
+      if (this._shockTimer <= 0) {
+        this._shockTimer = 0;
       }
     }
 
@@ -4240,6 +4299,56 @@ class Enemy {
     ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(-barWidth / 2, yOffset, barWidth, barHeight);
+
+    // C3: Status icons above HP bar (small colored dots)
+    var iconX = -barWidth / 2;
+    var iconY = yOffset - 9;
+    var iconSpacing = 10;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    if (this.burnTimer > 0) {
+      ctx.fillStyle = '#ff6600';
+      ctx.beginPath();
+      ctx.arc(iconX + 4, iconY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('🔥', iconX, iconY - 1);
+      iconX += iconSpacing;
+    }
+    if (this.frozenTimer > 0) {
+      ctx.fillStyle = '#88ccff';
+      ctx.beginPath();
+      ctx.arc(iconX + 4, iconY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('❄', iconX, iconY - 1);
+      iconX += iconSpacing;
+    } else if (this.slowTimer > 0) {
+      ctx.fillStyle = '#6699cc';
+      ctx.beginPath();
+      ctx.arc(iconX + 4, iconY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText('💧', iconX - 1, iconY - 1);
+      iconX += iconSpacing;
+    }
+    if (this.poisonTimer > 0) {
+      ctx.fillStyle = '#55cc44';
+      ctx.beginPath();
+      ctx.arc(iconX + 4, iconY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText('☠', iconX - 1, iconY - 1);
+      iconX += iconSpacing;
+    }
+    if (this._shockTimer > 0 || this._shockedTimer > 0) {
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      ctx.arc(iconX + 4, iconY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText('⚡', iconX - 1, iconY - 1);
+      iconX += iconSpacing;
+    }
   }
 }
 
@@ -4484,6 +4593,15 @@ class WaveSpawner {
     this.waveState = 'pause';
     this.wavePauseTimer = 0;
 
+    // A4: Auto-pop wave shop after every wave clear (Brotato-style)
+    // Delay shop slightly so wave clear message is visible
+    var self = this;
+    setTimeout(function() {
+      if (typeof window._showWaveShopPopup === 'function') {
+        window._showWaveShopPopup(self.waveNumber);
+      }
+    }, 800);
+
     // Boss wave cooldown: 10 seconds after boss is defeated
     if (this.waveNumber % 10 === 0) {
       this.wavePauseDuration = 10000; // 10 seconds cooldown
@@ -4725,14 +4843,7 @@ class WaveSpawner {
 
     const positions = this._getSpawnPositions(count, spacing, pattern, cfg);
 
-    // Scale HP by wave number: HP = base × (1 + wave × 0.06)²
-    const waveHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
-    // Scale damage by wave number: damage = base × (1 + wave × 0.04)
-    const waveDmgScale = 1 + this.waveNumber * 0.04;
-    const scaledConfig = Object.assign({}, enemyConfig);
-    scaledConfig.hp = Math.floor(enemyConfig.hp * waveHpScale);
-    scaledConfig.damage = Math.floor(enemyConfig.damage * waveDmgScale);
-    scaledConfig.bulletDamage = Math.floor((enemyConfig.bulletDamage || enemyConfig.damage) * waveDmgScale);
+    // HP/damage scaling is handled by the Enemy constructor (prevents double-scaling)
 
     for (const pos of positions) {
       // Queue entry warning: red arrow 0.5s before spawn
@@ -4741,7 +4852,7 @@ class WaveSpawner {
         y: pos.y,
         timer: 0,
         duration: this.WARNING_DURATION,
-        config: scaledConfig,
+        config: enemyConfig,
         difficulty: difficulty,
       });
     }
@@ -4936,9 +5047,414 @@ class WaveSpawner {
 
 
 // =============================================================================
+// F1: OBSTACLE CLASS
+// =============================================================================
+var Obstacle = function(x, y, radius, hp) {
+  this.x = x; this.y = y;
+  this.radius = radius || (25 + Math.random() * 25);
+  this.hp = hp || (80 + Math.floor(Math.random() * 120));
+  this.maxHp = this.hp;
+  this.active = true;
+  this.category = 'obstacle';
+  this.drawLayer = 3;
+  this.hitRadius = this.radius;
+  this._hitFlash = 0;
+};
+Obstacle.prototype = {
+  update: function(dt) {
+    if (!this.active) return;
+    if (this._hitFlash > 0) this._hitFlash -= dt;
+    if (this.hp <= 0) {
+      this.active = false;
+      if (window.ParticleSystem) ParticleSystem.explosion(this.x, this.y, 'small');
+    }
+  },
+  draw: function(ctx) {
+    if (!this.active) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    var r = this.radius;
+    var points = 10;
+    var flash = this._hitFlash > 0;
+    ctx.beginPath();
+    for (var i = 0; i < points; i++) {
+      var angle = (Math.PI * 2 / points) * i;
+      var jitter = 0.65 + Math.random() * 0.35;
+      var px = Math.cos(angle) * r * jitter;
+      var py = Math.sin(angle) * r * jitter;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = flash ? '#999' : '#666666';
+    ctx.fill();
+    ctx.strokeStyle = flash ? '#bbb' : '#888888';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Craters
+    ctx.fillStyle = 'rgba(80,80,80,0.5)';
+    ctx.beginPath(); ctx.arc(-r * 0.2, -r * 0.15, r * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.25, r * 0.1, r * 0.13, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, r * 0.3, r * 0.1, 0, Math.PI * 2); ctx.fill();
+    // Highlight edge
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.85, -Math.PI * 0.4, Math.PI * 0.2);
+    ctx.stroke();
+    // HP bar
+    if (this.hp < this.maxHp) {
+      var barW = r * 1.5, barH = 4;
+      var barX = -barW / 2, barY = -r - 10;
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(barX, barY, barW * (this.hp / this.maxHp), barH);
+    }
+    ctx.restore();
+  },
+  onHit: function(dmg) { this.hp -= dmg; this._hitFlash = 0.1; }
+};
+
+// =============================================================================
+// F2: DAMAGE ZONE CLASS
+// =============================================================================
+var DamageZone = function(x, y, radius, dps, duration, type) {
+  this.x = x; this.y = y;
+  this.radius = radius || 80;
+  this.dps = dps || 15;
+  this.duration = duration || 5;
+  this.type = type || 'fire';
+  this._timer = 0;
+  this._damageAccum = 0;
+  this.active = true;
+  this.category = 'particle';
+  this.drawLayer = 1;
+  this.hitRadius = 0;
+};
+DamageZone.prototype = {
+  update: function(dt) {
+    if (!this.active) return;
+    this._timer += dt;
+    if (this._timer >= this.duration) { this.active = false; return; }
+    // Damage player within radius
+    var game = window.game;
+    if (game && game.player && game.player.active) {
+      var p = game.player;
+      var dx = p.x - this.x, dy = p.y - this.y;
+      if (dx * dx + dy * dy < this.radius * this.radius) {
+        this._damageAccum += this.dps * dt;
+        if (this._damageAccum >= 1) {
+          var ticks = Math.floor(this._damageAccum);
+          for (var t = 0; t < ticks; t++) {
+            if (p.takeDamage) p.takeDamage(1);
+          }
+          this._damageAccum -= ticks;
+        }
+      }
+    }
+  },
+  draw: function(ctx) {
+    if (!this.active) return;
+    var alpha = 0;
+    if (this._timer < 0.5) alpha = this._timer / 0.5 * 0.25;
+    else if (this._timer > this.duration - 1) alpha = Math.max(0, (this.duration - this._timer)) * 0.25;
+    else alpha = 0.25;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(this.x, this.y);
+    var colors = { fire: '#ff4400', poison: '#44cc22', ice: '#66ccff' };
+    var clr = colors[this.type] || '#ff4400';
+    ctx.fillStyle = clr;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+    // Pulsing border
+    var pulse = 0.7 + Math.sin(this._timer * 3) * 0.3;
+    ctx.strokeStyle = clr;
+    ctx.lineWidth = 2 * pulse;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+// =============================================================================
+// F3: DESTRUCTIBLE CLASS (crates & crystals)
+// =============================================================================
+var Destructible = function(x, y, type) {
+  this.x = x; this.y = y;
+  this.type = type || 'crate';
+  this.active = true;
+  this.category = 'enemy';
+  this.drawLayer = 2;
+  this.size = 20;
+  this._hitFlash = 0;
+
+  if (type === 'crate') {
+    this.hp = 80; this.maxHp = 80;
+    this.color = '#8B6914'; this.hitRadius = 18;
+  } else if (type === 'crystal') {
+    this.hp = 120; this.maxHp = 120;
+    this.color = '#4488ff'; this.hitRadius = 16;
+  }
+  // Track which bullets already hit this frame (prevent double-hit per frame)
+  this._hitBy = {};
+  this._hitFrame = 0;
+};
+Destructible.prototype = {
+  update: function(dt) {
+    if (!this.active) return;
+    if (this._hitFlash > 0) this._hitFlash -= dt;
+    this._hitFrame++;
+    if (this.hp <= 0) { this.active = false; this._onDestroy(); }
+
+    // Enemy bullet proximity damage (for "both player and enemy bullets damage it")
+    var game = window.game;
+    if (game && game.enemyBullets) {
+      var r2 = this.hitRadius * this.hitRadius;
+      for (var i = 0; i < game.enemyBullets.length; i++) {
+        var b = game.enemyBullets[i];
+        if (!b.active || !b.damage) continue;
+        var key = 'eb_' + i;
+        if (this._hitBy[key] === this._hitFrame) continue;
+        var dx = b.x - this.x, dy = b.y - this.y;
+        if (dx * dx + dy * dy < r2) {
+          this._hitBy[key] = this._hitFrame;
+          this.hp -= b.damage || 5;
+          this._hitFlash = 0.1;
+          b.active = false;
+          if (this.hp <= 0) { this.active = false; this._onDestroy(); return; }
+        }
+      }
+    }
+  },
+  draw: function(ctx) {
+    if (!this.active) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    var s = this.size;
+    var flash = this._hitFlash > 0;
+    if (this.type === 'crate') {
+      ctx.fillStyle = flash ? '#cc9933' : this.color;
+      ctx.fillRect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
+      ctx.strokeStyle = '#5C4010'; ctx.lineWidth = 2;
+      ctx.strokeRect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
+      ctx.beginPath(); ctx.moveTo(-s * 0.7, -s * 0.7); ctx.lineTo(s * 0.7, s * 0.7);
+      ctx.moveTo(s * 0.7, -s * 0.7); ctx.lineTo(-s * 0.7, s * 0.7); ctx.stroke();
+    } else {
+      // Crystal diamond
+      ctx.fillStyle = flash ? '#88ccff' : this.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.8); ctx.lineTo(s * 0.5, 0);
+      ctx.lineTo(0, s * 0.8); ctx.lineTo(-s * 0.5, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#aaddff'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.2, 0, Math.PI * 2); ctx.fill();
+    }
+    if (this.hp < this.maxHp) {
+      var barW = s * 1.2, barH = 3;
+      ctx.fillStyle = 'rgba(255,0,0,0.7)';
+      ctx.fillRect(-barW / 2, -s - 8, barW, barH);
+      ctx.fillStyle = 'rgba(0,255,0,0.7)';
+      ctx.fillRect(-barW / 2, -s - 8, barW * (this.hp / this.maxHp), barH);
+    }
+    ctx.restore();
+  },
+  takeDamage: function(dmg) {
+    this.hp -= dmg; this._hitFlash = 0.1;
+    if (this.hp <= 0) { this.active = false; this._onDestroy(); }
+  },
+  _onDestroy: function() {
+    var game = window.game;
+    if (!game) return;
+    if (window.ParticleSystem) ParticleSystem.explosion(this.x, this.y, 'small');
+    if (this.type === 'crate') {
+      // Drop 1-3 GoldCoin
+      var count = 1 + Math.floor(Math.random() * 3);
+      for (var i = 0; i < count; i++) {
+        if (typeof window.GoldCoin === 'function') {
+          game.addEntity(new GoldCoin(
+            this.x + (Math.random() - 0.5) * 20,
+            this.y + (Math.random() - 0.5) * 10,
+            5 + Math.floor(Math.random() * 15),
+            (Math.random() - 0.5) * 100,
+            -(80 + Math.random() * 120)
+          ));
+        }
+      }
+    } else if (this.type === 'crystal') {
+      // Drop 1 item - try item spawn helper, fallback to gold
+      if (typeof window._spawnItem === 'function') {
+        var items = ['health', 'energy', 'shield'];
+        window._spawnItem(this.x, this.y, items[Math.floor(Math.random() * items.length)]);
+      } else if (typeof window.GoldCoin === 'function') {
+        game.addEntity(new GoldCoin(this.x, this.y, 20 + Math.floor(Math.random() * 30), (Math.random() - 0.5) * 80, -150));
+      }
+    }
+  }
+};
+
+// =============================================================================
+// F4: EVENT MANAGER (random events every 120-240s)
+// =============================================================================
+var EventManager = {
+  _timer: 0,
+  _nextTrigger: 120,
+  _activeEvent: null,
+  _eventTimer: 0,
+  _eventDuration: 0,
+
+  eventPool: [
+    {
+      name: 'GoldRain', label: '💰 Gold Rain!', color: '#ffd700',
+      description: 'Double gold for 15s', duration: 15,
+      effect: function() {
+        var g = window.game; if (g) g._goldMultiplier = 2;
+      }
+    },
+    {
+      name: 'XpBoost', label: '✨ XP Boost!', color: '#44ff44',
+      description: 'Double XP for 20s', duration: 20,
+      effect: function() {
+        var g = window.game; if (g) g._xpMultiplier = 2;
+      }
+    },
+    {
+      name: 'EnemyFrenzy', label: '👾 Enemy Frenzy!', color: '#ff4444',
+      description: 'Massive enemy wave incoming!', duration: 12,
+      effect: function() {
+        var g = window.game;
+        if (!g) return;
+        // Spawn extra enemies continuously for the duration
+        g._frenzyTimer = 0;
+        g._frenzyInterval = 0.5; // Every 0.5s
+        g._frenzyActive = true;
+      }
+    },
+    {
+      name: 'EarlyBoss', label: '💀 Early Boss!', color: '#ff44ff',
+      description: 'A boss appears early!', duration: 0,
+      effect: function() {
+        var g = window.game;
+        if (!g || !g._waveSpawner) return;
+        // Spawn a mini-boss immediately
+        var bossTemplates = ['boss_guardian', 'boss_summoner'];
+        var tplId = bossTemplates[Math.floor(Math.random() * bossTemplates.length)];
+        var tpl = GAME_CONFIG.ENEMIES[tplId];
+        if (tpl) {
+          var boss = new Enemy({ x: g.width * (0.2 + Math.random() * 0.6), y: -60 }, tpl, g.difficulty);
+          g.addEntity(boss);
+        }
+      }
+    }
+  ],
+
+  reset: function() {
+    this._timer = 0;
+    this._nextTrigger = 120 + Math.random() * 120;
+    this._activeEvent = null;
+    this._eventTimer = 0;
+    this._eventDuration = 0;
+  },
+
+  update: function(dt) {
+    var game = window.game;
+    if (!game || game.scene !== GAME_CONFIG.SCENES.GAMEPLAY) return;
+
+    this._timer += dt;
+
+    // Enemy Frenzy spawner (tick while active)
+    if (game._frenzyActive) {
+      game._frenzyTimer += dt;
+      if (game._frenzyTimer >= game._frenzyInterval) {
+        game._frenzyTimer = 0;
+        var pool = GAME_CONFIG.WAVES.enemyPool;
+        if (pool) {
+          var avail = [];
+          for (var k in pool) { if (pool.hasOwnProperty(k)) avail.push(k); }
+          if (avail.length > 0) {
+            var id = avail[Math.floor(Math.random() * avail.length)];
+            var tpl = GAME_CONFIG.ENEMIES[id];
+            if (tpl) {
+              for (var s = 0; s < 3; s++) {
+                game.addEntity(new Enemy(
+                  { x: game.width * (0.1 + Math.random() * 0.8), y: -(30 + Math.random() * 80) },
+                  tpl, game.difficulty
+                ));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Active event countdown
+    if (this._activeEvent) {
+      this._eventTimer += dt;
+      if (this._eventDuration > 0 && this._eventTimer >= this._eventDuration) {
+        this._endEvent();
+      } else if (this._eventDuration === 0) {
+        this._endEvent(); // Instant one-shot event (e.g. EarlyBoss)
+      }
+      return;
+    }
+
+    // Trigger new event
+    if (this._timer >= this._nextTrigger) {
+      this._triggerRandomEvent();
+      this._timer = 0;
+      this._nextTrigger = 120 + Math.random() * 120;
+    }
+  },
+
+  getActiveEvent: function() {
+    return this._activeEvent;
+  },
+
+  _triggerRandomEvent: function() {
+    var game = window.game;
+    var pool = this.eventPool;
+    var event = pool[Math.floor(Math.random() * pool.length)];
+
+    this._activeEvent = event;
+    this._eventTimer = 0;
+    this._eventDuration = event.duration;
+
+    if (game.addMessage) {
+      game.addMessage(event.label + ' - ' + event.description, event.color);
+    }
+    if (event.effect) event.effect();
+  },
+
+  _endEvent: function() {
+    var game = window.game;
+    this._activeEvent = null;
+    this._eventTimer = 0;
+    this._eventDuration = 0;
+    // Reset global multipliers
+    if (game._goldMultiplier) game._goldMultiplier = 1;
+    if (game._xpMultiplier) game._xpMultiplier = 1;
+    if (game._frenzyActive) {
+      game._frenzyActive = false;
+      game._frenzyTimer = 0;
+      game._frenzyInterval = 0;
+    }
+  }
+};
+
+
+// =============================================================================
 // EXPORT TO WINDOW
 // =============================================================================
 if (typeof window !== 'undefined') {
   window.Enemy = Enemy;
   window.WaveSpawner = WaveSpawner;
+  // F1-F4 new entity classes
+  window.Obstacle = Obstacle;
+  window.DamageZone = DamageZone;
+  window.Destructible = Destructible;
+  window.EventManager = EventManager;
 }
