@@ -3260,7 +3260,7 @@
 
     // 默认击杀回血2%（所有流派）
     if (playerEntity && playerEntity.active) {
-      var healAmount = Math.floor(playerEntity.stats.maxHp * 0.02);
+      var healAmount = Math.floor(playerEntity.maxHp * 0.02);
       playerEntity.heal(healAmount);
       // 显示回血飘字
       if (window.ParticleSystem) {
@@ -3286,7 +3286,7 @@
     if (game.dropMultiplier && game.dropMultiplier > 1) {
       dropChance *= game.dropMultiplier;
     }
-    if (playerEntity && playerEntity.hp / playerEntity.stats.maxHp < cfg.BALANCE.LOW_HP_THRESHOLD) {
+    if (playerEntity && playerEntity.hp / playerEntity.maxHp < cfg.BALANCE.LOW_HP_THRESHOLD) {
       dropChance += cfg.BALANCE.LOW_HP_DROP_BONUS;
     }
     if (itemSpawner && Math.random() < dropChance * dropChanceMult) {

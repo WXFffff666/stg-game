@@ -2219,6 +2219,7 @@ class Player {
    * @param {number} amount
    */
   heal(amount) {
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return;
     var before = this.hp;
     this.hp = Math.min(this.maxHp, this.hp + amount);
     var actualHeal = this.hp - before;
