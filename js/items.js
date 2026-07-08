@@ -821,8 +821,339 @@ ItemSpawner.prototype = {
 
 };
 
+// ==================== GoldCoin ====================
+
+/**
+ * Physical gold coin that drops from killed enemies.
+ * Falls with gravity, bounces on ground, gets magnet-pulled to the player,
+ * and auto-collects after 5 seconds on the ground.
+ *
+ * Properties:
+ *   x, y          — world position
+ *   value         — gold amount player receives on pickup
+ *   vx, vy        — velocity (pixels/sec)
+ *   gravity       — downward acceleration
+ *   active        — false when removed
+ *   category      — 'item' (uses same entity tracking as buff items)
+ *   hitRadius     — collision radius (8px)
+ *   drawLayer     — 4 (visible above enemies and buff items)
+ *   _groundTimer  — seconds spent on ground
+ *   _onGround     — true after coming to rest
+ */
+var GoldCoin = function (x, y, value, vx, vy) {
+  this.x = x;
+  this.y = y;
+  this.value = value || 5;
+  this.vx = vx || 0;
+  this.vy = vy || 0;
+  this.gravity = 500;
+  this.active = true;
+
+  this.category = 'item';
+  this.hitRadius = 8;
+  this.drawLayer = 4;
+  this._isGoldCoin = true;
+
+  // Ground state
+  this._groundTimer = 0;
+  this._onGround = false;
+  this._bounces = 0;
+
+  // Visual animation
+  this._pulsePhase = Math.random() * Math.PI * 2;
+};
+
+GoldCoin.prototype = {
+
+  /**
+   * Called each frame by the game loop. Handles physics, ground detection,
+   * magnet pull, and auto-collect movement.
+   * @param {number} dt - delta time in seconds
+   */
+  update: function (dt) {
+    if (!this.active) return;
+
+    var game = window.game;
+    if (!game) return;
+
+    // Gravity
+    this.vy += this.gravity * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Horizontal air friction
+    this.vx *= Math.pow(0.9, dt * 60);
+
+    // Ground collision with bounce
+    var canvasH = GAME_CONFIG.BALANCE.CANVAS_HEIGHT;
+    if (this.y > canvasH - 30) {
+      this.y = canvasH - 30;
+      if (this._bounces < 2) {
+        this.vy = -this.vy * 0.35;
+        this.vx *= 0.5;
+        this._bounces++;
+      } else {
+        this.vy = 0;
+        this.vx = 0;
+        this._onGround = true;
+      }
+    }
+
+    // Ground timer (for auto-collect)
+    if (this._onGround) {
+      this._groundTimer += dt;
+    }
+
+    // Magnet pull toward player + auto-collect
+    var player = game.player;
+    if (player && player.active) {
+      var baseRange = 60;
+      var statRange = (player.stats && player.stats.pickupRange) ? player.stats.pickupRange : 0;
+      var magnetRange = baseRange + statRange;
+      var dx = player.x - this.x;
+      var dy = player.y - this.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Pull if within magnet range OR auto-collect activates after 5s on ground
+      if (dist > 0 && (dist < magnetRange || this._groundTimer >= 5)) {
+        var pullSpeed = (this._groundTimer >= 5) ? 550 : 350;
+        var factor = Math.min(pullSpeed * dt / dist, 1);
+        this.x += dx * factor;
+        this.y += dy * factor;
+      }
+    }
+
+    // Off-screen cleanup
+    if (this.y > canvasH + 100) {
+      this._deactivate();
+    }
+  },
+
+  /**
+   * Draw the gold coin on canvas.
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  draw: function (ctx) {
+    if (!this.active) return;
+
+    // Pulse animation
+    var pulse = 1 + Math.sin(this._pulsePhase + performance.now() * 0.006) * 0.12;
+    var r = 6 * pulse;
+
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r + 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(218,165,32,0.2)';
+    ctx.fill();
+
+    // Gold gradient body
+    var grad = ctx.createRadialGradient(
+      this.x - r * 0.2, this.y - r * 0.3, 0,
+      this.x, this.y, r
+    );
+    grad.addColorStop(0, '#FFF8DC');
+    grad.addColorStop(0.3, '#FFD700');
+    grad.addColorStop(0.7, '#DAA520');
+    grad.addColorStop(1, '#B8860B');
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Shine highlight (upper-left)
+    ctx.beginPath();
+    ctx.arc(this.x - r * 0.25, this.y - r * 0.3, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fill();
+
+    // Gold value text (when on ground or slow)
+    if (this._onGround || Math.abs(this.vy) < 50) {
+      ctx.save();
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#FFD700';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 2;
+      ctx.fillText(Math.floor(this.value), this.x, this.y - r - 3);
+      ctx.restore();
+    }
+  },
+
+  /** Mark coin inactive and remove from game engine. */
+  _deactivate: function () {
+    this.active = false;
+    if (window.game && typeof window.game.removeEntity === 'function') {
+      window.game.removeEntity(this);
+    }
+  },
+
+};
+
+// ==================== XPOrb ====================
+
+/**
+ * C9: Experience orb that drops from killed enemies.
+ * Blue colored, smaller than gold coins, with magnet pickup.
+ * Auto-collects after 5s on the ground.
+ */
+var XPOrb = function (x, y, value, vx, vy) {
+  this.x = x;
+  this.y = y;
+  this.value = value || 5;
+  this.vx = vx || 0;
+  this.vy = vy || 0;
+  this.gravity = 400;
+  this.active = true;
+
+  this.category = 'item';
+  this.hitRadius = 6;
+  this.drawLayer = 4;
+  this._isXPOrb = true;
+
+  // Ground state
+  this._groundTimer = 0;
+  this._onGround = false;
+  this._bounces = 0;
+
+  // Visual animation
+  this._pulsePhase = Math.random() * Math.PI * 2;
+  this._sparkTimer = 0;
+};
+
+XPOrb.prototype = {
+
+  update: function (dt) {
+    if (!this.active) return;
+
+    var game = window.game;
+    if (!game) return;
+
+    // Gravity
+    this.vy += this.gravity * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Horizontal air friction
+    this.vx *= Math.pow(0.9, dt * 60);
+
+    // Ground collision with bounce
+    var canvasH = GAME_CONFIG.BALANCE.CANVAS_HEIGHT;
+    if (this.y > canvasH - 30) {
+      this.y = canvasH - 30;
+      if (this._bounces < 2) {
+        this.vy = -this.vy * 0.3;
+        this.vx *= 0.5;
+        this._bounces++;
+      } else {
+        this.vy = 0;
+        this.vx = 0;
+        this._onGround = true;
+      }
+    }
+
+    // Ground timer (for auto-collect)
+    if (this._onGround) {
+      this._groundTimer += dt;
+    }
+
+    // Magnet pull toward player + auto-collect after 5s
+    var player = game.player;
+    if (player && player.active) {
+      var baseRange = 50;
+      var statRange = (player.stats && player.stats.pickupRange) ? player.stats.pickupRange : 0;
+      var magnetRange = baseRange + statRange;
+      var dx = player.x - this.x;
+      var dy = player.y - this.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 0 && (dist < magnetRange || this._groundTimer >= 5)) {
+        var pullSpeed = (this._groundTimer >= 5) ? 600 : 400;
+        var factor = Math.min(pullSpeed * dt / dist, 1);
+        this.x += dx * factor;
+        this.y += dy * factor;
+      }
+    }
+
+    // Sparkle particles while on ground
+    this._sparkTimer += dt;
+    if (this._sparkTimer >= 0.4 && window.ParticleSystem) {
+      this._sparkTimer = 0;
+      window.ParticleSystem.spawn(this.x + (Math.random() - 0.5) * 6, this.y - 3, {
+        count: 1, speed: 15, life: 500,
+        colors: ['#4488ff', '#66aaff', '#ffffff'],
+        size: 1.5, gravity: -30
+      });
+    }
+
+    // Off-screen cleanup
+    if (this.y > canvasH + 100) {
+      this._deactivate();
+    }
+  },
+
+  draw: function (ctx) {
+    if (!this.active) return;
+
+    // Pulse animation
+    var pulse = 1 + Math.sin(this._pulsePhase + performance.now() * 0.007) * 0.15;
+    var r = 5 * pulse;
+
+    // Outer glow (blue)
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r + 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(68,136,255,0.25)';
+    ctx.fill();
+
+    // Blue gradient body
+    var grad = ctx.createRadialGradient(
+      this.x - r * 0.2, this.y - r * 0.3, 0,
+      this.x, this.y, r
+    );
+    grad.addColorStop(0, '#cceeff');
+    grad.addColorStop(0.3, '#66aaff');
+    grad.addColorStop(0.7, '#3388ff');
+    grad.addColorStop(1, '#1155cc');
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Inner shine
+    ctx.beginPath();
+    ctx.arc(this.x - r * 0.25, this.y - r * 0.3, r * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fill();
+
+    // XP text when on ground or slow
+    if (this._onGround || Math.abs(this.vy) < 40) {
+      ctx.save();
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#66aaff';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 2;
+      ctx.fillText(Math.floor(this.value), this.x, this.y - r - 3);
+      ctx.restore();
+    }
+  },
+
+  _deactivate: function () {
+    this.active = false;
+    if (window.game && typeof window.game.removeEntity === 'function') {
+      window.game.removeEntity(this);
+    }
+  },
+
+};
+
 // ==================== Export to Global ====================
 
 window.BuffManager = BuffManager;
 window.Item = Item;
 window.ItemSpawner = ItemSpawner;
+window.GoldCoin = GoldCoin;
+window.XPOrb = XPOrb;

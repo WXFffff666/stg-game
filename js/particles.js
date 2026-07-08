@@ -162,18 +162,22 @@ function _createDamageNumber() {
     _vx: 0,
     _vy: 0,
     _scale: 1,
+    _isCrit: false,
+    _isReact: false,
 
-    init: function(x, y, value, color, vx) {
+    init: function(x, y, value, color, vx, isCrit, isReact) {
       this.x = x;
       this.y = y;
       this.value = String(value);
       this.color = color || '#ffffff';
-      this.life = 800;
-      this.maxLife = 800;
+      this.life = isCrit ? 1000 : 800;
+      this.maxLife = this.life;
       this.active = true;
       this._vx = vx || ((Math.random() - 0.5) * 40);
       this._vy = -(40 + Math.random() * 60);
-      this._scale = 1.2;
+      this._isCrit = !!isCrit;
+      this._isReact = !!isReact;
+      this._scale = isCrit ? 1.6 : (isReact ? 1.3 : 1.0);
     },
 
     update: function(dt) {
@@ -182,7 +186,8 @@ function _createDamageNumber() {
       this.x += this._vx * dt;
       this.y += this._vy * dt;
       this._vy *= (1 - 2 * dt); // decelerate upward
-      this._scale = 1.2 - t * 0.4;
+      var baseScale = this._isCrit ? 1.6 : (this._isReact ? 1.3 : 1.0);
+      this._scale = baseScale - t * 0.4;
       if (this.life <= 0) {
         this.active = false;
         _damageNumberPool.push(this);
@@ -198,14 +203,16 @@ function _createDamageNumber() {
       ctx.translate(this.x, this.y);
       ctx.scale(this._scale, this._scale);
       ctx.fillStyle = this.color;
-      ctx.font = 'bold 14px monospace';
+      var fontSize = this._isCrit ? 20 : (this._isReact ? 16 : 14);
+      var fontStyle = this._isCrit ? 'bold ' + fontSize + 'px monospace' : 'bold ' + fontSize + 'px monospace';
+      ctx.font = fontStyle;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this.value, 0, 0);
-      // Bright outline
+      // Outline for readability
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = this._isCrit ? 3 : 2;
       ctx.strokeText(this.value, 0, 0);
+      ctx.fillText(this.value, 0, 0);
       ctx.restore();
     }
   };
@@ -586,7 +593,7 @@ var ParticleSystem = {
    * @param {number|string} value - damage amount to display
    * @param {string} [color] - text color (default: red for damage)
    */
-  damageNumber: function(x, y, value, color) {
+  damageNumber: function(x, y, value, color, isCrit, isReact) {
     var dn;
     if (_damageNumberPool.length > 0) {
       dn = _damageNumberPool.pop();
@@ -597,7 +604,7 @@ var ParticleSystem = {
     // Add slight random x offset so overlapping numbers don't stack exactly
     var offX = (Math.random() - 0.5) * 30;
     var offY = (Math.random() - 0.5) * 10;
-    dn.init(x + offX, y + offY, value, color);
+    dn.init(x + offX, y + offY, value, color, undefined, isCrit, isReact);
     window.game.addEntity(dn);
   },
 
@@ -1049,10 +1056,39 @@ var ParticleSystem = {
   reactionEffect: function(x, y, reactionName) {
     switch (reactionName) {
       case 'steam':     this.steamEffect(x, y); break;
+      case 'melt':      this.meltEffect(x, y); break;
       case 'explosion': this.explosionReaction(x, y); break;
       case 'shatter':   this.shatterEffect(x, y); break;
       case 'paralyze':  this.paralyzeEffect(x, y); break;
     }
+  },
+
+  /**
+   * C4: Melt (fire+ice): steam/water burst with bright flash.
+   */
+  meltEffect: function(x, y) {
+    // Large steam cloud
+    this.spawn(x, y, {
+      count: 20,
+      speed: 60,
+      life: 800,
+      colors: ['#ffffff', '#ffdddd', '#ffaaaa', '#ddddee'],
+      size: 4.5,
+      gravity: -25
+    });
+    // Bright inner flash
+    this.spawn(x, y, {
+      count: 8,
+      speed: 30,
+      life: 350,
+      color: '#ffffff',
+      size: 4,
+      gravity: -40
+    });
+    // Expanding heat ring
+    this._spawnReactionRing(x, y, '#ff6666', 90);
+    window.game.addShake(4);
+    this.screenFlash('#ffffff', 120);
   },
 
   /**

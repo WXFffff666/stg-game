@@ -156,6 +156,7 @@ class Game {
     this.enemyBullets = [];
     this.items = [];
     this.particles = [];
+    this.obstacles = [];
 
     // Object pools (pre-allocated in _initPools after all classes load)
     this.bulletPool = [];
@@ -179,6 +180,14 @@ class Game {
     this.shakeX = 0;
     this.shakeY = 0;
     this.shakeIntensity = 0;
+    this.shakeDuration = 0;
+    this.shakeEnabled = true;
+
+    // Hitstop / frame-freeze
+    this.hitstopTimer = 0;
+    this.hitstopResumeTimer = 0;
+    this.hitstopFlashAlpha = 0;
+    this._preHitstopTimeScale = 1.0;
 
     // Player reference (single player game)
     this.player = null;
@@ -307,6 +316,7 @@ class Game {
       case 'enemyBullet': this.enemyBullets.push(entity); break;
       case 'item': this.items.push(entity); break;
       case 'particle': this.particles.push(entity); break;
+      case 'obstacle': this.obstacles.push(entity); break;
     }
   }
 
@@ -318,6 +328,7 @@ class Game {
       enemyBullet: this.enemyBullets,
       item: this.items,
       particle: this.particles,
+      obstacle: this.obstacles,
     };
     const list = lists[entity.category];
     if (list) {
@@ -347,6 +358,7 @@ class Game {
     purgeList(this.enemyBullets);
     purgeList(this.items);
     purgeList(this.particles);
+    purgeList(this.obstacles);
   }
 
   // ===== OBJECT POOL =====
@@ -614,8 +626,27 @@ class Game {
   }
 
   // ===== SCREEN SHAKE =====
-  addShake(intensity) {
+  /**
+   * Trigger screen shake with time-based decay.
+   * @param {number} intensity - Peak shake amplitude (pixels)
+   * @param {number} [duration] - Duration in ms (auto-calculated if omitted)
+   */
+  addShake(intensity, duration) {
+    // Check user settings (lazy, browser-safe)
+    if (window.SettingsManager && SettingsManager.get('screenShake') === false) return;
+
+    // Track peak for linear decay reference
+    if (intensity > this.shakeIntensity) {
+      this._shakePeakIntensity = intensity;
+    }
     this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
+
+    // Duration: explicit > auto-calculated from intensity (backward compat)
+    const newDuration = duration !== undefined ? duration : (intensity * 25 + 80);
+    if (newDuration > this.shakeDuration) {
+      this.shakeDuration = newDuration;
+      this._shakeStartDuration = newDuration;
+    }
   }
 
   // ===== COORDINATE CONVERSION =====
@@ -637,6 +668,41 @@ class Game {
 
     const rawDt = timestamp - this.lastTime;
     this.lastTime = timestamp;
+
+    // ===== HITSTOP: Freeze phase =====
+    if (this.hitstopTimer > 0) {
+      this.hitstopTimer -= rawDt;
+      if (this.hitstopTimer <= 0) {
+        this.hitstopTimer = 0;
+        this.hitstopResumeTimer = 100; // 100ms resume ramp
+        this._preHitstopTimeScale = this.timeScale;
+        this.timeScale = 0;
+      }
+      // Flash alpha decays during freeze
+      if (this.hitstopFlashAlpha > 0) {
+        this.hitstopFlashAlpha = Math.max(0, this.hitstopFlashAlpha - rawDt / 200);
+      }
+      try { this._draw(); } catch(e) { console.warn('draw err:', e.message); }
+      this.rafId = requestAnimationFrame(this._loop);
+      return; // Skip update during hitstop
+    }
+
+    // ===== HITSTOP: Resume ramp =====
+    if (this.hitstopResumeTimer > 0) {
+      this.hitstopResumeTimer -= rawDt;
+      if (this.hitstopResumeTimer < 0) this.hitstopResumeTimer = 0;
+      const progress = 1 - (this.hitstopResumeTimer / 100);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      this.timeScale = (this._preHitstopTimeScale || 1.0) * eased;
+      if (this.hitstopResumeTimer <= 0) {
+        this.timeScale = this._preHitstopTimeScale || 1.0;
+      }
+    }
+
+    // Flash alpha decays during resume too
+    if (this.hitstopFlashAlpha > 0) {
+      this.hitstopFlashAlpha = Math.max(0, this.hitstopFlashAlpha - rawDt / 200);
+    }
 
     // Cap delta time to prevent spiral of death
     const dt = Math.min(rawDt, 50) * 0.001 * this.timeScale;
@@ -709,15 +775,21 @@ class Game {
       }
     }
 
-    // Update screen shake
-    if (this.shakeIntensity > 0) {
+    // Update screen shake (time-based decay)
+    if (this.shakeIntensity > 0 && this.shakeDuration > 0) {
       this.shakeX = (Math.random() - 0.5) * this.shakeIntensity * 2;
       this.shakeY = (Math.random() - 0.5) * this.shakeIntensity * 2;
-      this.shakeIntensity *= GAME_CONFIG.BALANCE.SCREEN_SHAKE_DECAY;
-      if (this.shakeIntensity < 0.5) {
+      this.shakeDuration -= dt * 1000;
+      // Linear intensity decay from peak toward 0
+      if (this._shakeStartDuration > 0) {
+        this.shakeIntensity = (this._shakePeakIntensity || this.shakeIntensity) * Math.max(0, this.shakeDuration / this._shakeStartDuration);
+      }
+      if (this.shakeDuration <= 0) {
         this.shakeIntensity = 0;
+        this.shakeDuration = 0;
         this.shakeX = 0;
         this.shakeY = 0;
+        this._shakeStartDuration = 0;
       }
     }
 
@@ -735,6 +807,9 @@ class Game {
         entity.update(dt);
       }
     }
+
+    // F4: EventManager tick (random events every 120-240s)
+    if (window.EventManager) window.EventManager.update(dt);
   }
 
   _draw() {
@@ -783,11 +858,21 @@ class Game {
       drawLayer(this.items, layer);
       drawLayer(this.enemyBullets, layer);
       drawLayer(this.enemies, layer);
+      drawLayer(this.obstacles, layer);
       drawLayer(this.playerBullets, layer);
       drawLayer(this.players, layer);
     }
 
     ctx.restore();
+
+    // Hitstop white flash overlay (in full-canvas coordinates)
+    if (this.hitstopFlashAlpha > 0) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = 'rgba(255,255,255,' + this.hitstopFlashAlpha + ')';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
   }
 
   // ===== EVENT HANDLERS =====
@@ -882,7 +967,19 @@ class Game {
         break;
       case 'Escape':
         if (this.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
+          // If in-run shop is open, close it instead of pausing
+          if (typeof window._shopState !== 'undefined' && window._shopState.open) {
+            if (typeof window._closeInRunShop === 'function') window._closeInRunShop();
+            return;
+          }
           this.togglePause();
+        }
+        break;
+      case 'b':
+      case 'B':
+        if (this.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
+          e.preventDefault();
+          if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
         }
         break;
       case 'f':
