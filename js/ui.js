@@ -47,6 +47,18 @@ class UIManager {
     // HUD - Pause button (手机端)
     this.elHudPauseBtn = gid('hud-pause-btn');
 
+    // HUD - Buff bar
+    this.elBuffBar = gid('buff-bar');
+
+    // HUD - Minimap
+    this.elMinimap = gid('minimap');
+    this._minimapCtx = this.elMinimap ? this.elMinimap.getContext('2d') : null;
+
+    // Low HP warning
+    this.elLowHpWarning = gid('low-hp-warning');
+    this._lowHpActive = false;
+    this._lowHpCritical = false;
+
     // Toast / Pause
     this.elToast = gid('toast');
     this.elPauseOverlay = gid('pause-overlay');
@@ -815,7 +827,7 @@ class UIManager {
   updateHP(current, max) {
     const pct = max > 0 ? Math.max(0, current / max * 100) : 0;
     if (this.elHpFill) this.elHpFill.style.width = pct + '%';
-    if (this.elHpText) this.elHpText.textContent = Math.ceil(current) + '/' + max;
+    if (this.elHpText) this.elHpText.textContent = Math.floor(current) + '/' + max;
   }
 
   updateScore(score) {
@@ -872,18 +884,80 @@ class UIManager {
   // ====================================================================
 
   /**
-   * Show wave announcement "第X波" at top center, fades after 1.5s.
+   * Show wave announcement with enhanced scale animation.
+   * Normal waves: white text, scale 0.5→1.2→1.0 over 600ms, fade after 1.5s
+   * Elite waves (every 5th): gold text with sparkle particles
+   * Boss waves (every 10th): red text with screen flash
    */
   showWaveAnnouncement(waveNumber) {
     if (!this.elWaveDisplay) return;
-    this.elWaveDisplay.textContent = '第' + waveNumber + '波';
-    this.elWaveDisplay.classList.add('active');
+    var el = this.elWaveDisplay;
 
+    // Determine wave type
+    var isBoss = (waveNumber % 10 === 0);
+    var isElite = !isBoss && (waveNumber % 5 === 0);
+
+    // Set text content
+    el.textContent = '第' + waveNumber + '波';
+    el.style.transition = 'none';
+    el.style.transform = 'scale(0.5)';
+    el.style.opacity = '1';
+    el.className = 'hud-wave';
+
+    if (isBoss) {
+      el.style.color = '#ff3333';
+      el.style.textShadow = '0 0 20px rgba(255,0,0,0.8), 0 0 40px rgba(255,0,0,0.5)';
+      // Screen flash
+      var flash = document.createElement('div');
+      flash.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,0,0,0.15);z-index:100;pointer-events:none;transition:opacity 0.3s';
+      document.body.appendChild(flash);
+      setTimeout(function () { flash.style.opacity = '0'; }, 150);
+      setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 500);
+    } else if (isElite) {
+      el.style.color = '#ffdd44';
+      el.style.textShadow = '0 0 20px rgba(255,200,0,0.8), 0 0 40px rgba(255,180,0,0.5)';
+    } else {
+      el.style.color = '#ffffff';
+      el.style.textShadow = '0 0 10px rgba(255,255,255,0.5)';
+    }
+
+    el.classList.add('active');
+
+    // Scale-in animation: 0.5 → 1.2 → 1.0 over 600ms
+    var self = this;
+    var startTime = performance.now();
+    var duration = 600;
+
+    function animStep(ts) {
+      var elapsed = ts - startTime;
+      var t = Math.min(1, elapsed / duration);
+      // Ease-out: overshoot then settle
+      var scale;
+      if (t < 0.6) {
+        // 0 → 0.6: scale from 0.5 to 1.2
+        var t1 = t / 0.6;
+        scale = 0.5 + (1.2 - 0.5) * (1 - Math.pow(1 - t1, 3));
+      } else {
+        // 0.6 → 1.0: scale from 1.2 to 1.0 (settle)
+        var t2 = (t - 0.6) / 0.4;
+        scale = 1.2 - (1.2 - 1.0) * (1 - Math.pow(1 - t2, 2));
+      }
+      el.style.transform = 'scale(' + scale + ')';
+      if (t < 1) {
+        requestAnimationFrame(animStep);
+      }
+    }
+    requestAnimationFrame(animStep);
+
+    // Fade out after show duration
     if (this._waveFadeTimer) clearTimeout(this._waveFadeTimer);
-    this._waveFadeTimer = setTimeout(() => {
-      if (this.elWaveDisplay) this.elWaveDisplay.classList.remove('active');
-      this._waveFadeTimer = null;
-    }, 1500);
+    this._waveFadeTimer = setTimeout(function () {
+      if (el) {
+        el.style.transition = 'opacity 0.5s';
+        el.style.opacity = '0';
+      }
+      self._waveFadeTimer = null;
+    }, 1800);
   }
 
   /**
@@ -1038,7 +1112,7 @@ class UIManager {
     this.elWeaponBar.style.display = hasWeapons ? 'flex' : 'none';
     if (!hasWeapons) return;
 
-    // === Grid: 6 main weapon slots ===
+    // === Grid: dynamic weapon slots (supports B2 expansion) ===
     var grid = document.getElementById('weapon-grid');
     if (!grid) {
       this.elWeaponBar.innerHTML = '';
@@ -1049,20 +1123,31 @@ class UIManager {
     }
     grid.innerHTML = '';
 
-    // Normalize to exactly 6 slots
-    var slots = weaponSlots.slice(0, 6);
-    while (slots.length < 6) slots.push(null);
+    // B8: Check fusion recipes for glow effect
+    var fusionGlowSlots = this._getFusionGlowSlots();
+    // B6: Get focused slot
+    var focusedSlot = (window.weaponManager) ? window.weaponManager.getFocusedSlot() : -1;
 
-    for (var i = 0; i < 6; i++) {
-      var w = slots[i];
+    // Support up to 8 slots (dynamic from B2 expansion)
+    var slots = weaponSlots.slice(0, 8);
+    var slotCount = Math.max(slots.length, 6);
+    // Adjust grid columns based on slot count
+    grid.style.gridTemplateColumns = 'repeat(' + slotCount + ', 40px)';
+
+    for (var i = 0; i < slotCount; i++) {
+      var w = (i < slots.length) ? slots[i] : null;
       var slot = document.createElement('div');
       slot.className = 'hud-weapon-slot';
 
       if (w && w.id) {
-        // ——— Filled slot ———
         slot.dataset.weaponId = w.id;
-        if (w.id === activeWeaponId) {
+        // B6: Highlight focused weapon
+        if (i === focusedSlot) {
           slot.classList.add('active-weapon');
+        }
+        // B8: Fusion glow
+        if (fusionGlowSlots.indexOf(i) !== -1) {
+          slot.classList.add('fusion-glow');
         }
         slot.textContent = w.icon || '🔫';
 
@@ -1082,18 +1167,16 @@ class UIManager {
           slot.appendChild(badge);
         }
 
-        // Click-to-switch (optional, only for non-active weapons)
-        if (w.id !== activeWeaponId) {
-          (function(wId) {
-            slot.addEventListener('click', function() {
-              if (window.weaponManager && typeof window.weaponManager.setWeapon === 'function') {
-                window.weaponManager.setWeapon(wId);
-              }
-            });
-          })(w.id);
-        }
+        // Click-to-focus slot (B6: quick-switch)
+        (function(slotIdx) {
+          slot.addEventListener('click', function() {
+            if (window.weaponManager && typeof window.weaponManager.toggleFocusedSlot === 'function') {
+              window.weaponManager.toggleFocusedSlot(slotIdx);
+            }
+          });
+        })(i);
       } else {
-        // ——— Empty slot ———
+        // Empty slot
         slot.classList.add('empty');
         slot.textContent = '－';
       }
@@ -1129,6 +1212,47 @@ class UIManager {
     } else {
       passiveRow.style.display = 'none';
     }
+  }
+
+  /**
+   * B8: Fusion Preview — return slot indices that are part of a complete fusion recipe.
+   * Checks if player owns both weapons in any fusion recipe, returns their slot indices.
+   * @returns {Array<number>} slot indices that should glow
+   */
+  _getFusionGlowSlots() {
+    var glowSlots = [];
+    var sm = window.skillManager;
+    var wm = window.weaponManager;
+    if (!sm || !wm || !wm.weaponSlots) return glowSlots;
+
+    var recipes = GAME_CONFIG.FUSION_RECIPES;
+    if (!recipes || !recipes.weapons) return glowSlots;
+    var requiredLevel = recipes.requiredLevel || 5;
+
+    for (var r = 0; r < recipes.weapons.length; r++) {
+      var recipe = recipes.weapons[r];
+      // Skip already-fused recipes
+      if (sm.fusedWeapons && sm.fusedWeapons.has(recipe.id)) continue;
+
+      var lvlA = sm.weaponLevels.get(recipe.ingredientA) || 0;
+      var lvlB = sm.weaponLevels.get(recipe.ingredientB) || 0;
+
+      // Check if both ingredients are at required level
+      if (lvlA >= requiredLevel && lvlB >= requiredLevel) {
+        // Find their slot indices
+        var slotA = -1;
+        var slotB = -1;
+        for (var i = 0; i < wm.weaponSlots.length; i++) {
+          if (wm.weaponSlots[i]) {
+            if (wm.weaponSlots[i].weaponId === recipe.ingredientA) slotA = i;
+            if (wm.weaponSlots[i].weaponId === recipe.ingredientB) slotB = i;
+          }
+        }
+        if (slotA >= 0) glowSlots.push(slotA);
+        if (slotB >= 0) glowSlots.push(slotB);
+      }
+    }
+    return glowSlots;
   }
 
   // ====================================================================
@@ -1294,6 +1418,241 @@ class UIManager {
 
     // Pause overlay
     this.updatePause();
+
+    // Minimap
+    this.updateMinimap();
+
+    // Buff bar
+    this.updateBuffBar();
+
+    // Low HP warning
+    this.updateLowHpWarning();
+  }
+
+  // ====================================================================
+  //  Minimap — world 1200×800 → canvas (reads actual CSS size)
+  // ====================================================================
+  updateMinimap() {
+    var ctx = this._minimapCtx;
+    var el = this.elMinimap;
+    if (!ctx || !el) return;
+    if (!game || !game.player) return;
+
+    var w = el.width;
+    var h = el.height;
+    var worldW = game.width || 1200;
+    var worldH = game.height || 800;
+    var scaleX = w / worldW;
+    var scaleY = h / worldH;
+
+    // Clear
+    ctx.clearRect(0, 0, w, h);
+
+    // Dark background
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, w, h);
+
+    // Draw enemies (red dots)
+    if (game.enemies) {
+      for (var i = 0; i < game.enemies.length; i++) {
+        var e = game.enemies[i];
+        if (!e.active) continue;
+        var ex = e.x * scaleX;
+        var ey = e.y * scaleY;
+        if (e.isBoss) {
+          // Boss: purple 5px
+          ctx.fillStyle = '#cc44ff';
+          ctx.beginPath();
+          ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Normal enemy: red 3px
+          ctx.fillStyle = '#ff3333';
+          ctx.fillRect(ex - 1.5, ey - 1.5, 3, 3);
+        }
+      }
+    }
+
+    // Draw items (green dots)
+    if (game.items) {
+      ctx.fillStyle = '#44ff44';
+      for (var j = 0; j < game.items.length; j++) {
+        var it = game.items[j];
+        if (!it.active || it.collected) continue;
+        ctx.fillRect(it.x * scaleX - 1, it.y * scaleY - 1, 2, 2);
+      }
+    }
+
+    // Draw player (white dot with glow)
+    var px = game.player.x * scaleX;
+    var py = game.player.y * scaleY;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ====================================================================
+  //  Buff/Debuff Status Bar — renders active buffs with countdown rings
+  // ====================================================================
+  updateBuffBar() {
+    if (!this.elBuffBar) return;
+    var buffMgr = (typeof buffManager !== 'undefined') ? buffManager : null;
+    if (!buffMgr) return;
+
+    var bar = this.elBuffBar;
+    bar.innerHTML = '';
+
+    var items = [];
+    buffMgr.activeBuffs.forEach(function (buff, type) {
+      var cfg = buff.config;
+      var remaining = Math.max(0, buff.remaining);
+      var duration = Math.max(0.001, buff.duration);
+      var pct = remaining / duration;
+      var isDebuff = (cfg.type === 'debuff' ||
+        ['poison', 'speedDown', 'damageDown', 'blind', 'curse', 'reverseControl'].indexOf(type) >= 0);
+      var icon = cfg.icon || cfg.emoji || '💠';
+      items.push({ type: type, icon: icon, pct: pct, isDebuff: isDebuff });
+    });
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var div = document.createElement('div');
+      div.className = 'buff-icon' + (item.isDebuff ? ' debuff' : '');
+      div.title = item.type + ' (' + Math.ceil(item.pct * 100) + '%)';
+
+      // Canvas countdown ring
+      var canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      var cctx = canvas.getContext('2d');
+
+      // Ring background
+      cctx.beginPath();
+      cctx.arc(16, 16, 13, 0, Math.PI * 2);
+      cctx.strokeStyle = item.isDebuff ? 'rgba(255,68,68,0.25)' : 'rgba(68,255,68,0.25)';
+      cctx.lineWidth = 2;
+      cctx.stroke();
+
+      // Ring fill
+      if (item.pct > 0) {
+        cctx.beginPath();
+        cctx.arc(16, 16, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.pct);
+        cctx.strokeStyle = item.isDebuff ? '#ff4444' : '#44ff44';
+        cctx.lineWidth = 2;
+        cctx.stroke();
+      }
+
+      div.appendChild(canvas);
+
+      // Emoji label
+      var span = document.createElement('span');
+      span.style.cssText = 'position:relative;z-index:1';
+      span.textContent = item.icon;
+      div.appendChild(span);
+
+      bar.appendChild(div);
+    }
+  }
+
+  // ====================================================================
+  //  Low HP Warning — red screen-edge pulse
+  // ====================================================================
+  updateLowHpWarning() {
+    if (!this.elLowHpWarning) return;
+    if (!game || !game.player) return;
+
+    var p = game.player;
+    var ratio = p.maxHp > 0 ? p.hp / p.maxHp : 1;
+
+    if (ratio < 0.3) {
+      this.elLowHpWarning.classList.add('active');
+      if (ratio < 0.15) {
+        this.elLowHpWarning.classList.add('critical');
+      } else {
+        this.elLowHpWarning.classList.remove('critical');
+      }
+      this._lowHpActive = true;
+    } else {
+      this.elLowHpWarning.classList.remove('active');
+      this.elLowHpWarning.classList.remove('critical');
+      this._lowHpActive = false;
+    }
+  }
+
+  // ====================================================================
+  //  DPS Stats Panel — shows weapon damage breakdown when paused
+  // ====================================================================
+  showDpsStats(container) {
+    if (!container) return;
+    var wm = (typeof weaponManager !== 'undefined') ? weaponManager : null;
+    var cfg = GAME_CONFIG;
+
+    if (!wm || !wm._dpsData || Object.keys(wm._dpsData).length === 0) {
+      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据（继续游戏以收集）</div>';
+      return;
+    }
+
+    // Compute totals
+    var totalDmg = 0;
+    var entries = [];
+    for (var wId in wm._dpsData) {
+      if (!wm._dpsData.hasOwnProperty(wId)) continue;
+      var dmg = wm._dpsData[wId];
+      totalDmg += dmg;
+      var weaponCfg = cfg.WEAPONS ? cfg.WEAPONS[wId] : null;
+      entries.push({
+        id: wId,
+        name: weaponCfg ? weaponCfg.name : wId,
+        icon: weaponCfg ? (weaponCfg.icon || '🔫') : '🔫',
+        damage: dmg
+      });
+    }
+
+    if (totalDmg <= 0) {
+      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据</div>';
+      return;
+    }
+
+    // Sort by damage descending
+    entries.sort(function (a, b) { return b.damage - a.damage; });
+
+    var html = '';
+    var maxDmg = entries[0].damage;
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var barPct = maxDmg > 0 ? (e.damage / maxDmg) * 100 : 0;
+      var totalPct = totalDmg > 0 ? ((e.damage / totalDmg) * 100).toFixed(1) : '0.0';
+      var dmgLabel = e.damage >= 1000000 ? (e.damage / 1000000).toFixed(1) + 'M' :
+                     e.damage >= 1000 ? (e.damage / 1000).toFixed(0) + 'K' :
+                     Math.floor(e.damage).toString();
+
+      html += '<div class="dps-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08)">' +
+        '<span style="font-size:18px;width:28px;text-align:center">' + e.icon + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;color:#ddd;margin-bottom:3px">' + e.name + '</div>' +
+          '<div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">' +
+            '<div style="height:100%;width:' + barPct + '%;background:linear-gradient(90deg,' + (i === 0 ? '#ffaa00' : '#4488ff') + ', ' + (i === 0 ? '#ffdd44' : '#66aaff') + ');border-radius:4px;transition:width 0.3s"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;font-size:12px;min-width:60px">' +
+          '<div style="color:#fff;font-weight:bold">' + dmgLabel + '</div>' +
+          '<div style="color:#888">' + totalPct + '%</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    // Total
+    var totalLabel = totalDmg >= 1000000 ? (totalDmg / 1000000).toFixed(1) + 'M' :
+                     totalDmg >= 1000 ? (totalDmg / 1000).toFixed(0) + 'K' :
+                     Math.floor(totalDmg).toString();
+    html += '<div style="text-align:center;margin-top:10px;font-size:13px;color:#aaa">总伤害输出: <span style="color:#ffdd44;font-weight:bold">' + totalLabel + '</span></div>';
+
+    container.innerHTML = html;
   }
 
   // ====================================================================
@@ -1821,7 +2180,7 @@ class UIManager {
       { key: 'kills',       icon: '💀', label: '击杀数',   value: stats.kills || 0,      format: 'int' },
       { key: 'goldEarned',  icon: '💰', label: '获得金币', value: stats.goldEarned || 0, format: 'int' },
       { key: 'level',       icon: '⬆️', label: '等级',     value: stats.level || 1,      format: 'int' },
-      { key: 'time',        icon: '⏱️', label: '生存时间', value: stats.time || 0,       format: 'time' },
+      { key: 'time',        icon: '⏱️', label: '生存时间', value: Math.floor((stats.time || 0) / 1000),       format: 'time' },
       { key: 'bossKills',   icon: '👑', label: 'Boss击杀', value: stats.bossKills || 0,  format: 'int' },
       { key: 'maxCombo',    icon: '🔥', label: '最大连击', value: stats.maxCombo || 0,   format: 'int' },
       { key: 'wave',        icon: '🌊', label: '到达波次', value: stats.wave || 0,       format: 'int' },
@@ -2493,12 +2852,14 @@ class UIManager {
 
   /**
    * Show loadout selection screen for choosing which weapons to bring.
+   * B7: Pre-game loadout — pick up to maxSlots starting weapons.
    * @param {Array<string>} ownedWeaponIds - all weapon IDs the player has unlocked
-   * @param {Array<string>} currentLoadout - currently selected weapon IDs (up to 6)
+   * @param {Array<string>} currentLoadout - currently selected weapon IDs
+   * @param {number} maxSlots - maximum number of weapons to select (default 2 for B7)
    * @param {Function} onConfirm - callback(selectedIds) when player confirms
    */
-  showLoadoutSelection(ownedWeaponIds, currentLoadout, onConfirm) {
-    var maxSlots = (window.WeaponLoadoutManager) ? window.WeaponLoadoutManager.getMaxSlots() : 6;
+  showLoadoutSelection(ownedWeaponIds, currentLoadout, maxSlots, onConfirm) {
+    maxSlots = maxSlots || 2; // B7: default max 2 starting weapons
     var selectedIds = currentLoadout.slice(0, maxSlots);
 
     // Create or reuse loadout screen
@@ -2814,6 +3175,245 @@ class UIManager {
         }
       }
     }
+  }
+
+  // ====================================================================
+  //  B1: BACKPACK INVENTORY UI
+  // ====================================================================
+
+  /**
+   * Toggle backpack overlay open/closed.
+   * Shows all owned weapons/skills with click-to-swap.
+   */
+  toggleBackpack() {
+    var screen = document.getElementById('backpack-screen');
+    if (!screen) return;
+
+    if (screen.style.display === 'flex') {
+      this.closeBackpack();
+      return;
+    }
+
+    // Pause gameplay while backpack is open
+    if (window.game) window.game.pause();
+
+    // Hide HUD elements
+    document.getElementById('hud').style.display = 'none';
+
+    this._backpackSelectedWeapon = null;
+    this._renderBackpack();
+    screen.style.display = 'flex';
+  }
+
+  /**
+   * Close backpack and resume game.
+   */
+  closeBackpack() {
+    var screen = document.getElementById('backpack-screen');
+    if (screen) screen.style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    if (window.game) window.game.resume();
+    if (this._backpackEscHandler) {
+      document.removeEventListener('keydown', this._backpackEscHandler);
+      this._backpackEscHandler = null;
+    }
+  }
+
+  /**
+   * Render backpack contents: weapon slots grid + inventory items.
+   */
+  _renderBackpack() {
+    var screen = document.getElementById('backpack-screen');
+    if (!screen) return;
+
+    screen.innerHTML = '';
+    screen.className = 'menu-screen'; // Use same styling as other screens
+    screen.style.zIndex = '40';
+    screen.style.overflowY = 'auto';
+    screen.style.padding = '20px 16px';
+
+    // Title
+    var title = document.createElement('h2');
+    title.style.cssText = 'color:#ffdd00;font-size:22px;margin-bottom:4px;text-shadow:0 0 10px rgba(255,221,0,0.4);';
+    title.textContent = '🎒 背包';
+    screen.appendChild(title);
+
+    var subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size:11px;color:#888;margin-bottom:16px;';
+    subtitle.textContent = '点击物品 → 点击槽位进行装备/交换 | 按 I 关闭';
+    screen.appendChild(subtitle);
+
+    var self = this;
+    var wm = window.weaponManager;
+    var sm = window.skillManager;
+    var cfg = window.GAME_CONFIG;
+
+    // === Weapon Slots Row ===
+    var slotLabel = document.createElement('div');
+    slotLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
+    slotLabel.textContent = '🔫 武器槽位';
+    screen.appendChild(slotLabel);
+
+    var slotsRow = document.createElement('div');
+    slotsRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;';
+    screen.appendChild(slotsRow);
+
+    var maxWSlots = (wm && wm.maxWeaponSlots) || (sm && sm.MAX_WEAPON_SLOTS) || 6;
+    if (wm && wm.weaponSlots) {
+      for (var i = 0; i < Math.min(maxWSlots, wm.weaponSlots.length); i++) {
+        var slot = wm.weaponSlots[i];
+        var slotEl = document.createElement('div');
+        slotEl.style.cssText = 'width:48px;height:48px;border:2px solid ' + (slot ? '#44ddff' : '#444') +
+          ';border-radius:8px;display:flex;align-items:center;justify-content:center;' +
+          'background:' + (slot ? 'rgba(68,221,255,0.1)' : 'rgba(255,255,255,0.03)') +
+          ';cursor:pointer;font-size:18px;position:relative;transition:border-color 0.2s;';
+        slotEl.title = '槽位 ' + (i + 1);
+
+        if (slot) {
+          var wCfg = cfg.WEAPONS ? cfg.WEAPONS[slot.weaponId] : null;
+          slotEl.textContent = wCfg ? (wCfg.icon || '🔫') : '🔫';
+
+          var lvlBadge = document.createElement('span');
+          lvlBadge.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#44ffaa;text-shadow:0 0 2px #000;';
+          lvlBadge.textContent = 'Lv' + (slot.level || 1);
+          slotEl.appendChild(lvlBadge);
+
+          // Click filled slot: select for swapping or unequip
+          (function(slotIdx) {
+            slotEl.addEventListener('click', function() {
+              if (self._backpackSelectedWeapon) {
+                self._backpackEquipToSlot(slotIdx);
+              } else {
+                self._backpackUnequipWeapon(slotIdx);
+              }
+            });
+          })(i);
+        } else {
+          slotEl.textContent = '－';
+          slotEl.style.opacity = '0.4';
+          (function(slotIdx) {
+            slotEl.addEventListener('click', function() {
+              self._backpackEquipToSlot(slotIdx);
+            });
+          })(i);
+        }
+
+        slotsRow.appendChild(slotEl);
+      }
+    }
+
+    // === Inventory: All owned weapons ===
+    var invLabel = document.createElement('div');
+    invLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
+    invLabel.textContent = '📦 武器仓库';
+    screen.appendChild(invLabel);
+
+    var invGrid = document.createElement('div');
+    invGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;max-height:35vh;overflow-y:auto;padding:4px;';
+    screen.appendChild(invGrid);
+
+    if (sm && sm.weaponLevels) {
+      sm.weaponLevels.forEach(function(lvl, wid) {
+        var wCfg = cfg.WEAPONS ? cfg.WEAPONS[wid] : null;
+        if (!wCfg || wCfg.fused) return;
+
+        var itemEl = document.createElement('div');
+        var isSelected = self._backpackSelectedWeapon === wid;
+        itemEl.style.cssText = 'padding:8px;border:2px solid ' + (isSelected ? '#ffdd00' : '#334') +
+          ';border-radius:8px;cursor:pointer;text-align:center;transition:border-color 0.15s;' +
+          'background:' + (isSelected ? 'rgba(255,221,0,0.12)' : 'rgba(255,255,255,0.04)') + ';';
+        itemEl.title = wCfg.name + ' Lv' + lvl;
+
+        var iconEl = document.createElement('div');
+        iconEl.style.cssText = 'font-size:24px;';
+        iconEl.textContent = wCfg.icon || '🔫';
+        itemEl.appendChild(iconEl);
+
+        var nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size:10px;color:#fff;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        nameEl.textContent = wCfg.name;
+        itemEl.appendChild(nameEl);
+
+        var lvlEl = document.createElement('div');
+        lvlEl.style.cssText = 'font-size:9px;color:#44ffaa;';
+        lvlEl.textContent = 'Lv' + lvl;
+        itemEl.appendChild(lvlEl);
+
+        (function(wId) {
+          itemEl.addEventListener('click', function() {
+            self._backpackSelectedWeapon = (self._backpackSelectedWeapon === wId) ? null : wId;
+            self._renderBackpack();
+          });
+        })(wid);
+
+        invGrid.appendChild(itemEl);
+      });
+    }
+
+    // === Close button ===
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'menu-btn';
+    closeBtn.style.cssText = 'margin-top:12px;';
+    closeBtn.textContent = '关闭背包 (I)';
+    closeBtn.addEventListener('click', function() {
+      self.closeBackpack();
+    });
+    screen.appendChild(closeBtn);
+
+    // ESC to close
+    this._backpackEscHandler = function(e) {
+      if (e.key === 'Escape') {
+        self.closeBackpack();
+      }
+    };
+    document.addEventListener('keydown', this._backpackEscHandler);
+  }
+
+  _backpackUnequipWeapon(slotIndex) {
+    var wm = window.weaponManager;
+    if (!wm || !wm.weaponSlots[slotIndex]) return;
+    wm.removeWeaponFromSlot(slotIndex);
+    this.showToast('🗑️ 卸载武器 (槽位 ' + (slotIndex + 1) + ')', 1500, '#ffaa44');
+    this._renderBackpack();
+  }
+
+  _backpackEquipToSlot(slotIndex) {
+    if (!this._backpackSelectedWeapon) {
+      this.showToast('请先从仓库选择一把武器', 1500, '#ff4444');
+      return;
+    }
+
+    var wm = window.weaponManager;
+    var sm = window.skillManager;
+    if (!wm) return;
+
+    var weaponId = this._backpackSelectedWeapon;
+    var curLvl = sm ? (sm.weaponLevels.get(weaponId) || 0) : 0;
+
+    // Check if weapon is already in another slot
+    for (var i = 0; i < wm.weaponSlots.length; i++) {
+      if (wm.weaponSlots[i] && wm.weaponSlots[i].weaponId === weaponId) {
+        // Swap: move from old slot to new slot
+        var oldSlot = wm.weaponSlots[i];
+        wm.weaponSlots[i] = wm.weaponSlots[slotIndex];
+        wm.weaponSlots[slotIndex] = oldSlot;
+        this._backpackSelectedWeapon = null;
+        this.showToast('🔄 交换武器到槽位 ' + (slotIndex + 1), 1500, '#ffdd00');
+        this._renderBackpack();
+        return;
+      }
+    }
+
+    // Weapon not in any slot: equip to slot
+    wm.addWeaponToSlot(weaponId, slotIndex);
+    if (curLvl > 0 && wm.weaponSlots[slotIndex]) {
+      wm.weaponSlots[slotIndex].level = curLvl;
+    }
+
+    this._backpackSelectedWeapon = null;
+    var wCfg = GAME_CONFIG.WEAPONS ? GAME_CONFIG.WEAPONS[weaponId] : null;
+    this.showToast('✅ ' + (wCfg ? wCfg.name : weaponId) + ' 装备到槽位 ' + (slotIndex + 1), 1500, '#44ff44');
+    this._renderBackpack();
   }
 }
 

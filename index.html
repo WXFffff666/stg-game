@@ -232,6 +232,16 @@ canvas {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: rgba(0,0,0,0.7); transition: height 0.1s;
 }
+/* B8: Fusion glow — golden pulse border when fusion recipe is complete */
+.hud-weapon-slot.fusion-glow {
+  border-color: #ffaa00;
+  box-shadow: 0 0 8px rgba(255,170,0,0.5);
+  animation: fusionGlowPulse 1.2s ease-in-out infinite;
+}
+@keyframes fusionGlowPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(255,170,0,0.3); border-color: #ffaa00; }
+  50% { box-shadow: 0 0 16px rgba(255,170,0,0.7), 0 0 4px rgba(255,68,255,0.4); border-color: #ff44ff; }
+}
 .hud-weapon-passive-row {
   display: none; gap: 4px; justify-content: center; margin-top: 2px;
 }
@@ -1119,6 +1129,114 @@ canvas {
   .fs-toggle:hover { opacity: 1; color: #fff; }
 }
 
+/* ============ Low HP Warning Overlay ============ */
+#low-hp-warning {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 9;
+  opacity: 0; transition: opacity 0.3s;
+}
+#low-hp-warning.active {
+  opacity: 0.3;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.3) 70%, rgba(255,0,0,0.6) 100%);
+  animation: lowHpPulse 0.5s ease-in-out infinite;
+}
+#low-hp-warning.active.critical {
+  animation: lowHpPulseFast 0.3s ease-in-out infinite;
+}
+@keyframes lowHpPulse {
+  0%, 100% { background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.2) 70%, rgba(255,0,0,0.5) 100%); }
+  50% { background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.35) 70%, rgba(255,0,0,0.8) 100%); }
+}
+@keyframes lowHpPulseFast {
+  0%, 100% { background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.3) 70%, rgba(255,0,0,0.6) 100%); }
+  50% { background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.5) 70%, rgba(255,0,0,0.9) 100%); }
+}
+
+/* ============ Minimap ============ */
+#minimap {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  right: calc(50px + env(safe-area-inset-right, 0px));
+  width: 100px; height: 150px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.55);
+  pointer-events: none;
+  image-rendering: auto;
+}
+/* Mobile: move minimap below HP bar, smaller */
+@media (hover: none) and (pointer: coarse), (max-width: 480px) {
+  #minimap {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    right: 8px;
+    width: 80px; height: 120px;
+  }
+}
+@media (max-width: 768px) and (orientation: landscape) {
+  #minimap {
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    right: calc(42px + env(safe-area-inset-right, 0px));
+    width: 70px; height: 105px;
+  }
+}
+@media (min-width: 769px) {
+  #minimap {
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(60px + env(safe-area-inset-right, 0px));
+    width: 120px; height: 180px;
+  }
+}
+
+/* ============ Buff/Debuff Status Bar ============ */
+.hud-buff-bar {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+  max-width: min(320px, 65vw);
+  pointer-events: auto;
+}
+.buff-icon {
+  width: 32px; height: 32px; position: relative;
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; cursor: default;
+  background: rgba(0,0,0,0.5);
+  border: 2px solid rgba(68,255,68,0.6);
+  box-shadow: 0 0 4px rgba(68,255,68,0.2);
+}
+.buff-icon.debuff {
+  border-color: rgba(255,68,68,0.6);
+  box-shadow: 0 0 4px rgba(255,68,68,0.2);
+}
+.buff-icon canvas {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+}
+@media (max-width: 768px) and (orientation: landscape) {
+  .hud-buff-bar { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 769px) {
+  .hud-buff-bar { bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ============ DPS Stats Bar Chart ============ */
+.dps-bar-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; margin: 4px 0;
+  border-radius: 4px; background: rgba(255,255,255,0.04);
+  font-size: 11px;
+}
+.dps-bar-icon { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+.dps-bar-label { width: 80px; color: #fff; font-weight: bold; text-align: left; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dps-bar-track {
+  flex: 1; height: 12px; background: rgba(255,255,255,0.1);
+  border-radius: 3px; overflow: hidden; min-width: 40px;
+}
+.dps-bar-fill {
+  height: 100%; border-radius: 3px; transition: width 0.3s;
+}
+.dps-bar-value { width: 70px; text-align: right; color: #ccc; font-size: 10px; flex-shrink: 0; }
+.dps-bar-pct { width: 40px; text-align: right; color: #888; font-size: 10px; flex-shrink: 0; }
+
 /* iOS CSS Fullscreen Fallback (when requestFullscreen fails) */
 .fs-ios-fallback #game-container {
   position: fixed !important; top: 0 !important; left: 0 !important;
@@ -1756,6 +1874,15 @@ canvas {
       <span class="hud-hp-text" id="hp-text">100/100</span>
     </div>
 
+    <!-- Buff/Debuff Status Bar -->
+    <div class="hud-buff-bar" id="buff-bar"></div>
+
+    <!-- Minimap (top-right) -->
+    <canvas id="minimap" width="100" height="150"></canvas>
+
+    <!-- Low HP Warning Overlay -->
+    <div id="low-hp-warning"></div>
+
     <!-- Skill Bar -->
     <div class="hud-skill-bar" id="skill-bar">
       <div class="hud-skill-label">主动技能</div>
@@ -1779,6 +1906,7 @@ canvas {
   <!-- Pause Overlay -->
   <div id="pause-overlay">
     <div class="pause-title">⏸️ 已暂停</div>
+    <div id="pause-seed-display" style="font-size:10px;color:#888;margin-bottom:8px;"></div>
     <div id="pause-main-menu">
       <div class="pause-buttons">
         <button class="pause-btn" id="btn-resume">▶ 继续游戏</button>
@@ -1790,6 +1918,12 @@ canvas {
     </div>
     <div id="pause-sub-view" style="display:none">
       <div id="pause-sub-content" class="pause-sub-content"></div>
+      <!-- DPS Stats (shown when viewing weapons or as separate tab) -->
+      <div id="dps-stats-view" class="pause-sub-content" style="display:none">
+        <h3>📊 伤害统计</h3>
+        <div id="dps-stats-content"></div>
+        <div id="dps-total" style="font-size:13px;color:#aaa;margin-top:8px"></div>
+      </div>
       <button class="pause-btn" id="btn-pause-back" style="margin-top:16px">← 返回</button>
     </div>
   </div>
@@ -1810,11 +1944,24 @@ canvas {
     <h1>星域战机</h1>
     <div class="subtitle">STAR DOMAIN STG</div>
     <button class="menu-btn highlight" id="btn-start">开始游戏</button>
+    <div class="menu-btn-row" style="display:flex;gap:8px;justify-content:center;margin-top:4px;">
+      <button class="menu-btn" id="btn-daily" style="flex:1;max-width:180px;font-size:12px;padding:10px 8px;">📅 每日挑战</button>
+      <button class="menu-btn" id="btn-endless" style="flex:1;max-width:180px;font-size:12px;padding:10px 8px;">🔁 无尽模式</button>
+    </div>
+    <button class="menu-btn" id="btn-challenge" style="margin-top:4px;">⚡ 挑战模式</button>
     <button class="menu-btn" id="btn-codex">📖 图鉴</button>
     <button class="menu-btn" id="btn-meta-shop">🛒 商店</button>
     <button class="menu-btn" id="btn-settings">⚙️ 设置</button>
     <button class="menu-btn" id="btn-leaderboard">排行榜</button>
     <button class="menu-btn" id="btn-howto">操作说明</button>
+  </div>
+
+  <!-- Challenge Mode Select (G5) -->
+  <div class="menu-screen" id="challenge-screen" style="display:none">
+    <h1 style="font-size:28px">⚡ 挑战模式</h1>
+    <div class="subtitle">CHALLENGE MODE</div>
+    <div id="challenge-list" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:440px;padding:20px"></div>
+    <button class="menu-btn" id="btn-back-from-challenge" style="margin-top:16px">返回</button>
   </div>
 
   <!-- Character Select (角色选择) -->
@@ -1864,6 +2011,9 @@ canvas {
   <div class="menu-screen" id="game-over">
     <div class="settlement-title">游戏结束</div>
     <div class="settlement-subtitle">SETTLEMENT</div>
+    <div id="endless-badge" style="display:none;font-size:14px;color:#ff8844;margin-bottom:8px;font-weight:bold;">🔁 无尽模式</div>
+    <div id="challenge-badge" style="display:none;font-size:13px;color:#ffaa00;margin-bottom:4px;">⚡ </div>
+    <div id="seed-badge" style="display:none;font-size:10px;color:#888;margin-bottom:8px;">🌱 Seed: </div>
     <div class="final-score" id="final-score">0</div>
     <div class="star-coin-earned" id="star-coin-earned"></div>
     <div class="settlement-stats" id="settlement-stats"></div>
@@ -1895,6 +2045,8 @@ canvas {
       💎 拾取道具获得增益<br>
       ☠️ 避开红色减益道具<br>
       ⌨️ <b>P/ESC</b>：暂停游戏<br>
+      ⌨️ <b>I</b>：打开背包管理武器<br>
+      ⌨️ <b>1-6</b>：聚焦武器槽 (+30%射速)<br>
       👑 BOSS每20000分出现
     </div>
     <button class="menu-btn" id="btn-back-from-howto">返回</button>
@@ -1990,6 +2142,9 @@ canvas {
       <div class="tutorial-hint" id="tutorial-hint"></div>
     </div>
   </div>
+
+  <!-- B1: Backpack Screen -->
+  <div class="menu-screen" id="backpack-screen" style="display:none"></div>
 
 </div>
 
