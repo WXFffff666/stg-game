@@ -1071,6 +1071,12 @@ class SkillManager {
   getSkillChoices(count) {
     count = count || 3;
 
+    // B4/B5: Auto-upgrade duplicate weapons and skills before building choices
+    // Auto-upgrade one random owned weapon (if any below max level)
+    this._autoUpgradeRandomWeapon();
+    // Auto-stack one random learned skill (if any)
+    this._autoUpgradeRandomSkill();
+
     // Build pool of ALL skills (learned ones can be re-selected for stacking)
     var pool = [];
     var playerFaction = this.player.factionId;
@@ -1382,6 +1388,102 @@ class SkillManager {
     } else {
       this._isChoosing = false;
       window._isLevelingUp = false;
+    }
+  }
+
+  // ====================================================================
+  //  B4/B5: AUTO-UPGRADE DUPLICATE WEAPONS & SKILLS
+  // ====================================================================
+
+  /**
+   * Auto-upgrade one random owned weapon that is below max level.
+   * Called during getSkillChoices(). B4 requirement.
+   * Uses lightweight upgrade (does NOT trigger level-up UI flow).
+   */
+  _autoUpgradeRandomWeapon() {
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+
+    // Collect all owned weapons below max level that are NOT fused and currently equipped
+    var candidates = [];
+    var weapons = GAME_CONFIG.WEAPONS;
+    var wmSlots = this.weaponManager ? this.weaponManager.weaponSlots : null;
+    for (var wid in weapons) {
+      if (!weapons.hasOwnProperty(wid)) continue;
+      var w = weapons[wid];
+      if (w.fused) continue;
+      var curLvl = this.weaponLevels.get(wid) || 0;
+      if (curLvl > 0 && curLvl < maxLvl) {
+        // Only auto-upgrade weapons that are currently in a slot
+        if (wmSlots) {
+          var inSlot = false;
+          for (var i = 0; i < wmSlots.length; i++) {
+            if (wmSlots[i] && wmSlots[i].weaponId === wid) { inSlot = true; break; }
+          }
+          if (!inSlot) continue;
+        }
+        candidates.push(wid);
+      }
+    }
+
+    if (candidates.length === 0) return;
+
+    // Pick one random candidate and upgrade it (no UI flow triggers)
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    var wCfg = GAME_CONFIG.WEAPONS[pick];
+    var curLvl = this.weaponLevels.get(pick) || 0;
+    var newLvl = curLvl + 1;
+
+    this.weaponLevels.set(pick, newLvl);
+
+    // Sync slot level
+    if (wmSlots) {
+      for (var i = 0; i < wmSlots.length; i++) {
+        if (wmSlots[i] && wmSlots[i].weaponId === pick) {
+          wmSlots[i].level = newLvl;
+          break;
+        }
+      }
+    }
+
+    // B4: Toast
+    var label = upgradeCfg && upgradeCfg.descriptions ? upgradeCfg.descriptions[newLvl] : ('Lv' + newLvl);
+    if (window.ui) {
+      window.ui.showToast('⚔️ ' + (wCfg ? wCfg.name : pick) + ' 自动升级至 ' + label, 2000, (wCfg ? wCfg.bulletColor : '#ffdd00'));
+    }
+  }
+
+  /**
+   * Auto-stack one random learned skill (if any).
+   * Called during getSkillChoices(). B5 requirement.
+   * Uses lightweight stack (does NOT trigger level-up UI flow).
+   */
+  _autoUpgradeRandomSkill() {
+    var candidates = [];
+    var learnedEntries = Array.from(this.learnedSkills.entries());
+    for (var i = 0; i < learnedEntries.length; i++) {
+      var skillId = learnedEntries[i][0];
+      var skill = this._findSkill(skillId);
+      if (!skill || skill.fused || skill.ultimate) continue;
+      candidates.push(skillId);
+    }
+
+    if (candidates.length === 0) return;
+
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    var stackCount = (this.learnedSkills.get(pick) || 0) + 1;
+    this.learnedSkills.set(pick, stackCount);
+
+    // Re-apply passive effects
+    var skill = this._findSkill(pick);
+    if (skill && skill.type === 'passive') {
+      this.player.applyStatModifiers(skill.effects);
+    }
+
+    // B5: Toast
+    if (window.ui) {
+      var skillName = skill ? skill.name : pick;
+      window.ui.showToast('✨ ' + skillName + ' 自动堆叠至 Lv' + stackCount, 2000, '#ffaa44');
     }
   }
 
@@ -5862,9 +5964,9 @@ var ElementalReactionSystem = {
 
   // --- Reaction definitions (key is sorted pair) ---
   REACTIONS: {
-    'fire+ice':        { name: 'steam',     effect: 'blind',     duration: 2500, damageMult: 0.5,  color: '#ddddff' },
-    'fire+poison':     { name: 'explosion', effect: 'aoe',       duration: 0,    damageMult: 2.0,  radius: 100, color: '#ff6600' },
-    'ice+lightning':   { name: 'shatter',   effect: 'vulnerable', duration: 3000, damageMult: 1.5,  color: '#88ffff' },
+    'fire+ice':        { name: 'melt',     effect: 'melt',     duration: 0,    damageMult: 2.0,  color: '#ffaaaa' },
+    'fire+poison':     { name: 'explosion', effect: 'aoe',       duration: 0,    damageMult: 3.0,  radius: 120, color: '#ff6600' },
+    'ice+lightning':   { name: 'shatter',   effect: 'shatter', duration: 0,    damageMult: 1.5,  color: '#88ffff', enhanceShock: true },
     'poison+lightning': { name: 'paralyze', effect: 'stun',      duration: 2000, damageMult: 0.8,  color: '#aaff00' }
   },
 
@@ -5994,17 +6096,49 @@ var ElementalReactionSystem = {
         enemy.takeDamage(damage);
         break;
 
+      case 'melt':
+        // C4: Melt (fire+ice): double damage, clear both effects
+        enemy.takeDamage(damage);
+        break;
+
       case 'aoe':
         // Explosion: AoE burst around enemy
         enemy.takeDamage(damage);
-        this._aoeExplosion(enemy.x, enemy.y, reaction.radius || 100, Math.floor(damage * 0.5));
+        this._aoeExplosion(enemy.x, enemy.y, reaction.radius || 120, Math.floor(damage * 0.5));
         if (game) game.addShake(8);
+        break;
+
+      case 'shatter':
+        // Shatter: instant damage + enhanced shock on nearby enemies
+        enemy.takeDamage(damage);
+        // C4: Enhanced Shock - chain to more targets with +50% range
+        if (reaction.enhanceShock) {
+          var enhancedRange = 180;
+          var enhancedCount = 6;
+          var chainTargets = [];
+          for (var i = 0; i < game.enemies.length; i++) {
+            var e = game.enemies[i];
+            if (!e.active || e === enemy) continue;
+            var dx = e.x - enemy.x, dy = e.y - enemy.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < enhancedRange) chainTargets.push({ enemy: e, dist: dist });
+          }
+          chainTargets.sort(function(a, b) { return a.dist - b.dist; });
+          for (var j = 0; j < Math.min(chainTargets.length, enhancedCount); j++) {
+            var target = chainTargets[j].enemy;
+            var chainDmg = Math.floor(damage * 0.4);
+            target.takeDamage(chainDmg);
+            if (window.ParticleSystem) {
+              window.ParticleSystem.lightning(enemy.x, enemy.y, target.x, target.y, '#88ffff');
+            }
+          }
+        }
         break;
 
       case 'vulnerable':
         // Shatter: enemy takes increased damage
         enemy._vulnerableTimer = reaction.duration;
-        enemy._vulnerableMult = 1.5; // takes 50% more damage
+        enemy._vulnerableMult = 1.5;
         enemy.takeDamage(damage);
         break;
 
@@ -6020,8 +6154,9 @@ var ElementalReactionSystem = {
       window.ParticleSystem.reactionEffect(enemy.x, enemy.y, reaction.name);
       window.ParticleSystem.damageNumber(
         enemy.x, enemy.y - 20,
-        reaction.name.toUpperCase(),
-        reaction.color || '#ffffff'
+        reaction.name.toUpperCase() + '!',
+        reaction.color || '#ffffff',
+        false, true
       );
     }
   },

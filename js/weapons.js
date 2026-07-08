@@ -222,13 +222,38 @@ class WeaponManager {
 
     var maxWeapon = GAME_CONFIG.BALANCE.MAX_WEAPON_SLOTS || 6;
     var maxPassive = GAME_CONFIG.BALANCE.MAX_PASSIVE_SLOTS || 6;
+    this.maxWeaponSlots = maxWeapon;
+    this.maxPassiveSlots = maxPassive;
 
     /** @type {Array<{weaponId:string, level:number, fireTimer:number}>} */
-    this.weaponSlots = new Array(maxWeapon).fill(null);
+    this.weaponSlots = new Array(GAME_CONFIG.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8).fill(null);
     /** @type {Array<{weaponId:string, level:number}>} */
-    this.passiveSlots = new Array(maxPassive).fill(null);
+    this.passiveSlots = new Array(GAME_CONFIG.BALANCE.MAX_PASSIVE_SLOT_TOTAL || 8).fill(null);
     /** @type {OrbitalDrone[]} active orbital drone entities */
     this.orbitals = [];
+
+    // B6: Quick-switch focused weapon slot (-1 = none focused)
+    this.focusedSlot = -1;
+
+    // DPS tracking: weaponId -> totalDamage
+    this._dpsData = {};
+  }
+
+  /**
+   * Reset DPS tracking data (called on new game).
+   */
+  resetDpsData() {
+    this._dpsData = {};
+  }
+
+  /**
+   * Record damage dealt by a weapon for DPS stats panel.
+   * @param {string} weaponId
+   * @param {number} amount
+   */
+  recordDamage(weaponId, amount) {
+    if (!this._dpsData[weaponId]) this._dpsData[weaponId] = 0;
+    this._dpsData[weaponId] += amount;
   }
 
   // ============================================================
@@ -377,6 +402,39 @@ class WeaponManager {
     });
   }
 
+  // B6: Quick-switch — set/clear focused weapon slot
+  /**
+   * Set the focused weapon slot (0-based index, -1 to clear).
+   * @param {number} slotIndex - slot index to focus, or -1 to unfocus
+   */
+  setFocusedSlot(slotIndex) {
+    if (slotIndex >= 0 && slotIndex < this.weaponSlots.length && this.weaponSlots[slotIndex]) {
+      this.focusedSlot = slotIndex;
+    } else {
+      this.focusedSlot = -1;
+    }
+  }
+
+  /**
+   * Get the currently focused slot index.
+   * @returns {number} -1 if none focused
+   */
+  getFocusedSlot() {
+    return this.focusedSlot;
+  }
+
+  /**
+   * Toggle focus on a slot (press same number again to unfocus).
+   * @param {number} slotIndex
+   */
+  toggleFocusedSlot(slotIndex) {
+    if (this.focusedSlot === slotIndex) {
+      this.focusedSlot = -1;
+    } else {
+      this.setFocusedSlot(slotIndex);
+    }
+  }
+
   // ============================================================
   //  MAIN UPDATE LOOP — iterates ALL weapon slots independently
   // ============================================================
@@ -412,6 +470,10 @@ class WeaponManager {
       var skillMgr = this._getSkillManager();
       if (skillMgr) {
         effectiveFireRate *= skillMgr.getWeaponFireRateMult(slot.weaponId);
+      }
+      // B6: Quick-switch — focused weapon gets +30% fire rate bonus (multiply by ~0.769 for 30% faster)
+      if (this.focusedSlot === i) {
+        effectiveFireRate /= 1.3;
       }
       if (effectiveFireRate < 30) effectiveFireRate = 30;
 
@@ -475,6 +537,11 @@ class WeaponManager {
     if (cfg.pattern === 'spread') {
       bulletCount = Math.max(3, bulletCount + Math.floor(Math.random() * 5) - 2);
     }
+
+    // Track DPS stats: record this weapon's damage output
+    var trackBullets = bulletCount;
+    if (cfg.pattern === 'rocketBarrage') trackBullets = cfg.rocketCount || 5;
+    this.recordDamage(weaponId, dmg * trackBullets);
 
     var homingStrength = cfg.homingStrength || 0.05;
     if (cfg.pattern === 'homing' && Math.random() < 0.05) {

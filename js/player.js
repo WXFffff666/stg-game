@@ -1614,6 +1614,10 @@ class Player {
 
     // 自动瞄准目标（触摸时设置）
     this._autoShootTarget = null;
+
+    // Lifesteal per-second cap tracking (C8)
+    this._lifestealThisSecond = 0;
+    this._lifestealSecondTimer = 0;
   }
 
   // ====================================================================
@@ -1690,6 +1694,13 @@ class Player {
       if (this.invincibleTimer < 0) {
         this.invincibleTimer = 0;
       }
+    }
+
+    // --- Lifesteal per-second cap tracking (C8) ---
+    this._lifestealSecondTimer += dt;
+    if (this._lifestealSecondTimer >= 1.0) {
+      this._lifestealSecondTimer -= 1.0;
+      this._lifestealThisSecond = 0;
     }
 
     // --- Shield regeneration ---
@@ -2053,6 +2064,11 @@ class Player {
       s[stat] = base * (1 + multSum) + addSum;
     }
 
+    // Armor penetration stat (default 0 if not set by faction/talent)
+    if (s.armorPenetration === undefined) {
+      s.armorPenetration = 0;
+    }
+
     // Publish computed stats for other systems (weapons, skills, UI)
     this.stats = s;
 
@@ -2111,10 +2127,17 @@ class Player {
     if (this.invincibleTimer > 0) return true;
     if (amount <= 0) return this.hp > 0;
 
+    var rawAmount = amount;
+    var afterDefense = amount;
+    var afterRedirect = amount;
+    var afterCap = amount;
+    var afterShield = amount;
+
     // Counter: defense damage reduction
     if (this.stats.defense && this.stats.defense > 0) {
       amount = Math.floor(amount * (1 - Math.min(this.stats.defense, 0.8))); // cap at 80%
     }
+    afterDefense = amount;
 
     // Mirror: damage redirect - chance to redirect damage away
     if (this.stats.damageRedirect && Math.random() < this.stats.damageRedirect) {
@@ -2123,6 +2146,7 @@ class Player {
         ParticleSystem.spark(this.x, this.y);
       }
     }
+    afterRedirect = amount;
 
     // Shadow: stealth trigger on hit (enter stealth when taking damage)
     if (this.stats.stealthDuration && this.stats.stealthCooldown) {
@@ -2143,6 +2167,7 @@ class Player {
     // in main.js.  This safety net prevents huge one-shots from those paths.
     var hardCap = Math.floor(this.maxHp * 0.4);
     if (amount > hardCap) amount = hardCap;
+    afterCap = amount;
 
     var wasShieldActive = this.shield > 0;
 
@@ -2158,6 +2183,7 @@ class Player {
         ParticleSystem.shieldBreak(this.x, this.y, this.factionColor);
       }
     }
+    afterShield = amount;
 
     // Remaining damage hits HP
     if (amount > 0) {
@@ -2168,6 +2194,21 @@ class Player {
       ParticleSystem.damageNumber(this.x, this.y - 20, Math.round(amount), '#ff4444');
       ParticleSystem.screenFlash('rgba(255,50,50,0.15)', 120);
       game.addShake(3);
+    }
+
+    // Debug logging: trace the full damage pipeline
+    if (window.DEBUG) {
+      console.log('DAMAGE:', {
+        raw: rawAmount,
+        afterDefense: afterDefense,
+        afterRedirect: afterRedirect,
+        afterCap: afterCap,
+        afterShield: afterShield,
+        finalHp: this.hp,
+        invTimer: this.invincibleTimer,
+        maxHp: this.maxHp,
+        shield: this.shield
+      });
     }
 
     return this.hp > 0;
