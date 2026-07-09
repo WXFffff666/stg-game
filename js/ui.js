@@ -154,13 +154,15 @@ class UIManager {
 
   showHUD() {
     if (this.elHud) this.elHud.style.display = 'flex';
-    if (this.elHudPauseBtn) this.elHudPauseBtn.style.removeProperty('display');
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'flex';
     this._startHUDLoop();
   }
 
   hideHUD() {
     if (this.elHud) this.elHud.style.display = 'none';
-    if (this.elHudPauseBtn) this.elHudPauseBtn.style.display = 'none';
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
     this._stopHUDLoop();
   }
 
@@ -738,19 +740,44 @@ class UIManager {
 
     var self = this;
     var branchColor = branchCfg.color || '#ffdd00';
+    var tm = this._talentMgr;
 
     for (var l = 0; l < branchCfg.layers.length; l++) {
       var layer = branchCfg.layers[l];
       var layerDiv = document.createElement('div');
       layerDiv.className = 'talent-layer';
 
-      // Layer label
+      // Layer label with progress
+      var selectedIds = tm.getSelectedInLayer(branchId, l) || [];
+      var selCount = Array.isArray(selectedIds) ? selectedIds.length : (selectedIds ? 1 : 0);
+      var layerLocked = l > 0;
+      if (layerLocked) {
+        // Check if previous layer is fully selected
+        var prevLayer = branchCfg.layers[l - 1];
+        var prevSelected = tm.getSelectedInLayer(branchId, l - 1) || [];
+        var prevCount = Array.isArray(prevSelected) ? prevSelected.length : (prevSelected ? 1 : 0);
+        layerLocked = prevCount < prevLayer.length;
+      }
+
       var label = document.createElement('div');
       label.className = 'talent-layer-label';
-      label.textContent = '第' + (l + 1) + '层';
+      label.textContent = '第' + (l + 1) + '层' + ' (' + selCount + '/' + layer.length + ')';
+      if (layerLocked) {
+        label.textContent += ' 🔒';
+        label.style.color = '#666';
+      }
       layerDiv.appendChild(label);
 
-      var selectedInLayer = this._talentMgr.getSelectedInLayer(branchId, l);
+      // Progress bar for layer
+      if (layer.length > 1) {
+        var progressBar = document.createElement('div');
+        progressBar.style.cssText = 'height:3px;background:#333;border-radius:2px;margin:0 0 8px 0;overflow:hidden;';
+        var progressFill = document.createElement('div');
+        var pct = (selCount / layer.length) * 100;
+        progressFill.style.cssText = 'height:100%;width:' + pct + '%;background:' + branchColor + ';border-radius:2px;transition:width 0.3s;';
+        progressBar.appendChild(progressFill);
+        layerDiv.appendChild(progressBar);
+      }
 
       for (var t = 0; t < layer.length; t++) {
         var talent = layer[t];
@@ -761,18 +788,26 @@ class UIManager {
         node.dataset.branchId = branchId;
         node.dataset.layerIndex = l;
 
-        var isSelected = selectedInLayer === talent.id;
-        var canSelect = this._talentMgr.canSelect(branchId, l, talent.id);
+        var isSelected = tm.isTalentSelected(branchId, talent.id);
+        var canSelect = tm.canSelect(branchId, l, talent.id);
+        var isLayerLocked = layerLocked;
 
         if (isSelected) {
           node.classList.add('selected');
-        } else if (!canSelect && !isSelected) {
+        } else if (!canSelect || isLayerLocked) {
           node.classList.add('locked');
         }
+
+        // Selection checkmark
+        var checkEl = document.createElement('div');
+        checkEl.style.cssText = 'position:absolute;top:2px;right:4px;font-size:10px;color:' + (isSelected ? branchColor : 'transparent') + ';';
+        checkEl.textContent = '✓';
+        node.appendChild(checkEl);
 
         var icon = document.createElement('div');
         icon.className = 'talent-node-icon';
         icon.textContent = talent.icon || '⭐';
+        if (isLayerLocked) icon.style.opacity = '0.3';
 
         var name = document.createElement('div');
         name.className = 'talent-node-name';
@@ -785,6 +820,14 @@ class UIManager {
         node.appendChild(icon);
         node.appendChild(name);
         node.appendChild(desc);
+
+        // Layer lock overlay
+        if (isLayerLocked && !isSelected) {
+          var lockOverlay = document.createElement('div');
+          lockOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);border-radius:8px;font-size:18px;';
+          lockOverlay.textContent = '🔒';
+          node.appendChild(lockOverlay);
+        }
 
         // Click handler
         (function(bid, lIdx, tId) {

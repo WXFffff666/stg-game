@@ -560,35 +560,39 @@ canvas {
 }
 .toast.show { opacity: 1; }
 
-/* HUD浮动按钮组 */
-.hud-btn-group {
-  display: none; flex-direction: row; align-items: center;
+/* 底部工具栏 (全端统一) */
+.hud-toolbar {
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  gap: 4px; padding: 4px 8px;
+  background: rgba(0,0,0,0.7);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  z-index: 25;
+  box-sizing: border-box;
 }
+.toolbar-btn {
+  flex: 1; max-width: 100px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px;
+  padding: 4px 6px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px; color: #ddd; font-size: 18px;
+  cursor: pointer; transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.toolbar-btn:active { background: rgba(255,255,255,0.15); transform: scale(0.95); }
+.toolbar-btn .tb-label { font-size: 9px; color: #999; line-height: 1; }
+.toolbar-btn:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
 
-/* HUD浮动按钮 */
-.hud-fab-btn {
+/* 旧按钮样式保留向下兼容 */
+.hud-fab-btn, .hud-pause-btn {
   width: 40px; height: 40px;
   background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.25);
   border-radius: 8px; color: #fff; font-size: 18px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: all 0.2s;
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
 }
-.hud-fab-btn:active {
-  background: rgba(255,255,255,0.2); transform: scale(0.92);
-}
-/* 旧暂停按钮选择器保留向下兼容 */
-.hud-pause-btn {
-  width: 40px; height: 40px;
-  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 8px; color: #fff; font-size: 18px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-}
-.hud-pause-btn:active {
-  background: rgba(255,255,255,0.2); transform: scale(0.95);
-}
+.hud-fab-btn:active, .hud-pause-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.95); }
 
 /* Responsive - Mobile/Touch devices (设计分辨率 720×1280) */
 @media (hover: none) and (pointer: coarse), (max-width: 480px) {
@@ -598,10 +602,9 @@ canvas {
   .char-card { width: 100px; padding: 8px; min-height: 44px; }
   .skill-card { width: 110px; padding: 10px 8px; min-height: 44px; }
 
-  /* 显示悬浮按钮组 */
-  .hud-btn-group {
-    display: flex;
-  }
+  /* 底部工具栏触控优化 */
+  .toolbar-btn { min-height: 44px; padding: 6px 4px; }
+  .toolbar-btn .tb-label { font-size: 10px; }
 
   /* HUD基础样式 - 统一半透明黑底+圆角8px */
   #hud { font-size: 13px; }
@@ -823,15 +826,6 @@ canvas {
   .hud-boss-hp-bar { height: 14px; }
   .hud-boss-hp-pct { font-size: 9px; }
 
-  /* Pause button: smaller in landscape */
-  .hud-pause-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-    top: calc(4px + env(safe-area-inset-top, 0px));
-    right: calc(6px + env(safe-area-inset-right, 0px));
-  }
-
   /* Fullscreen toggle: reposition */
   .fs-toggle {
     width: 36px;
@@ -847,12 +841,9 @@ canvas {
 
 /* ============ Tablet (481px - 768px, portrait & landscape) ============ */
 @media (min-width: 481px) and (max-width: 768px) {
-  /* 48px min touch targets for all interactive elements */
-  .hud-pause-btn {
-    width: 48px;
-    height: 48px;
-    font-size: 22px;
-  }
+  /* 48px min touch targets for toolbar */
+  .toolbar-btn { min-height: 48px; }
+  .toolbar-btn .tb-label { font-size: 11px; }
   .hud-weapon-slot {
     width: 48px;
     height: 48px;
@@ -1021,21 +1012,6 @@ canvas {
     width: 32px;
     height: 32px;
     font-size: 16px;
-  }
-
-  /* Pause button: visible on hover */
-  .hud-pause-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    top: calc(16px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-    opacity: 0.6;
-    transition: opacity 0.2s;
-  }
-  .hud-pause-btn:hover {
-    opacity: 1;
-    background: rgba(255,255,255,0.15);
   }
 
   /* Timer */
@@ -1839,10 +1815,12 @@ canvas {
   <!-- Fullscreen Toggle -->
   <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="window.toggleFullscreen()">⛶</button>
 
-  <!-- HUD按钮组 (右上角浮动) -->
-  <div class="hud-btn-group" id="hud-btn-group">
-    <button class="hud-fab-btn" id="hud-backpack-btn" title="背包 (I)">🎒</button>
-    <button class="hud-fab-btn" id="hud-pause-btn" title="暂停 (P/ESC)">⏸</button>
+  <!-- 底部工具栏 (全端统一入口) -->
+  <div class="hud-toolbar" id="hud-toolbar" style="display:none">
+    <button class="toolbar-btn" id="tb-backpack" title="背包 (I)">🎒 <span class="tb-label">背包</span></button>
+    <button class="toolbar-btn" id="tb-status" title="状态 (C)">📊 <span class="tb-label">状态</span></button>
+    <button class="toolbar-btn" id="tb-shop" title="商店 (B)">🛒 <span class="tb-label">商店</span></button>
+    <button class="toolbar-btn" id="tb-pause" title="暂停 (ESC)">⏸ <span class="tb-label">暂停</span></button>
   </div>
 
   <!-- HUD (hidden by default) -->

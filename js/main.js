@@ -501,25 +501,56 @@
       hideInRunShop();
     });
 
-    // B1: Backpack toggle ('I' key or button)
-    // B6: Quick-switch weapon focus ('1'-'6' keys)
-    var btnBackpack = document.getElementById('hud-backpack-btn');
+    // Toolbar buttons + keyboard shortcuts
+    // B1: Backpack toggle ('I' key or toolbar button)
+    var btnBackpack = document.getElementById('tb-backpack');
     if (btnBackpack) {
       btnBackpack.addEventListener('click', function() {
         if (window._isLevelingUp || window._isWaveShopOpen) return;
-        if (ui && typeof ui.toggleBackpack === 'function') {
-          ui.toggleBackpack();
-        }
+        if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
       });
     }
+    var btnStatus = document.getElementById('tb-status');
+    if (btnStatus) {
+      btnStatus.addEventListener('click', function() {
+        if (window._isLevelingUp || window._isWaveShopOpen) return;
+        // Show status overlay (weapon/skill stats)
+        if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+      });
+    }
+    var btnShop = document.getElementById('tb-shop');
+    if (btnShop) {
+      btnShop.addEventListener('click', function() {
+        if (window._isLevelingUp || window._isWaveShopOpen) return;
+        if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
+      });
+    }
+    var btnPause = document.getElementById('tb-pause');
+    if (btnPause) {
+      btnPause.addEventListener('click', function() {
+        if (window.game) window.game.togglePause();
+        var po = document.getElementById('pause-overlay');
+        if (po) po.style.display = po.style.display === 'flex' ? 'none' : 'flex';
+      });
+    }
+
+    // B6: Quick-switch weapon focus ('1'-'6' keys)
     document.addEventListener('keydown', (e) => {
       if (game && game.scene === cfg.SCENES.GAMEPLAY && !game.isPaused) {
-        // B1: Toggle backpack
+        // Backpack (I)
         if (e.key === 'i' || e.key === 'I') {
           if (window._isLevelingUp || window._isWaveShopOpen) return;
-          if (ui && typeof ui.toggleBackpack === 'function') {
-            ui.toggleBackpack();
-          }
+          if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+        }
+        // Status (C) — same as backpack for now
+        if (e.key === 'c' || e.key === 'C') {
+          if (window._isLevelingUp || window._isWaveShopOpen) return;
+          if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+        }
+        // Shop (B)
+        if (e.key === 'b' || e.key === 'B') {
+          if (window._isLevelingUp || window._isWaveShopOpen) return;
+          if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
         }
         // B6: Quick-switch weapon focus with number keys
         if (e.key >= '1' && e.key <= '6') {
