@@ -613,7 +613,9 @@ class WeaponManager {
     }
     var spd = (cfg.bulletSpeed || 400) * (stats.bulletSpeed || 1);
     var size = (cfg.bulletSize || 3) * (stats.bulletSize || 1);
-    var color = cfg.bulletColor || '#ffffff';
+    // Faction-specific bullet color: weapon color tinted by faction color
+    var factionColor = (this.player && this.player.factionColor) ? this.player.factionColor : null;
+    var color = cfg.bulletColor || factionColor || '#ffffff';
     var trail = cfg.trailColor || color;
 
     // === RANDOM ELEMENTS ===

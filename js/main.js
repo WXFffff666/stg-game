@@ -3247,6 +3247,52 @@
     // 触发敌人击杀事件（供流派效果系统使用）
     if (window.eventBus) window.eventBus.emit('enemyKilled', {enemy: enemy, isCrit: isCrit, damage: damage});
 
+    // Faction-specific on-kill visual effects
+    if (playerEntity && playerEntity.factionId && window.ParticleSystem) {
+      var _fid = playerEntity.factionId;
+      var _fCfg = cfg.FACTIONS ? cfg.FACTIONS[_fid] : null;
+      var _fColor = _fCfg ? _fCfg.color : '#ffdd00';
+
+      // Elemental faction: fiery explosion on kill
+      if (_fid === 'elemental' || _fid === 'forge') {
+        window.ParticleSystem.explosion(enemy.x, enemy.y, 'normal');
+      }
+      // Thunder/chain faction: lightning arc on kill
+      if (_fid === 'thunder' || _fid === 'chain') {
+        var _nearest = null, _ndist = Infinity;
+        for (var _ci = 0; _ci < game.enemies.length; _ci++) {
+          if (!game.enemies[_ci].active || game.enemies[_ci] === enemy) continue;
+          var _cdx = game.enemies[_ci].x - enemy.x;
+          var _cdy = game.enemies[_ci].y - enemy.y;
+          var _cd = _cdx * _cdx + _cdy * _cdy;
+          if (_cd < _ndist && _cd < 300*300) { _ndist = _cd; _nearest = game.enemies[_ci]; }
+        }
+        if (_nearest) {
+          window.ParticleSystem.lightningBolt(enemy.x, enemy.y, _nearest.x, _nearest.y, _fColor);
+        }
+      }
+      // Ice faction: freeze burst on kill
+      if (_fid === 'ice' || _fid === 'dream') {
+        window.ParticleSystem.screenFlash('rgba(100,200,255,0.15)', 200);
+      }
+      // Poison/decay faction: poison cloud on kill
+      if (_fid === 'poison' || _fid === 'decay') {
+        window.ParticleSystem.spark(enemy.x, enemy.y);
+      }
+      // Shadow/phantom faction: vanish effect on kill
+      if (_fid === 'shadow' || _fid === 'phantom') {
+        window.ParticleSystem.shieldBreak(enemy.x, enemy.y, '#6666ff');
+      }
+      // Blood/lifesteal faction: blood burst on kill
+      if (_fid === 'lifesteal' || _fid === 'blood') {
+        window.ParticleSystem.screenFlash('rgba(255,50,50,0.15)', 150);
+      }
+      // Crystal/shatter faction: crystal shards on kill
+      if (_fid === 'crystal' || _fid === 'rebound') {
+        window.ParticleSystem.damageNumber(enemy.x, enemy.y - 10, '💎', '#88ddff');
+      }
+    }
+
     // Particles
     if (enemy.isBoss) {
       window.ParticleSystem.bossExplosion(enemy.x, enemy.y);
