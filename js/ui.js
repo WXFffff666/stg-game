@@ -3645,6 +3645,70 @@ class UIManager {
       }
     }
 
+    // === Skills Learned Section ===
+    var skillLabel = document.createElement('div');
+    skillLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;margin-top:8px;';
+    skillLabel.textContent = '✨ 已学技能';
+    screen.appendChild(skillLabel);
+
+    var skillGrid = document.createElement('div');
+    skillGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;';
+    if (sm && sm.learnedSkills && sm.learnedSkills.size > 0) {
+      var skillIds = Array.from(sm.learnedSkills.keys()).slice(0, 12);
+      for (var si = 0; si < skillIds.length; si++) {
+        var _sid = skillIds[si];
+        var _sCfg = null;
+        for (var _sj = 0; _sj < (cfg.SKILLS || []).length; _sj++) {
+          if (cfg.SKILLS[_sj].id === _sid) { _sCfg = cfg.SKILLS[_sj]; break; }
+        }
+        var _sIcon = _sCfg ? (_sCfg.icon || '✨') : '✨';
+        var _sName = _sCfg ? _sCfg.name : _sid;
+        var _sEl = document.createElement('div');
+        _sEl.style.cssText = 'width:42px;height:42px;border:1px solid #555;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);font-size:16px;position:relative;';
+        _sEl.innerHTML = '<span>' + _sIcon + '</span><span style="font-size:7px;color:#aaa;line-height:1;">' + _sName.substring(0,4) + '</span>';
+        _sEl.title = _sName;
+        skillGrid.appendChild(_sEl);
+      }
+    } else {
+      skillGrid.style.cssText = 'font-size:11px;color:#666;padding:8px;';
+      skillGrid.textContent = '尚未学习任何技能';
+    }
+    screen.appendChild(skillGrid);
+
+    // === Items / Consumables Section ===
+    var itemLabel = document.createElement('div');
+    itemLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
+    itemLabel.textContent = '📦 道具';
+    screen.appendChild(itemLabel);
+
+    var itemRow = document.createElement('div');
+    itemRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;';
+    var inRunItems = window._inRunItems || [];
+    if (inRunItems.length > 0) {
+      for (var ii = 0; ii < inRunItems.length; ii++) {
+        (function(itemData, idx) {
+          var iEl = document.createElement('div');
+          iEl.style.cssText = 'padding:6px 10px;border:1px solid #558;border-radius:6px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);font-size:12px;';
+          iEl.innerHTML = '<span>' + (itemData.icon || '📦') + '</span><span style="color:#ddd;">' + (itemData.name || '道具') + '</span>';
+          var useBtn = document.createElement('button');
+          useBtn.style.cssText = 'padding:2px 8px;font-size:10px;border:1px solid #44dd88;border-radius:4px;background:rgba(68,221,136,0.15);color:#44dd88;cursor:pointer;margin-left:4px;';
+          useBtn.textContent = '使用';
+          useBtn.addEventListener('click', function() {
+            if (typeof window._useInRunItem === 'function') {
+              window._useInRunItem(idx);
+              self._renderBackpack();
+            }
+          });
+          iEl.appendChild(useBtn);
+          itemRow.appendChild(iEl);
+        })(inRunItems[ii], ii);
+      }
+    } else {
+      itemRow.style.cssText = 'font-size:11px;color:#666;padding:4px 0;';
+      itemRow.textContent = '无道具（可在波次商店购买）';
+    }
+    screen.appendChild(itemRow);
+
     // === Fusion Core Count & Manual Fusion ===
     var fusionSection = document.createElement('div');
     fusionSection.style.cssText = 'margin-top:8px;border-top:1px solid #333;padding-top:10px;';

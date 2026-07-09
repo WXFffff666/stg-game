@@ -743,6 +743,36 @@
 
   // ============ IN-RUN SHOP SYSTEM (Comprehensive A1-A8) ============
   let inRunGold = 0;
+  // In-run items inventory (consumables bought from wave shop, used from backpack)
+  window._inRunItems = [];
+  window._useInRunItem = function(index) {
+    var items = window._inRunItems;
+    if (index < 0 || index >= items.length) return;
+    var item = items[index];
+    var used = false;
+    switch (item.id) {
+      case 'healthSmall':
+        if (playerEntity) { playerEntity.heal(30); used = true; }
+        break;
+      case 'healthMedium':
+        if (playerEntity) { playerEntity.heal(80); used = true; }
+        break;
+      case 'healthLarge':
+        if (playerEntity) { playerEntity.heal(playerEntity.maxHp); used = true; }
+        break;
+      case 'healthMega':
+        if (playerEntity) { playerEntity.heal(playerEntity.maxHp); used = true; }
+        break;
+      case 'tempShield':
+        if (playerEntity) { playerEntity.shield = Math.min(playerEntity.maxShield || 100, (playerEntity.shield || 0) + 50); used = true; }
+        break;
+    }
+    if (used) {
+      items.splice(index, 1);
+      if (window.ui) window.ui.showToast('✅ 使用: ' + (item.name || item.id), 1500, '#44ff44');
+    }
+  };
+
   // Legacy upgrade tracking (kept for backwards compat)
   let inRunUpgrades = {
     attackPower: 0, maxHp: 0, moveSpeed: 0, fireRate: 0, critChance: 0, pickupRange: 0, weaponSlot: 0, passiveSlot: 0,
@@ -1640,27 +1670,22 @@
     inRunGold -= cost;
 
     switch (item.id) {
+      // Consumables: store to inventory for backpack use
       case 'healthSmall':
-        if (playerEntity) playerEntity.heal(30);
-        ui.showToast('恢复30HP', '#44ff44');
-        break;
       case 'healthMedium':
-        if (playerEntity) playerEntity.heal(80);
-        ui.showToast('恢复80HP', '#44ff44');
-        break;
       case 'healthLarge':
-        if (playerEntity) playerEntity.heal(playerEntity.maxHp);
-        ui.showToast('恢复全部HP', '#44ff44');
-        break;
+      case 'healthMega':
       case 'tempShield':
-        if (playerEntity) { playerEntity.shield = Math.min(playerEntity.maxShield || 100, (playerEntity.shield || 0) + 50); }
-        ui.showToast('获得50点护盾！', '#4488ff');
+        window._inRunItems.push({ id: item.id, name: item.name || item.id, icon: item.icon || '📦' });
+        ui.showToast('📦 获得 ' + (item.name || item.id) + ' (可在背包使用)', '#44ddff');
         break;
+      // Fusion cores: direct add
       case 'fusionCore':
         if (skillManager && typeof skillManager.addFusionCore === 'function') {
           skillManager.addFusionCore(1);
         }
         break;
+      // Permanent buffs: immediate
       case 'attackBoost':
         if (playerEntity) {
           playerEntity.applyStatModifiers([{ stat: 'attack', op: 'multiply', value: 0.15 }]);
@@ -1673,6 +1698,7 @@
         }
         ui.showToast('移动速度+10%', '#88ffff');
         break;
+      // Slot expansions: direct apply
       case 'weaponSlot':
         if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
         if (skillManager.MAX_WEAPON_SLOTS >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
@@ -1693,6 +1719,7 @@
         if (weaponManager) weaponManager.maxPassiveSlots = skillManager.MAX_PASSIVE_SLOTS;
         ui.showToast('🛡️ 被动槽+1 (共' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#dd88ff');
         break;
+      // Weapon crate: direct open
       case 'weaponCrate':
         if (skillManager && typeof skillManager._openWeaponCrate === 'function') {
           skillManager._openWeaponCrate();

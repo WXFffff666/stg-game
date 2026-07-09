@@ -139,6 +139,7 @@ const GAME_CONFIG = {
       { id: 'healthSmall', name: '小血包', cost: 30, icon: '❤️', description: '恢复30HP' },
       { id: 'healthMedium', name: '中血包', cost: 80, icon: '💗', description: '恢复80HP' },
       { id: 'healthLarge', name: '大血包', cost: 200, icon: '💖', description: '恢复全部HP' },
+      { id: 'healthMega', name: '超级血包', cost: 350, icon: '💝', description: '恢复全部HP+清除Debuff' },
       { id: 'tempShield', name: '临时护盾', cost: 50, icon: '🛡️', description: '获得50点护盾' },
       { id: 'fusionCore', name: '融合核心', cost: 150, icon: '🔮', description: '用于武器融合的稀有材料' },
       { id: 'attackBoost', name: '攻击强化', cost: 100, icon: '⚔️', description: '攻击力+15%' },
