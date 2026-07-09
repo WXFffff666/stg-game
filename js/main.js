@@ -2052,7 +2052,8 @@
 
     // Connect skill level-up to UI (with fusion integration)
     skillManager.onLevelUp = function(choices) {
-      // NOTE: Game no longer paused during level-up — choices shown as overlay on top of gameplay
+      // 暂停游戏，防止选技能时被子弹打死
+      if (window.game) window.game.pause();
 
       // 降低BGM音量至30%
       if (window.audio && window.audio._bgmNodes) {

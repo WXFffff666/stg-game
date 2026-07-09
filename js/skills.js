@@ -1300,6 +1300,7 @@ class SkillManager {
     } else {
       this._isChoosing = false;
       window._isLevelingUp = false;
+      if (window.game) window.game.resume();
     }
   }
 
@@ -1388,9 +1389,12 @@ class SkillManager {
     } else {
       this._isChoosing = false;
       window._isLevelingUp = false;
+      if (window.game) window.game.resume();
     }
   }
 
+  // ====================================================================
+  //  B4/B5: AUTO-UPGRADE DUPLICATE WEAPONS &amp; SKILLS
   // ====================================================================
   //  B4/B5: AUTO-UPGRADE DUPLICATE WEAPONS & SKILLS
   // ====================================================================
@@ -1523,6 +1527,7 @@ class SkillManager {
     } else {
       this._isChoosing = false;
       window._isLevelingUp = false;
+      if (window.game) window.game.resume();
     }
   }
 
