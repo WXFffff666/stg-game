@@ -2215,7 +2215,9 @@ canvas {
 <!-- Service Worker Registration -->
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').then(reg => {
+  // 强制SW更新：加载时加时间戳，浏览器视为新SW
+  var swUrl = './sw.js?v=' + new Date().getTime();
+  navigator.serviceWorker.register(swUrl).then(reg => {
     // Check for updates periodically
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;

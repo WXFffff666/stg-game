@@ -514,7 +514,6 @@
     if (btnStatus) {
       btnStatus.addEventListener('click', function() {
         if (window._isLevelingUp || window._isWaveShopOpen) return;
-        // Show status overlay (weapon/skill stats)
         if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
       });
     }
