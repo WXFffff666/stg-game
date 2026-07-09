@@ -2505,6 +2505,10 @@ class UIManager {
       this._renderMetaShopUpgrades();
       return;
     }
+    if (category === 'permanent') {
+      this._renderMetaShopPermanent();
+      return;
+    }
     var container = this.elMetaShopItems;
     if (!container) return;
     container.innerHTML = '';
@@ -2844,6 +2848,81 @@ class UIManager {
     this._updateMetaShopCoins();
     this._renderMetaShopUpgrades();
     this.showToast('⬆️ 升级成功: ' + item.name + ' Lv.' + (currentLevel + 1) + '！', 2000, '#44ff44');
+  }
+
+  _renderMetaShopPermanent() {
+    var container = this.elMetaShopItems;
+    if (!container) return;
+    container.innerHTML = '';
+
+    var shopItems = GAME_CONFIG.SHOP_ITEMS;
+    if (!shopItems) return;
+
+    var purchases = this._getShopPurchases();
+    var starCoins = (window.UpgradeManager && typeof window.UpgradeManager.getStarCoins === 'function')
+      ? window.UpgradeManager.getStarCoins() : 0;
+
+    var keys = Object.keys(shopItems);
+    var hasItems = false;
+    for (var i = 0; i < keys.length; i++) {
+      var item = shopItems[keys[i]];
+      if (item.category !== 'permanent') continue;
+      hasItems = true;
+
+      var owned = purchases[item.id];
+      var canAfford = starCoins >= item.price;
+
+      var card = document.createElement('div');
+      card.className = 'meta-shop-card' + (owned ? ' owned' : '');
+
+      var iconEl = document.createElement('div');
+      iconEl.className = 'meta-shop-icon';
+      iconEl.textContent = item.icon || '?';
+      card.appendChild(iconEl);
+
+      var infoEl = document.createElement('div');
+      infoEl.className = 'meta-shop-info';
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'meta-shop-name';
+      nameEl.textContent = item.name;
+      infoEl.appendChild(nameEl);
+
+      var descEl = document.createElement('div');
+      descEl.className = 'meta-shop-desc';
+      descEl.textContent = item.description;
+      infoEl.appendChild(descEl);
+
+      var catEl = document.createElement('div');
+      catEl.className = 'meta-shop-category';
+      catEl.textContent = owned ? '✓ 已拥有' : '永久道具';
+      infoEl.appendChild(catEl);
+
+      card.appendChild(infoEl);
+
+      var btnEl = document.createElement('button');
+      btnEl.className = 'meta-shop-buy' + (owned ? ' owned-btn' : '');
+
+      if (owned) {
+        btnEl.textContent = '已拥有';
+        btnEl.disabled = true;
+      } else {
+        btnEl.textContent = '⭐ ' + item.price;
+        btnEl.disabled = !canAfford;
+        (function(self, shopItem) {
+          btnEl.addEventListener('click', function() {
+            self._purchaseShopItem(shopItem);
+          });
+        })(this, item);
+      }
+
+      card.appendChild(btnEl);
+      container.appendChild(card);
+    }
+
+    if (!hasItems) {
+      container.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">暂无永久道具</div>';
+    }
   }
 
   // ====================================================================
@@ -3348,6 +3427,40 @@ class UIManager {
 
         invGrid.appendChild(itemEl);
       });
+    }
+
+    // === Passive Slots Row ===
+    var passiveLabel = document.createElement('div');
+    passiveLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;margin-top:8px;';
+    passiveLabel.textContent = '🛡️ 被动槽位';
+    screen.appendChild(passiveLabel);
+
+    var passiveRow = document.createElement('div');
+    passiveRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;';
+    screen.appendChild(passiveRow);
+
+    var maxPSlots = (wm && wm.maxPassiveSlots) || 4;
+    if (wm && wm.passiveSlots) {
+      for (var pi = 0; pi < Math.min(maxPSlots, wm.passiveSlots.length); pi++) {
+        var pSlot = wm.passiveSlots[pi];
+        var pSlotEl = document.createElement('div');
+        pSlotEl.style.cssText = 'width:48px;height:48px;border:2px solid ' + (pSlot ? '#dd88ff' : '#444') +
+          ';border-radius:8px;display:flex;align-items:center;justify-content:center;' +
+          'background:' + (pSlot ? 'rgba(221,136,255,0.12)' : 'rgba(255,255,255,0.03)') +
+          ';font-size:18px;position:relative;';
+        if (pSlot) {
+          var pCfg = cfg.WEAPONS ? cfg.WEAPONS[pSlot.weaponId] : null;
+          pSlotEl.textContent = pCfg ? (pCfg.icon || '🛡️') : '🛡️';
+          var pLvl = document.createElement('span');
+          pLvl.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#cc88ff;text-shadow:0 0 2px #000;';
+          pLvl.textContent = 'Lv' + (pSlot.level || 1);
+          pSlotEl.appendChild(pLvl);
+        } else {
+          pSlotEl.textContent = '－';
+          pSlotEl.style.opacity = '0.4';
+        }
+        passiveRow.appendChild(pSlotEl);
+      }
     }
 
     // === Close button ===

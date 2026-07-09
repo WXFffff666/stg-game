@@ -1932,7 +1932,10 @@ canvas {
   <div id="in-run-shop" style="display:none">
     <div class="shop-header">
       <div class="shop-title">💰 局内商店</div>
-      <div class="shop-gold">金币: <span id="shop-gold-display">0</span></div>
+      <div class="shop-gold" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <span>金币: <span id="shop-gold-display">0</span></span>
+        <span id="shop-stat-display" style="font-size:12px;color:#aaa;font-weight:normal;"></span>
+      </div>
     </div>
     <div class="shop-items" id="shop-items"></div>
     <button class="menu-btn" id="btn-close-shop">关闭商店</button>

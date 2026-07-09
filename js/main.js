@@ -630,6 +630,18 @@
     container.innerHTML = '';
     document.getElementById('shop-gold-display').textContent = inRunGold;
 
+    // 显示当前玩家属性，方便决策购买
+    var statDisplay = document.getElementById('shop-stat-display');
+    if (statDisplay && playerEntity) {
+      var pHp = playerEntity.hp, pMaxHp = playerEntity.maxHp;
+      var pAtk = playerEntity.stats ? playerEntity.stats.attack : 1;
+      var pSpd = Math.round(playerEntity.speed);
+      statDisplay.innerHTML = '❤️ ' + Math.floor(pHp) + '/' + pMaxHp +
+        ' &nbsp;⚔️ ' + (Math.round((pAtk - 1) * 100)) + '%' +
+        ' &nbsp;👟 ' + pSpd +
+        ' &nbsp;💰 ' + inRunGold;
+    }
+
     IN_RUN_SHOP_ITEMS.forEach(item => {
       const level = inRunUpgrades[item.id] || 0;
       const cost = getInRunUpgradeCost(item.id);
@@ -761,7 +773,7 @@
 
   // Helper: Pick random consumables from SHOP_ITEMS
   function _pickRandomConsumables(count) {
-    var pool = (cfg.SHOP_ITEMS && cfg.SHOP_ITEMS.items) ? cfg.SHOP_ITEMS.items.filter(function(i) {
+    var pool = (cfg.WAVE_SHOP_CONFIG && cfg.WAVE_SHOP_CONFIG.items) ? cfg.WAVE_SHOP_CONFIG.items.filter(function(i) {
       return i.category === 'consumable';
     }) : cfg.SHOP.items;
     _shuffle(pool);
