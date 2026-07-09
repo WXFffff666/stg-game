@@ -3944,6 +3944,7 @@ const GAME_CONFIG = {
       critBoost:    { id: 'critBoost',    name: '暴击强化', icon: '💥', price: 150, maxLevel: 3, description: '每级暴击率+2%', effect: { stat: 'critRate', op: 'add', value: 0.02 } },
       xpBoost:      { id: 'xpBoost',      name: '经验强化', icon: '📈', price: 80,  maxLevel: 5, description: '每级经验获取+8%', effect: { stat: 'xpMultiplier', op: 'multiply', value: 0.08 } },
       pickupBoost:  { id: 'pickupBoost',  name: '拾取强化', icon: '🧲', price: 60,  maxLevel: 3, description: '每级拾取范围+25', effect: { stat: 'pickupRange', op: 'add', value: 25 } },
+      talentPoint:  { id: 'talentPoint',  name: '天赋点', icon: '🧠', price: 2000, maxLevel: 10, description: '永久+1天赋点(每局生效)', effect: { stat: 'talentPoints', op: 'add', value: 1 } },
     },
   },
 };

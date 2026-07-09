@@ -5913,8 +5913,8 @@ class TalentManager {
 
   /**
    * Check if a talent can be selected.
-   * Rules: must have points, must not already have the SAME talent,
-   * all talents in previous layers must have been selected (layer lock).
+   * Rules: must have points, single selection per layer (radio-button style),
+   * layer N-1 must be completed to unlock layer N (sequential unlock).
    */
   canSelect(branchId, layerIndex, talentId) {
     if (this.remaining <= 0) return false;
@@ -5926,23 +5926,15 @@ class TalentManager {
       if (branch[lk] === talentId) return false;
     }
 
-    // Layer lock: ALL talents in previous layers must be selected
-    var branchCfg = this.cfg[branchId];
-    if (branchCfg && branchCfg.layers) {
-      for (var l = 0; l < layerIndex; l++) {
-        var prevLayer = branchCfg.layers[l];
-        if (!prevLayer) return false;
-        // Count how many talents in this layer are selected
-        var selectedCount = 0;
-        var layerSelections = branch[l] || [];
-        // branch[l] is now an array of talent IDs for this layer
-        if (Array.isArray(layerSelections)) {
-          selectedCount = layerSelections.length;
-        } else if (typeof layerSelections === 'string') {
-          selectedCount = 1;
-        }
-        // Must select ALL talents in previous layer to unlock next
-        if (selectedCount < prevLayer.length) return false;
+    // Single selection per layer: layer already has a selection → reject
+    if (branch[layerIndex] !== undefined) return false;
+
+    // Sequential layer unlock: layer N-1 must have a selection
+    if (layerIndex > 0) {
+      var branchCfg = this.cfg[branchId];
+      if (branchCfg && branchCfg.layers) {
+        // Check the immediately previous layer has a selection
+        if (branch[layerIndex - 1] === undefined) return false;
       }
     }
 
@@ -5951,23 +5943,15 @@ class TalentManager {
 
   /**
    * Select a talent. Returns true if successful.
-   * Allows multiple selections per layer.
+   * Single selection per layer (radio-button style).
    */
   select(branchId, layerIndex, talentId) {
     if (!this.canSelect(branchId, layerIndex, talentId)) return false;
 
     var branch = this.selected[branchId];
-    // Initialize layer as array if not already
-    if (!Array.isArray(branch[layerIndex])) {
-      branch[layerIndex] = branch[layerIndex] !== undefined ? [branch[layerIndex]] : [];
-    }
-    // Add talent (prevent duplicate in same layer)
-    if (branch[layerIndex].indexOf(talentId) === -1) {
-      branch[layerIndex].push(talentId);
-      this.remaining--;
-    } else {
-      return false;
-    }
+    // Single value per layer (radio-button style)
+    branch[layerIndex] = talentId;
+    this.remaining--;
 
     // Apply effects immediately if player exists
     if (this._player) {
@@ -6002,14 +5986,9 @@ class TalentManager {
       var branchSelections = this.selected[branchId];
       for (var layerIdx in branchSelections) {
         if (!branchSelections.hasOwnProperty(layerIdx)) continue;
-        var talentIds = branchSelections[layerIdx];
-        // Handle both array (new multi-select) and string (legacy single-select)
-        if (Array.isArray(talentIds)) {
-          for (var ti = 0; ti < talentIds.length; ti++) {
-            this._applyTalentEffects(branchId, parseInt(layerIdx), talentIds[ti]);
-          }
-        } else if (typeof talentIds === 'string') {
-          this._applyTalentEffects(branchId, parseInt(layerIdx), talentIds);
+        var talentId = branchSelections[layerIdx];
+        if (typeof talentId === 'string') {
+          this._applyTalentEffects(branchId, parseInt(layerIdx), talentId);
         }
       }
     }
@@ -6082,23 +6061,20 @@ class TalentManager {
 
   /**
    * Get the selected talent ID for a specific branch and layer.
+   * Returns talent ID string, or null if none selected.
    */
   getSelectedInLayer(branchId, layerIndex) {
     var branch = this.selected[branchId];
-    if (!branch) return undefined;
+    if (!branch) return null;
     var val = branch[layerIndex];
-    // Returns array of talent IDs (or empty array if none selected)
-    if (Array.isArray(val)) return val;
-    if (val !== undefined) return [val];
-    return [];
+    return (val !== undefined) ? val : null;
   }
 
   /**
-   * Get count of selected talents in a specific layer.
+   * Get count of selected talents in a specific layer (0 or 1).
    */
   getSelectedCountInLayer(branchId, layerIndex) {
-    var val = this.getSelectedInLayer(branchId, layerIndex);
-    return Array.isArray(val) ? val.length : (val ? 1 : 0);
+    return this.getSelectedInLayer(branchId, layerIndex) ? 1 : 0;
   }
 
   /**

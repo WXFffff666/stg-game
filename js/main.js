@@ -535,24 +535,24 @@
 
     // B6: Quick-switch weapon focus ('1'-'6' keys)
     document.addEventListener('keydown', (e) => {
-      if (game && game.scene === cfg.SCENES.GAMEPLAY && !game.isPaused) {
-        // Backpack (I)
+      if (game && game.scene === cfg.SCENES.GAMEPLAY) {
+        // Backpack (I) — allow even when paused (to allow closing)
         if (e.key === 'i' || e.key === 'I') {
           if (window._isLevelingUp || window._isWaveShopOpen) return;
           if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
         }
-        // Status (C) — same as backpack for now
+        // Status (C)
         if (e.key === 'c' || e.key === 'C') {
           if (window._isLevelingUp || window._isWaveShopOpen) return;
           if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
         }
-        // Shop (B)
-        if (e.key === 'b' || e.key === 'B') {
+        // Shop (B) — only when game is running
+        if ((e.key === 'b' || e.key === 'B') && !game.isPaused) {
           if (window._isLevelingUp || window._isWaveShopOpen) return;
           if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
         }
-        // B6: Quick-switch weapon focus with number keys
-        if (e.key >= '1' && e.key <= '6') {
+        // B6: Quick-switch weapon focus with number keys — only when running
+        if (e.key >= '1' && e.key <= '6' && !game.isPaused) {
           var slotIdx = parseInt(e.key) - 1;
           if (weaponManager && weaponManager.weaponSlots[slotIdx]) {
             weaponManager.toggleFocusedSlot(slotIdx);
@@ -925,11 +925,11 @@
     // Reset reroll cost per shop visit
     state.rerollCount = 0;
     state.rerollCost = 20;
-    state.lockedIndices = [];
-    state.lockSlots = [false, false, false, false, false, false];
 
-    // A6: Only generate items if first open — prevent free refresh by close/reopen
+    // A6: Only generate items on first open — preserve lock state on reopen
     if (!state.items || state.items.length === 0) {
+      state.lockedIndices = [];
+      state.lockSlots = [false, false, false, false, false, false];
       _generateAndMergeShopItems(isWaveShop);
     }
 
@@ -948,7 +948,7 @@
     var shopEl = document.getElementById('in-run-shop');
     if (shopEl) shopEl.style.display = 'none';
     state.open = false;
-    state.items = [];
+    // Don't clear items — preserves lock state across open/close
 
     // Restore game
     if (game.timeScale !== undefined) game.timeScale = 1;
@@ -1920,6 +1920,18 @@
     }
     talentManager.reset();
 
+    // Apply bonus talent points from meta shop purchases
+    try {
+      var raw = localStorage.getItem('stg_meta_purchases');
+      if (raw) {
+        var purchases = JSON.parse(raw);
+        var talentPointLevel = purchases['upgrade_talentPoint'] || 0;
+        if (talentPointLevel > 0) {
+          talentManager.remaining += talentPointLevel;
+        }
+      }
+    } catch (e) { /* ignore parse errors */ }
+
     // Show talent selection UI
     ui.showTalentScreen(talentManager, function() {
       // On confirm: apply talents and start game
@@ -2022,6 +2034,8 @@
       var keys = Object.keys(metaShop);
       for (var i = 0; i < keys.length; i++) {
         var item = metaShop[keys[i]];
+        // Skip talentPoints — it's not a player stat, handled in showTalentScreen
+        if (!item.effect || item.effect.stat === 'talentPoints') continue;
         var level = purchases['upgrade_' + item.id] || 0;
         if (level > 0 && item.effect) {
           effects.push({
