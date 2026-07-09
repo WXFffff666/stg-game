@@ -742,59 +742,73 @@ class UIManager {
     var branchColor = branchCfg.color || '#ffdd00';
     var tm = this._talentMgr;
 
+    // Build layer data
+    var layerData = [];
     for (var l = 0; l < branchCfg.layers.length; l++) {
       var layer = branchCfg.layers[l];
-      var layerDiv = document.createElement('div');
-      layerDiv.className = 'talent-layer';
-
-      // Layer label with progress
       var selectedIds = (typeof tm.getSelectedInLayer === 'function' ? tm.getSelectedInLayer(branchId, l) : []) || [];
       var selCount = Array.isArray(selectedIds) ? selectedIds.length : (selectedIds ? 1 : 0);
+
       var layerLocked = l > 0;
       if (layerLocked) {
-        // Check if previous layer is fully selected
         var prevLayer = branchCfg.layers[l - 1];
         var prevSelected = (typeof tm.getSelectedInLayer === 'function' ? tm.getSelectedInLayer(branchId, l - 1) : []) || [];
         var prevCount = Array.isArray(prevSelected) ? prevSelected.length : (prevSelected ? 1 : 0);
         layerLocked = prevCount < prevLayer.length;
       }
 
-      var label = document.createElement('div');
-      label.className = 'talent-layer-label';
-      label.textContent = '第' + (l + 1) + '层 (' + selCount + '/' + layer.length + ')';
-      if (layerLocked) {
-        label.style.color = '#555';
-      } else if (selCount > 0 && selCount < layer.length) {
-        label.style.color = '#ffdd00';
-      }
-      layerDiv.appendChild(label);
+      var layerComplete = selCount >= layer.length;
+      layerData.push({ layer, selCount, layerLocked, layerComplete });
+    }
 
-      // Progress bar for layer
-      if (layer.length > 1) {
-        var progressBar = document.createElement('div');
-        progressBar.style.cssText = 'height:3px;background:#333;border-radius:2px;margin:0 0 8px 0;overflow:hidden;';
-        var progressFill = document.createElement('div');
-        var pct = (selCount / layer.length) * 100;
-        progressFill.style.cssText = 'height:100%;width:' + pct + '%;background:' + branchColor + ';border-radius:2px;transition:width 0.3s;';
-        progressBar.appendChild(progressFill);
-        layerDiv.appendChild(progressBar);
-      }
+    // Render layers with visual connectors
+    for (var l = 0; l < branchCfg.layers.length; l++) {
+      var ld = layerData[l];
+      var layer = ld.layer;
+
+      // === Layer row ===
+      var layerDiv = document.createElement('div');
+      layerDiv.className = 'talent-layer';
+
+      // Layer header bar
+      var header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:6px;';
+
+      var label = document.createElement('div');
+      label.style.cssText = 'font-size:12px;font-weight:bold;color:' + (ld.layerLocked ? '#555' : (ld.layerComplete ? '#44ff88' : (ld.selCount > 0 ? branchColor : '#aaa'))) + ';';
+      label.textContent = '第' + (l + 1) + '层';
+      header.appendChild(label);
+
+      var progressText = document.createElement('div');
+      progressText.style.cssText = 'font-size:11px;color:' + (ld.layerComplete ? '#44ff88' : (ld.layerLocked ? '#555' : '#888')) + ';';
+      progressText.textContent = ld.selCount + '/' + layer.length + (ld.layerComplete ? ' ✓' : '');
+      header.appendChild(progressText);
+
+      layerDiv.appendChild(header);
+
+      // Progress bar
+      var pct = layer.length > 0 ? (ld.selCount / layer.length) * 100 : 0;
+      var progressBar = document.createElement('div');
+      progressBar.style.cssText = 'height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:8px;overflow:hidden;width:100%;';
+      var progressFill = document.createElement('div');
+      progressFill.style.cssText = 'height:100%;width:' + pct + '%;background:' + (ld.layerComplete ? '#44ff88' : branchColor) + ';border-radius:2px;transition:width 0.4s ease;';
+      progressBar.appendChild(progressFill);
+      layerDiv.appendChild(progressBar);
+
+      // Talent nodes row
+      var nodesRow = document.createElement('div');
+      nodesRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;width:100%;';
 
       for (var t = 0; t < layer.length; t++) {
         var talent = layer[t];
         var node = document.createElement('div');
         node.className = 'talent-node';
         node.style.setProperty('--branch-color', branchColor);
-        node.dataset.talentId = talent.id;
-        node.dataset.branchId = branchId;
-        node.dataset.layerIndex = l;
 
-        // Defensive checks for cross-version compatibility (旧版skills.js没有isTalentSelected)
         var isSelected = false;
         if (typeof tm.isTalentSelected === 'function') {
           isSelected = tm.isTalentSelected(branchId, talent.id);
         } else {
-          // Fallback: manually check if talent is selected
           var bs = tm.selected[branchId];
           if (bs) {
             for (var lk in bs) {
@@ -805,29 +819,32 @@ class UIManager {
           }
         }
         var canSelect = typeof tm.canSelect === 'function' ? tm.canSelect(branchId, l, talent.id) : true;
-        var isLayerLocked = layerLocked;
+        var nodeLocked = ld.layerLocked || (!isSelected && !canSelect);
 
         if (isSelected) {
           node.classList.add('selected');
-        } else if (!canSelect || isLayerLocked) {
+        } else if (nodeLocked) {
           node.classList.add('locked');
         }
 
-        // Selection checkmark
-        var checkEl = document.createElement('div');
-        checkEl.style.cssText = 'position:absolute;top:2px;right:4px;font-size:10px;color:' + (isSelected ? branchColor : 'transparent') + ';';
-        checkEl.textContent = '✓';
-        node.appendChild(checkEl);
+        // Glow border for selectable
+        if (!isSelected && !nodeLocked) {
+          node.style.borderColor = branchColor;
+          node.style.opacity = '0.85';
+        }
 
+        // Icon
         var icon = document.createElement('div');
         icon.className = 'talent-node-icon';
         icon.textContent = talent.icon || '⭐';
-        if (isLayerLocked) icon.style.opacity = '0.3';
+        if (nodeLocked) icon.style.opacity = '0.3';
 
+        // Name
         var name = document.createElement('div');
         name.className = 'talent-node-name';
         name.textContent = talent.name;
 
+        // Desc (hover)
         var desc = document.createElement('div');
         desc.className = 'talent-node-desc';
         desc.textContent = talent.description;
@@ -836,12 +853,18 @@ class UIManager {
         node.appendChild(name);
         node.appendChild(desc);
 
-        // Layer lock overlay
-        if (isLayerLocked && !isSelected) {
-          var lockOverlay = document.createElement('div');
-          lockOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);border-radius:8px;font-size:18px;';
-          lockOverlay.textContent = '🔒';
-          node.appendChild(lockOverlay);
+        // Selected checkmark
+        var check = document.createElement('div');
+        check.style.cssText = 'position:absolute;top:1px;right:3px;font-size:9px;color:' + (isSelected ? branchColor : 'transparent') + ';';
+        check.textContent = '✓';
+        node.appendChild(check);
+
+        // Lock overlay for locked layers
+        if (nodeLocked && !isSelected) {
+          var lockIcon = document.createElement('div');
+          lockIcon.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;opacity:0.7;';
+          lockIcon.textContent = ld.layerLocked ? '🔒' : '';
+          node.appendChild(lockIcon);
         }
 
         // Click handler
@@ -854,10 +877,19 @@ class UIManager {
           });
         })(branchId, l, talent.id);
 
-        layerDiv.appendChild(node);
+        nodesRow.appendChild(node);
       }
 
+      layerDiv.appendChild(nodesRow);
       container.appendChild(layerDiv);
+
+      // Connector line between layers
+      if (l < branchCfg.layers.length - 1) {
+        var connector = document.createElement('div');
+        var nextLocked = layerData[l + 1].layerLocked;
+        connector.style.cssText = 'width:2px;height:16px;background:' + (nextLocked ? 'rgba(255,255,255,0.1)' : branchColor) + ';margin:2px auto;border-radius:1px;transition:background 0.3s;';
+        container.appendChild(connector);
+      }
     }
   }
 
