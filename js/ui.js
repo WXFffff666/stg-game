@@ -748,13 +748,13 @@ class UIManager {
       layerDiv.className = 'talent-layer';
 
       // Layer label with progress
-      var selectedIds = tm.getSelectedInLayer(branchId, l) || [];
+      var selectedIds = (typeof tm.getSelectedInLayer === 'function' ? tm.getSelectedInLayer(branchId, l) : []) || [];
       var selCount = Array.isArray(selectedIds) ? selectedIds.length : (selectedIds ? 1 : 0);
       var layerLocked = l > 0;
       if (layerLocked) {
         // Check if previous layer is fully selected
         var prevLayer = branchCfg.layers[l - 1];
-        var prevSelected = tm.getSelectedInLayer(branchId, l - 1) || [];
+        var prevSelected = (typeof tm.getSelectedInLayer === 'function' ? tm.getSelectedInLayer(branchId, l - 1) : []) || [];
         var prevCount = Array.isArray(prevSelected) ? prevSelected.length : (prevSelected ? 1 : 0);
         layerLocked = prevCount < prevLayer.length;
       }
@@ -789,8 +789,22 @@ class UIManager {
         node.dataset.branchId = branchId;
         node.dataset.layerIndex = l;
 
-        var isSelected = tm.isTalentSelected(branchId, talent.id);
-        var canSelect = tm.canSelect(branchId, l, talent.id);
+        // Defensive checks for cross-version compatibility (旧版skills.js没有isTalentSelected)
+        var isSelected = false;
+        if (typeof tm.isTalentSelected === 'function') {
+          isSelected = tm.isTalentSelected(branchId, talent.id);
+        } else {
+          // Fallback: manually check if talent is selected
+          var bs = tm.selected[branchId];
+          if (bs) {
+            for (var lk in bs) {
+              var v = bs[lk];
+              if (Array.isArray(v) && v.indexOf(talent.id) !== -1) { isSelected = true; break; }
+              if (v === talent.id) { isSelected = true; break; }
+            }
+          }
+        }
+        var canSelect = typeof tm.canSelect === 'function' ? tm.canSelect(branchId, l, talent.id) : true;
         var isLayerLocked = layerLocked;
 
         if (isSelected) {

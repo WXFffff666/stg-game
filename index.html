@@ -2212,19 +2212,29 @@ canvas {
 <script src="js/ui.js?v=6"></script>
 <script src="js/main.js?v=6"></script>
 
-<!-- Service Worker Registration (no-cache) -->
+<!-- Cache bust: hard refresh control -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
+// Detect if this is a stale SW-cached load — reload once to break cache
+if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+  // Check if we loaded from SW cache (before SW claims us)
+  var isStale = !window.__swRefreshed;
+  window.__swRefreshed = true;
+  if (isStale && !sessionStorage.getItem('sw_refreshed')) {
+    sessionStorage.setItem('sw_refreshed', '1');
+    window.location.reload(true);
+  }
+}
+// Unregister old SW + register new
 if ('serviceWorker' in navigator) {
-  // Unregister any stale SW first to break refresh loops
   navigator.serviceWorker.getRegistrations().then(function(regs) {
     for (var ri = 0; ri < regs.length; ri++) {
       regs[ri].unregister();
     }
-  });
-  
-  // Register normally — SW internal version (CACHE_NAME in sw.js) controls cache invalidation
-  navigator.serviceWorker.register('./sw.js').catch(function(err) {
-    console.log('SW registration failed:', err);
+    // Re-register with SW that has updated CACHE_NAME (v4)
+    navigator.serviceWorker.register('./sw.js').catch(function(err) {
+      console.log('SW registration failed:', err);
+    });
   });
 }
 </script>
