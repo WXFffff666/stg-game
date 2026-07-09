@@ -154,18 +154,12 @@ class UIManager {
 
   showHUD() {
     if (this.elHud) this.elHud.style.display = 'flex';
-    // 显示悬浮按钮组(手机端右上角)
-    var btnGroup = document.getElementById('hud-btn-group');
-    if (btnGroup) btnGroup.style.removeProperty('display');
     if (this.elHudPauseBtn) this.elHudPauseBtn.style.removeProperty('display');
     this._startHUDLoop();
   }
 
   hideHUD() {
     if (this.elHud) this.elHud.style.display = 'none';
-    // 隐藏悬浮按钮组
-    var btnGroup = document.getElementById('hud-btn-group');
-    if (btnGroup) btnGroup.style.display = 'none';
     if (this.elHudPauseBtn) this.elHudPauseBtn.style.display = 'none';
     this._stopHUDLoop();
   }

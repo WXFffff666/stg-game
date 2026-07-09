@@ -1165,13 +1165,44 @@
     if (!weaponManager) return false;
     var weaponId = item.config.id;
     if (!weaponId) return false;
+
+    // 重复购买 = 升级武器
+    var sm = skillManager;
+    if (sm) {
+      var curLevel = sm.weaponLevels.get(weaponId) || 0;
+      if (curLevel >= 1) {
+        // 已有该武器 → 升级
+        var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
+        if (curLevel >= maxLvl) {
+          ui.showToast('武器已达最高等级！', '#ffaa00');
+          return false;
+        }
+        sm.weaponLevels.set(weaponId, curLevel + 1);
+        // 同步槽位等级
+        if (weaponManager.weaponSlots) {
+          for (var si = 0; si < weaponManager.weaponSlots.length; si++) {
+            if (weaponManager.weaponSlots[si] && weaponManager.weaponSlots[si].weaponId === weaponId) {
+              weaponManager.weaponSlots[si].level = curLevel + 1;
+              break;
+            }
+          }
+        }
+        var lvlLabel = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.descriptions)
+          ? GAME_CONFIG.WEAPON_UPGRADE.descriptions[curLevel + 1] : ('Lv' + (curLevel + 1));
+        ui.showToast('⬆️ ' + (item.config.name || weaponId) + ' → ' + lvlLabel, '#ffdd00');
+        return true;
+      }
+    }
+
+    // 首次获得：装到空槽位
     var slotIdx = weaponManager._findEmptySlot ? weaponManager._findEmptySlot() : -1;
     if (slotIdx < 0) {
       ui.showToast('武器槽已满！', '#ff4444');
       return false;
     }
     weaponManager.addWeaponToSlot(weaponId, slotIdx);
-    ui.showToast('获得武器: ' + (item.config.name || weaponId), '#ffdd00');
+    if (sm) sm.weaponLevels.set(weaponId, 1);
+    ui.showToast('获得武器: ' + (item.config.name || weaponId), '#44ddff');
     if (window.CodexProgressManager) CodexProgressManager.discoverWeapon(weaponId);
     return true;
   }

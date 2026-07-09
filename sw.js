@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stg-game-v3';
+const CACHE_NAME = 'stg-game-v4';
 const ASSETS = [
   './',
   './index.html',

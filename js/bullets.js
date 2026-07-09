@@ -104,12 +104,13 @@ class Bullet {
 
     // --- Homing ---
     if (this.homingStrength > 0) {
-      // Auto-acquire target if missing
+      // Auto-acquire target if missing (limit search to 30 enemies per frame)
       if (!this.homingTarget || !this.homingTarget.active) {
         var _g = window.game;
         var _best = null, _bestD = Infinity;
         if (_g && _g.enemies) {
-          for (var _hi = 0; _hi < _g.enemies.length; _hi++) {
+          var _searchLimit = Math.min(_g.enemies.length, 30);
+          for (var _hi = 0; _hi < _searchLimit; _hi++) {
             var _e = _g.enemies[_hi];
             if (!_e.active) continue;
             var _dx = _e.x - this.x, _dy = _e.y - this.y;
