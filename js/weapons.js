@@ -211,6 +211,98 @@
       bulletColor: '#ffcccc', trailColor: '#ff8888',
     };
   }
+
+  // ---- 新增常规武器配置 (10种) ----
+  if (!W.splitter) {
+    W.splitter = {
+      id: 'splitter', name: '分裂弹', icon: '🔮', rarity: 'rare', fused: false,
+      description: '命中后分裂出追踪碎片',
+      pattern: 'splitter', fireRate: 600, damage: 16, bulletSpeed: 420, bulletSize: 5,
+      pierceCount: 2,
+      bulletColor: '#dd88ff', trailColor: '#9944cc',
+    };
+  }
+  if (!W.bouncer) {
+    W.bouncer = {
+      id: 'bouncer', name: '弹射弹', icon: '🏓', rarity: 'uncommon', fused: false,
+      description: '在敌人之间弹射，伤害递增',
+      pattern: 'bouncer', fireRate: 500, damage: 10, bulletSpeed: 500, bulletSize: 4,
+      chainCount: 4, chainRange: 150, chainDamageFalloff: -0.15,
+      bulletColor: '#44ffcc', trailColor: '#22aa88',
+    };
+  }
+  if (!W.shockRing) {
+    W.shockRing = {
+      id: 'shockRing', name: '冲击环', icon: '💫', rarity: 'rare', fused: false,
+      description: '扩散冲击环推开敌人',
+      pattern: 'shockRing', fireRate: 700, damage: 20, bulletSpeed: 300, bulletSize: 3,
+      ringCount: 12,
+      bulletColor: '#ffffff', trailColor: '#ccccff',
+    };
+  }
+  if (!W.growing) {
+    W.growing = {
+      id: 'growing', name: '成长弹', icon: '🔴', rarity: 'uncommon', fused: false,
+      description: '飞行越远体型越大伤害越高',
+      pattern: 'growing', fireRate: 550, damage: 10, bulletSpeed: 350, bulletSize: 3,
+      growingScale: 1.6,
+      bulletColor: '#ff4444', trailColor: '#cc0000',
+    };
+  }
+  if (!W.warpNeedle) {
+    W.warpNeedle = {
+      id: 'warpNeedle', name: '跃迁针', icon: '〰️', rarity: 'epic', fused: false,
+      description: '跃迁瞬移穿透路径敌人',
+      pattern: 'warp', fireRate: 400, damage: 12, bulletSpeed: 600, bulletSize: 2,
+      pierceCount: 5,
+      bulletColor: '#00ffcc', trailColor: '#008866',
+    };
+  }
+  if (!W.mirrorCannon) {
+    W.mirrorCannon = {
+      id: 'mirrorCannon', name: '镜像炮', icon: '🪞', rarity: 'rare', fused: false,
+      description: '向两侧对称发射弹幕',
+      pattern: 'mirror', fireRate: 450, damage: 9, bulletSpeed: 480, bulletSize: 3,
+      spreadAngle: 90,
+      bulletColor: '#88ddff', trailColor: '#88ddff',
+    };
+  }
+  if (!W.ringNova) {
+    W.ringNova = {
+      id: 'ringNova', name: '星环碎裂', icon: '💍', rarity: 'epic', fused: false,
+      description: '光环扩散后碎裂为追踪碎片',
+      pattern: 'ringNova', fireRate: 900, damage: 14, bulletSpeed: 250, bulletSize: 4,
+      ringCount: 10, homingStrength: 0.05, homingRange: 350,
+      bulletColor: '#ff88dd', trailColor: '#cc44aa',
+    };
+  }
+  if (!W.plasmaWeb) {
+    W.plasmaWeb = {
+      id: 'plasmaWeb', name: '等离子网', icon: '🕸️', rarity: 'uncommon', fused: false,
+      description: '子弹间形成链接构建等离子网',
+      pattern: 'plasmaWeb', fireRate: 350, damage: 6, bulletSpeed: 380, bulletSize: 3,
+      webCount: 5, chainCount: 3, chainRange: 130,
+      bulletColor: '#44ff44', trailColor: '#22aa22',
+    };
+  }
+  if (!W.implosion) {
+    W.implosion = {
+      id: 'implosion', name: '坍缩星', icon: '💥', rarity: 'legendary', fused: false,
+      description: '引力井吸入后坍缩爆炸',
+      pattern: 'implosion', fireRate: 1200, damage: 15, bulletSpeed: 200, bulletSize: 10,
+      wellRadius: 130, pullForce: 100, explosionRadius: 90, executeThreshold: 0.1,
+      bulletColor: '#ff6644', trailColor: '#cc3300',
+    };
+  }
+  if (!W.vitalChain) {
+    W.vitalChain = {
+      id: 'vitalChain', name: '生命链', icon: '💚', rarity: 'rare', fused: false,
+      description: '连锁闪电每次弹射回复生命',
+      pattern: 'vitalChain', fireRate: 650, damage: 16, bulletSpeed: 1000, bulletSize: 2,
+      chainCount: 5, chainRange: 160, lifestealPercent: 0.1,
+      bulletColor: '#44ff88', trailColor: '#22cc44',
+    };
+  }
 })();
 
 class WeaponManager {
@@ -887,6 +979,47 @@ class WeaponManager {
 
       case 'thunderBoomerang':
         if (B) B.thunderBoomerang(x, y, angleUp, spd, dmg, cfg.range || 350, cfg.chainCount || 3, cfg.chainRange || 140, color, trail);
+        break;
+
+      // ============ New Weapon Patterns (10) ============
+      case 'splitter':
+        if (B) B.splitter(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, color, trail);
+        break;
+
+      case 'bouncer':
+        if (B) B.bouncer(x, y, angleUp, spd, dmg, cfg.chainCount || 4, cfg.chainRange || 150, color, trail);
+        break;
+
+      case 'shockRing':
+        if (B) B.shockRing(x, y, angleUp, spd, dmg, cfg.ringCount || 12, color, trail);
+        break;
+
+      case 'growing':
+        if (B) B.growing(x, y, angleUp, spd, dmg, cfg.growingScale || 1.6, color, trail);
+        break;
+
+      case 'warp':
+        if (B) B.warp(x, y, angleUp, spd, dmg, cfg.pierceCount || 5, color, trail);
+        break;
+
+      case 'mirror':
+        if (B) B.mirror(x, y, angleUp, spd, dmg, cfg.spreadAngle || 90, color, trail);
+        break;
+
+      case 'ringNova':
+        if (B) B.ringNova(x, y, angleUp, spd, dmg, cfg.ringCount || 10, cfg.homingStrength || 0.05, cfg.homingRange || 350, color, trail);
+        break;
+
+      case 'plasmaWeb':
+        if (B) B.plasmaWeb(x, y, angleUp, spd, dmg, cfg.webCount || 5, cfg.chainCount || 3, cfg.chainRange || 130, color, trail);
+        break;
+
+      case 'implosion':
+        if (B) B.implosion(x, y, angleUp, spd, dmg, cfg.wellRadius || 130, cfg.pullForce || 100, cfg.explosionRadius || 90, cfg.executeThreshold || 0.1, color, trail);
+        break;
+
+      case 'vitalChain':
+        if (B) B.vitalChain(x, y, angleUp, spd, dmg, cfg.chainCount || 5, cfg.chainRange || 160, cfg.lifestealPercent || 0.1, color, trail);
         break;
     }
 

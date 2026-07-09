@@ -635,6 +635,66 @@ const GAME_CONFIG = {
       baseStats: { attackSpeed: 1.0, attack: 0.95, hp: 110, speed: 275, tundraFrostChance: 0.1, tundraFrostDuration: 2000 },
       icon: '🧊'
     },
+    phantom: {
+      id: 'phantom', name: '👻 幻影流', color: '#b8d4ff',
+      description: '虚化穿梭，无形杀敌',
+      baseStats: { attackSpeed: 1.05, attack: 0.85, hp: 75, speed: 350, dodgeChance: 0.18, critRate: 0.10, critMult: 2.0 },
+      icon: '👻'
+    },
+    chain: {
+      id: 'chain', name: '⛓️ 连锁流', color: '#ffcc00',
+      description: '闪电跳跃，链式反应',
+      baseStats: { attackSpeed: 0.85, attack: 0.85, hp: 110, speed: 285, chainCount: 3, chainDamage: 0.55, critRate: 0.08, critMult: 1.7 },
+      icon: '⛓️'
+    },
+    decay: {
+      id: 'decay', name: '☢️ 衰变流', color: '#7fff00',
+      description: '辐射侵蚀，缓慢消亡',
+      baseStats: { attackSpeed: 0.75, attack: 0.75, hp: 130, speed: 275, decayRate: 0.04, decayDuration: 4, critRate: 0.06, critMult: 1.7 },
+      icon: '☢️'
+    },
+    crystal: {
+      id: 'crystal', name: '💎 晶能流', color: '#cc66ff',
+      description: '晶碎四散，碎片风暴',
+      baseStats: { attackSpeed: 0.9, attack: 1.05, hp: 100, speed: 295, crystalShards: 4, shatterDamage: 0.7, critRate: 0.07, critMult: 2.0 },
+      icon: '💎'
+    },
+    momentum: {
+      id: 'momentum', name: '⚡ 势能流', color: '#00ccff',
+      description: '疾驰蓄力，动能转化',
+      baseStats: { attackSpeed: 1.15, attack: 0.65, hp: 100, speed: 350, momentumRate: 0.06, maxMomentum: 100, critRate: 0.05, critMult: 1.5 },
+      icon: '⚡'
+    },
+    pact: {
+      id: 'pact', name: '📜 契约流', color: '#cc3344',
+      description: '契约束缚，因果报偿',
+      baseStats: { attackSpeed: 0.8, attack: 0.9, hp: 130, speed: 280, contractDuration: 5, maxContracts: 3, contractDamage: 0.25, critRate: 0.08, critMult: 1.8 },
+      icon: '📜'
+    },
+    dream: {
+      id: 'dream', name: '🌙 梦境流', color: '#7788dd',
+      description: '催眠惑敌，幻境制胜',
+      baseStats: { attackSpeed: 0.9, attack: 0.7, hp: 115, speed: 305, sleepChance: 0.12, confuseChance: 0.10, critRate: 0.10, critMult: 1.8 },
+      icon: '🌙'
+    },
+    forge: {
+      id: 'forge', name: '🔨 锻炉流', color: '#ff7733',
+      description: '战场淬炼，越战越强',
+      baseStats: { attackSpeed: 0.7, attack: 0.95, hp: 125, speed: 285, forgeStacksMax: 5, forgeDuration: 8, critRate: 0.06, critMult: 1.8 },
+      icon: '🔨'
+    },
+    rebound: {
+      id: 'rebound', name: '↩️ 弹射流', color: '#33ccaa',
+      description: '弹跳连击，弹幕反弹',
+      baseStats: { attackSpeed: 0.85, attack: 0.8, hp: 105, speed: 315, bounceCount: 3, bounceRetention: 0.65, critRate: 0.08, critMult: 1.6 },
+      icon: '↩️'
+    },
+    shroud: {
+      id: 'shroud', name: '🌫️ 迷雾流', color: '#6b5b8f',
+      description: '烟雾笼罩，致盲匿踪',
+      baseStats: { attackSpeed: 0.8, attack: 0.85, hp: 120, speed: 310, shroudRadius: 150, blindChance: 0.18, blindDuration: 3, critRate: 0.08, critMult: 1.7 },
+      icon: '🌫️'
+    },
   },
 
   // ============ SKILLS (100) ============
@@ -1538,6 +1598,86 @@ const GAME_CONFIG = {
     { id: 'fusion_vampiricShield', name: '吸血护盾', faction: 'any', type: 'active', rarity: 'legendary',
       fused: true, cooldown: 25000,
       effects: [{ action: 'vampiricShield', shieldAmount: 60, duration: 10000, lifestealOnHit: 0.15, reflectDamage: 0.4 }] },
+
+    // ============ NEW: Phantom Faction Skills (3) ============
+    { id:'ph_ghostWalk', name:'幽魂漫步', faction:'phantom', type:'active', rarity:'rare',
+      cooldown:8, description:'短暂虚化无视弹幕', effects:[{stat:'dodgeChance',op:'add',value:0.5}] },
+    { id:'ph_afterimage', name:'残影幻象', faction:'phantom', type:'passive', rarity:'uncommon',
+      description:'闪避时留下残影', effects:[{stat:'dodgeChance',op:'add',value:0.05},{stat:'decoyDuration',op:'add',value:500}] },
+    { id:'ph_phantomStrike', name:'幻影一击', faction:'phantom', type:'passive', rarity:'epic',
+      description:'残影协同攻击', effects:[{stat:'attack',op:'multiply',value:0.15}] },
+
+    // ============ NEW: Chain Faction Skills (3) ============
+    { id:'ch_arcJump', name:'电弧跳跃', faction:'chain', type:'passive', rarity:'rare',
+      description:'连锁跳跃额外目标', effects:[{stat:'chainCount',op:'add',value:2}] },
+    { id:'ch_conductive', name:'导能标记', faction:'chain', type:'passive', rarity:'uncommon',
+      description:'标记增加连锁伤害', effects:[{stat:'chainDamage',op:'multiply',value:0.2}] },
+    { id:'ch_cascade', name:'级联增幅', faction:'chain', type:'passive', rarity:'epic',
+      description:'连锁次数增加伤害递增', effects:[{stat:'chainCount',op:'add',value:2},{stat:'chainDamage',op:'multiply',value:0.25}] },
+
+    // ============ NEW: Decay Faction Skills (3) ============
+    { id:'dc_radioactive', name:'辐射尘埃', faction:'decay', type:'passive', rarity:'rare',
+      description:'攻击附加衰变效果', effects:[{stat:'decayRate',op:'add',value:0.03}] },
+    { id:'dc_contagious', name:'衰变传染', faction:'decay', type:'passive', rarity:'epic',
+      description:'衰变死亡时传播', effects:[{stat:'decaySpread',op:'add',value:0.3}] },
+    { id:'dc_criticalMass', name:'临界质量', faction:'decay', type:'passive', rarity:'rare',
+      description:'衰变层数引爆', effects:[{stat:'attack',op:'multiply',value:0.2}] },
+
+    // ============ NEW: Crystal Faction Skills (3) ============
+    { id:'cr_crystalGrowth', name:'结晶生长', faction:'crystal', type:'passive', rarity:'uncommon',
+      description:'攻击生长水晶碎片', effects:[{stat:'crystalShards',op:'add',value:2}] },
+    { id:'cr_shatterStorm', name:'碎晶风暴', faction:'crystal', type:'passive', rarity:'rare',
+      description:'击杀释放碎片弹幕', effects:[{stat:'shatterDamage',op:'multiply',value:0.2}] },
+    { id:'cr_prism', name:'棱镜折射', faction:'crystal', type:'passive', rarity:'epic',
+      description:'碎片命中分裂', effects:[{stat:'crystalShards',op:'add',value:2},{stat:'shatterDamage',op:'multiply',value:0.3}] },
+
+    // ============ NEW: Momentum Faction Skills (3) ============
+    { id:'mm_inertial', name:'惯性打击', faction:'momentum', type:'passive', rarity:'uncommon',
+      description:'势能转化攻击力', effects:[{stat:'momentumRate',op:'add',value:0.03}] },
+    { id:'mm_wake', name:'尾迹冲击', faction:'momentum', type:'passive', rarity:'rare',
+      description:'高速移动留下伤害轨迹', effects:[{stat:'speed',op:'multiply',value:0.08}] },
+    { id:'mm_terminal', name:'终极速度', faction:'momentum', type:'passive', rarity:'epic',
+      description:'满势能获得额外增益', effects:[{stat:'speed',op:'multiply',value:0.15},{stat:'momentumRate',op:'add',value:0.04}] },
+
+    // ============ NEW: Pact Faction Skills (3) ============
+    { id:'pa_deathContract', name:'死亡契约', faction:'pact', type:'conditional', rarity:'rare',
+      trigger:'onKill', description:'标记敌人死亡回复', effects:[{stat:'healOnKill',op:'add',value:8}] },
+    { id:'pa_punishment', name:'惩罚条款', faction:'pact', type:'passive', rarity:'uncommon',
+      description:'契约反噬自损', effects:[{stat:'contractDamage',op:'add',value:0.15}] },
+    { id:'pa_network', name:'契约网络', faction:'pact', type:'passive', rarity:'epic',
+      description:'契约连锁传播', effects:[{stat:'maxContracts',op:'add',value:2},{stat:'contractDamage',op:'add',value:0.2}] },
+
+    // ============ NEW: Dream Faction Skills (3) ============
+    { id:'dr_lullaby', name:'摇篮曲', faction:'dream', type:'passive', rarity:'uncommon',
+      description:'攻击概率使敌人沉睡', effects:[{stat:'sleepChance',op:'add',value:0.08}] },
+    { id:'dr_nightTerror', name:'梦魇侵袭', faction:'dream', type:'passive', rarity:'rare',
+      description:'沉睡敌人持续伤害', effects:[{stat:'attack',op:'multiply',value:0.1}] },
+    { id:'dr_confusion', name:'迷乱之雾', faction:'dream', type:'passive', rarity:'epic',
+      description:'迷雾使敌人互相攻击', effects:[{stat:'confuseChance',op:'add',value:0.1},{stat:'sleepChance',op:'add',value:0.05}] },
+
+    // ============ NEW: Forge Faction Skills (3) ============
+    { id:'fg_battleTemper', name:'战斗淬炼', faction:'forge', type:'passive', rarity:'rare',
+      description:'击杀积累锻炉层数', effects:[{stat:'attack',op:'multiply',value:0.1}] },
+    { id:'fg_flameQuench', name:'烈焰淬火', faction:'forge', type:'passive', rarity:'rare',
+      description:'满锻炉层数灼烧', effects:[{stat:'burnDamage',op:'add',value:8}] },
+    { id:'fg_forgeMaster', name:'锻炉大师', faction:'forge', type:'passive', rarity:'epic',
+      description:'加速锻炉积累', effects:[{stat:'forgeStacksMax',op:'add',value:2},{stat:'attack',op:'multiply',value:0.15}] },
+
+    // ============ NEW: Rebound Faction Skills (3) ============
+    { id:'rb_ricochet', name:'弹射射击', faction:'rebound', type:'passive', rarity:'uncommon',
+      description:'子弹弹射至附近敌人', effects:[{stat:'bounceCount',op:'add',value:2}] },
+    { id:'rb_pinball', name:'弹球增幅', faction:'rebound', type:'passive', rarity:'rare',
+      description:'弹射伤害递增', effects:[{stat:'bounceRetention',op:'add',value:0.15}] },
+    { id:'rb_split', name:'分裂弹射', faction:'rebound', type:'passive', rarity:'epic',
+      description:'弹射时分裂', effects:[{stat:'bounceCount',op:'add',value:2},{stat:'bounceRetention',op:'add',value:0.2}] },
+
+    // ============ NEW: Shroud Faction Skills (3) ============
+    { id:'sh_smokeScreen', name:'烟雾屏障', faction:'shroud', type:'active', rarity:'rare',
+      cooldown:12, description:'释放烟雾减速致盲', effects:[{stat:'blindChance',op:'add',value:0.3}] },
+    { id:'sh_ambush', name:'伏击猎手', faction:'shroud', type:'conditional', rarity:'epic',
+      trigger:'onBlind', description:'致盲目标额外伤害', effects:[{stat:'attack',op:'multiply',value:0.25}] },
+    { id:'sh_chokingHaze', name:'窒息迷雾', faction:'shroud', type:'passive', rarity:'rare',
+      description:'烟雾持续伤害', effects:[{stat:'shroudRadius',op:'add',value:50}] },
   ],
 
   // ============ WEAPONS (20) ============

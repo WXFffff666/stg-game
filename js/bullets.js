@@ -3175,6 +3175,263 @@ var BulletPatterns = {
       chainRange: chainRange || 140
     });
     return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N36. splitter — Piercing bullet that splits fragments on hit
+  // ----------------------------------------------------------
+  splitter: function(x, y, angle, speed, damage, pierceCount, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 5,
+      hitRadius: 4,
+      lifetime: 3,
+      pierceCount: pierceCount || 2
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N37. bouncer — Bouncing chain bullet, damage increases per bounce
+  // ----------------------------------------------------------
+  bouncer: function(x, y, angle, speed, damage, chainCount, chainRange, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 4,
+      hitRadius: 3,
+      lifetime: 3,
+      chainCount: chainCount || 4,
+      chainRange: chainRange || 150
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N38. shockRing — Expanding shock ring that pushes enemies
+  // ----------------------------------------------------------
+  shockRing: function(x, y, angle, speed, damage, ringCount, color, trailColor) {
+    var bullets = [];
+    var count = ringCount || 12;
+    for (var i = 0; i < count; i++) {
+      var a = (Math.PI * 2 * i) / count;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 3,
+        hitRadius: 2.5,
+        lifetime: 0.8,
+        pierceCount: 2
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N39. growing — Bullet grows in size the further it travels
+  // ----------------------------------------------------------
+  growing: function(x, y, angle, speed, damage, growingScale, color, trailColor) {
+    var scale = growingScale || 1.6;
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 3 * scale,
+      lifetime: 4,
+      pierceCount: 1
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N40. warp — High-speed piercing warp needle
+  // ----------------------------------------------------------
+  warp: function(x, y, angle, speed, damage, pierceCount, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 2,
+      hitRadius: 1.5,
+      lifetime: 2,
+      pierceCount: pierceCount || 5
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N41. mirror — Fires symmetric bullets to both sides
+  // ----------------------------------------------------------
+  mirror: function(x, y, angle, speed, damage, spreadAngle, color, trailColor) {
+    var bullets = [];
+    var halfAngle = (spreadAngle || 90) * Math.PI / 180 / 2;
+    // Left side
+    var b1 = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle - halfAngle) * speed,
+      vy: Math.sin(angle - halfAngle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 2.5
+    });
+    bullets.push(b1);
+    // Right side
+    var b2 = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle + halfAngle) * speed,
+      vy: Math.sin(angle + halfAngle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 3,
+      hitRadius: 2.5,
+      lifetime: 2.5
+    });
+    bullets.push(b2);
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N42. ringNova — Expanding ring that shatters into homing fragments
+  // ----------------------------------------------------------
+  ringNova: function(x, y, angle, speed, damage, ringCount, homingStrength, homingRange, color, trailColor) {
+    var bullets = [];
+    var count = ringCount || 10;
+    for (var i = 0; i < count; i++) {
+      var a = (Math.PI * 2 * i) / count;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 4,
+        hitRadius: 3,
+        lifetime: 2.5,
+        homingStrength: homingStrength || 0.05,
+        homingRange: homingRange || 350
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N43. plasmaWeb — Bullets form chain lightning web between them
+  // ----------------------------------------------------------
+  plasmaWeb: function(x, y, angle, speed, damage, webCount, chainCount, chainRange, color, trailColor) {
+    var bullets = [];
+    var count = webCount || 5;
+    var halfAngle = 35 * Math.PI / 180 / 2;
+    for (var i = 0; i < count; i++) {
+      var offset = -halfAngle + (i / (count - 1 || 1)) * (halfAngle * 2);
+      var a = angle + offset;
+      var bullet = this._create({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        speed: speed,
+        damage: damage,
+        color: color,
+        trailColor: trailColor,
+        category: 'playerBullet',
+        size: 3,
+        hitRadius: 2.5,
+        lifetime: 2.5,
+        chainCount: chainCount || 3,
+        chainRange: chainRange || 130
+      });
+      bullets.push(bullet);
+    }
+    return bullets;
+  },
+
+  // ----------------------------------------------------------
+  //  N44. implosion — Gravity well with execute, implosion explosion
+  // ----------------------------------------------------------
+  implosion: function(x, y, angle, speed, damage, wellRadius, pullForce, explosionRadius, executeThreshold, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 10,
+      hitRadius: 8,
+      lifetime: 3,
+      wellRadius: wellRadius || 130,
+      pullForce: pullForce || 100,
+      explosionRadius: explosionRadius || 90,
+      executeThreshold: executeThreshold || 0.1
+    });
+    return [bullet];
+  },
+
+  // ----------------------------------------------------------
+  //  N45. vitalChain — Chain lightning with lifesteal per bounce
+  // ----------------------------------------------------------
+  vitalChain: function(x, y, angle, speed, damage, chainCount, chainRange, lifestealPercent, color, trailColor) {
+    var bullet = this._create({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      speed: speed,
+      damage: damage,
+      color: color,
+      trailColor: trailColor,
+      category: 'playerBullet',
+      size: 2,
+      hitRadius: 1.5,
+      lifetime: 2,
+      chainCount: chainCount || 5,
+      chainRange: chainRange || 160,
+      lifestealPercent: lifestealPercent || 0.1
+    });
+    return [bullet];
   }
 
 };

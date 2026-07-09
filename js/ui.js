@@ -761,10 +761,11 @@ class UIManager {
 
       var label = document.createElement('div');
       label.className = 'talent-layer-label';
-      label.textContent = '第' + (l + 1) + '层' + ' (' + selCount + '/' + layer.length + ')';
+      label.textContent = '第' + (l + 1) + '层 (' + selCount + '/' + layer.length + ')';
       if (layerLocked) {
-        label.textContent += ' 🔒';
-        label.style.color = '#666';
+        label.style.color = '#555';
+      } else if (selCount > 0 && selCount < layer.length) {
+        label.style.color = '#ffdd00';
       }
       layerDiv.appendChild(label);
 
@@ -850,6 +851,35 @@ class UIManager {
     var el = document.getElementById('talent-points-remaining');
     if (el) {
       el.textContent = this._talentMgr ? this._talentMgr.remaining : 0;
+    // Show hint when layers are locked
+    var hint = document.getElementById('talent-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'talent-hint';
+      hint.style.cssText = 'font-size:11px;color:#888;margin-top:4px;text-align:center;';
+      var header = document.querySelector('.talent-points-display');
+      if (header && header.parentNode) header.parentNode.insertBefore(hint, header.nextSibling);
+    }
+    if (this._talentMgr) {
+      var hasLocked = false;
+      for (var bi = 0; bi < this._talentMgr.branches.length; bi++) {
+        var branchCfg = this._talentMgr.cfg[this._talentMgr.branches[bi]];
+        if (branchCfg && branchCfg.layers && branchCfg.layers.length > 1) {
+          var firstSel = this._talentMgr.getSelectedInLayer(this._talentMgr.branches[bi], 0);
+          var firstCount = Array.isArray(firstSel) ? firstSel.length : (firstSel ? 1 : 0);
+          if (firstCount > 0 && firstCount < branchCfg.layers[0].length) {
+            hasLocked = true;
+            break;
+          }
+        }
+      }
+      if (hasLocked) {
+        hint.textContent = '💡 选满当前层所有天赋才能解锁下一层';
+        hint.style.color = '#ffdd00';
+      } else {
+        hint.textContent = '';
+      }
+    }
     }
   }
 

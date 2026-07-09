@@ -650,6 +650,86 @@ var FACTION_SYSTEM = {
       description: '极寒之力爆发，万物冰封',
       effects: [{ stat: 'tundraFrostChance', op: 'add', value: 0.3 }, { stat: 'tundraFrostDuration', op: 'multiply', value: 2.0 }, { stat: 'tundraGlacierCrush', op: 'set', value: { damage: 100, radius: 250 } }],
       visualColor: '#eceff1', visualType: 'ice' }
+  },
+  phantom: {
+    corePassive: { effects: [{ stat: 'dodgeChance', op: 'add', value: 0.08 }, { stat: 'speed', op: 'multiply', value: 0.1 }] },
+    exclusiveSkills: ['ph_ghostWalk', 'ph_afterimage', 'ph_phantomStrike'],
+    ultimate: { id: 'ut_phantom', name: '👻 幻影领域', faction: 'phantom', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '完全虚化，召唤幻影大军',
+      effects: [{ stat: 'dodgeChance', op: 'add', value: 0.3 }, { stat: 'phantomClones', op: 'set', value: 5 }, { stat: 'invincibleDuration', op: 'set', value: 4000 }],
+      visualColor: '#88ccff', visualType: 'holy' }
+  },
+  chain: {
+    corePassive: { effects: [{ stat: 'chainCount', op: 'add', value: 1 }, { stat: 'chainDamage', op: 'multiply', value: 0.15 }] },
+    exclusiveSkills: ['ch_arcJump', 'ch_conductive', 'ch_cascade'],
+    ultimate: { id: 'ut_chain', name: '⛓️ 无限连锁', faction: 'chain', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '连锁跳跃无限次',
+      effects: [{ stat: 'chainCount', op: 'set', value: 99 }, { stat: 'chainDamage', op: 'multiply', value: 0.5 }, { stat: 'chainRange', op: 'multiply', value: 2.0 }],
+      visualColor: '#ffdd44', visualType: 'lightning' }
+  },
+  decay: {
+    corePassive: { effects: [{ stat: 'decayRate', op: 'add', value: 0.02 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['dc_radioactive', 'dc_contagious', 'dc_criticalMass'],
+    ultimate: { id: 'ut_decay', name: '☢️ 核子寒冬', faction: 'decay', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '全场辐射降临',
+      effects: [{ stat: 'decayRate', op: 'multiply', value: 2.0 }, { stat: 'decaySpread', op: 'set', value: true }, { stat: 'enemySlow', op: 'set', value: 0.4 }],
+      visualColor: '#88ff44', visualType: 'poison' }
+  },
+  crystal: {
+    corePassive: { effects: [{ stat: 'crystalShards', op: 'add', value: 1 }, { stat: 'critRate', op: 'add', value: 0.03 }] },
+    exclusiveSkills: ['cr_crystalGrowth', 'cr_shatterStorm', 'cr_prism'],
+    ultimate: { id: 'ut_crystal', name: '💎 钻石风暴', faction: 'crystal', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '全场结晶引爆',
+      effects: [{ stat: 'crystalShards', op: 'add', value: 5 }, { stat: 'shatterDamage', op: 'multiply', value: 2.0 }, { stat: 'critRate', op: 'add', value: 0.15 }],
+      visualColor: '#dd88ff', visualType: 'holy' }
+  },
+  momentum: {
+    corePassive: { effects: [{ stat: 'speed', op: 'multiply', value: 0.12 }, { stat: 'momentumRate', op: 'add', value: 0.02 }] },
+    exclusiveSkills: ['mm_inertial', 'mm_wake', 'mm_terminal'],
+    ultimate: { id: 'ut_momentum', name: '⚡ 相对论冲击', faction: 'momentum', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '突破速度极限',
+      effects: [{ stat: 'speed', op: 'multiply', value: 0.5 }, { stat: 'pierceCount', op: 'set', value: 99 }, { stat: 'momentumRate', op: 'multiply', value: 3.0 }],
+      visualColor: '#44eeff', visualType: 'lightning' }
+  },
+  pact: {
+    corePassive: { effects: [{ stat: 'maxContracts', op: 'add', value: 1 }, { stat: 'contractDamage', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['pa_deathContract', 'pa_punishment', 'pa_network'],
+    ultimate: { id: 'ut_pact', name: '📜 灵魂收割', faction: 'pact', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '全场契约收割',
+      effects: [{ stat: 'maxContracts', op: 'set', value: 99 }, { stat: 'contractDamage', op: 'multiply', value: 2.0 }, { stat: 'healOnKill', op: 'add', value: 20 }],
+      visualColor: '#ff4466', visualType: 'fire' }
+  },
+  dream: {
+    corePassive: { effects: [{ stat: 'sleepChance', op: 'add', value: 0.05 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['dr_lullaby', 'dr_nightTerror', 'dr_confusion'],
+    ultimate: { id: 'ut_dream', name: '🌙 永恒沉睡', faction: 'dream', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '全场坠入梦境',
+      effects: [{ stat: 'sleepChance', op: 'set', value: 1.0 }, { stat: 'damageBonus', op: 'add', value: 1.0 }, { stat: 'sleepDuration', op: 'multiply', value: 2.0 }],
+      visualColor: '#9988ee', visualType: 'holy' }
+  },
+  forge: {
+    corePassive: { effects: [{ stat: 'forgeStacksMax', op: 'add', value: 1 }, { stat: 'attack', op: 'multiply', value: 0.05 }] },
+    exclusiveSkills: ['fg_battleTemper', 'fg_flameQuench', 'fg_forgeMaster'],
+    ultimate: { id: 'ut_forge', name: '🔨 神匠武库', faction: 'forge', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '瞬间满炉全属性提升',
+      effects: [{ stat: 'attack', op: 'multiply', value: 0.3 }, { stat: 'attackSpeed', op: 'multiply', value: -0.3 }, { stat: 'critRate', op: 'add', value: 0.15 }],
+      visualColor: '#ff9944', visualType: 'fire' }
+  },
+  rebound: {
+    corePassive: { effects: [{ stat: 'bounceCount', op: 'add', value: 1 }, { stat: 'bounceRetention', op: 'add', value: 0.1 }] },
+    exclusiveSkills: ['rb_ricochet', 'rb_pinball', 'rb_split'],
+    ultimate: { id: 'ut_rebound', name: '↩️ 弹射地狱', faction: 'rebound', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '无限弹射越弹越强',
+      effects: [{ stat: 'bounceCount', op: 'set', value: 99 }, { stat: 'bounceRetention', op: 'set', value: 1.5 }, { stat: 'splitBounce', op: 'set', value: 3 }],
+      visualColor: '#55eebb', visualType: 'holy' }
+  },
+  shroud: {
+    corePassive: { effects: [{ stat: 'shroudRadius', op: 'add', value: 30 }, { stat: 'blindChance', op: 'add', value: 0.05 }] },
+    exclusiveSkills: ['sh_smokeScreen', 'sh_ambush', 'sh_chokingHaze'],
+    ultimate: { id: 'ut_shroud', name: '🌫️ 全蚀之幕', faction: 'shroud', type: 'passive', rarity: 'legendary', ultimate: true,
+      description: '全场浓雾致盲',
+      effects: [{ stat: 'shroudRadius', op: 'set', value: 999 }, { stat: 'blindChance', op: 'set', value: 1.0 }, { stat: 'damageBonus', op: 'add', value: 0.6 }],
+      visualColor: '#8877aa', visualType: 'poison' }
   }
 };
 
