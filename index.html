@@ -2212,34 +2212,19 @@ canvas {
 <script src="js/ui.js?v=6"></script>
 <script src="js/main.js?v=6"></script>
 
-<!-- Service Worker Registration -->
+<!-- Service Worker Registration (no-cache) -->
 <script>
 if ('serviceWorker' in navigator) {
-  // 强制SW更新：加载时加时间戳，浏览器视为新SW
-  var swUrl = './sw.js?v=' + new Date().getTime();
-  navigator.serviceWorker.register(swUrl).then(reg => {
-    // Check for updates periodically
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // New version available, notify user
-          if (confirm('发现新版本，是否刷新？')) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
-            window.location.reload();
-          }
-        }
-      });
-    });
-  }).catch(err => console.log('SW registration failed:', err));
-
-  // Reload on controller change (after skipWaiting)
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
+  // Unregister any stale SW first to break refresh loops
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    for (var ri = 0; ri < regs.length; ri++) {
+      regs[ri].unregister();
     }
+  });
+  
+  // Register normally — SW internal version (CACHE_NAME in sw.js) controls cache invalidation
+  navigator.serviceWorker.register('./sw.js').catch(function(err) {
+    console.log('SW registration failed:', err);
   });
 }
 </script>
