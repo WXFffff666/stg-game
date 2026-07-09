@@ -386,10 +386,17 @@ class Game {
     if (this._poolsInitialized) return;
     this._poolsInitialized = true;
 
-    // 对象池大小从配置读取
-    var poolBullets = GAME_CONFIG.BALANCE.POOL_BULLETS;
-    var poolParticles = GAME_CONFIG.BALANCE.POOL_PARTICLES;
-    var poolEnemies = GAME_CONFIG.BALANCE.POOL_ENEMIES;
+    // 移动设备/平板使用缩小的对象池以提升性能
+    var bCfg = GAME_CONFIG.BALANCE;
+    var poolBullets = this.isMobile ? bCfg.POOL_BULLETS_MOBILE : bCfg.POOL_BULLETS;
+    var poolParticles = this.isMobile ? bCfg.POOL_PARTICLES_MOBILE : bCfg.POOL_PARTICLES;
+    var poolEnemies = this.isMobile ? bCfg.POOL_ENEMIES_MOBILE : bCfg.POOL_ENEMIES;
+    if (this.isMobile) {
+      // 移动端降低实体上限
+      this.ENTITY_LIMITS.enemies = Math.min(this.ENTITY_LIMITS.enemies, poolEnemies);
+      this.ENTITY_LIMITS.bullets = Math.min(this.ENTITY_LIMITS.bullets, poolBullets);
+      this.ENTITY_LIMITS.particles = Math.min(this.ENTITY_LIMITS.particles, poolParticles);
+    }
 
     // Bullet pool: 从配置读取
     this.bulletPool = new ObjectPool(function() {
@@ -594,12 +601,18 @@ class Game {
    */
   _enableLowPerfMode() {
     this.lowPerfMode = true;
-    console.log('低性能模式已启用：粒子减少50%，敌人上限25，子弹上限120');
+    var bCfg = GAME_CONFIG.BALANCE;
+    console.log('低性能模式已启用：粒子减少70%，敌人上限' + bCfg.LOW_PERF_MAX_ENEMIES + '，子弹上限' + bCfg.LOW_PERF_MAX_BULLETS);
 
-    // 更新实体限制
-    this.ENTITY_LIMITS.enemies = GAME_CONFIG.BALANCE.LOW_PERF_MAX_ENEMIES;
-    this.ENTITY_LIMITS.bullets = GAME_CONFIG.BALANCE.LOW_PERF_MAX_BULLETS;
-    this.ENTITY_LIMITS.particles = Math.floor(this.ENTITY_LIMITS.particles * GAME_CONFIG.BALANCE.LOW_PERF_PARTICLE_REDUCTION);
+    // 更新实体限制（移动端在已有缩容基础上再缩减）
+    if (this.isMobile) {
+      this.ENTITY_LIMITS.enemies = Math.min(bCfg.LOW_PERF_MAX_ENEMIES, Math.floor(bCfg.POOL_ENEMIES_MOBILE * 0.6));
+      this.ENTITY_LIMITS.bullets = Math.min(bCfg.LOW_PERF_MAX_BULLETS, Math.floor(bCfg.POOL_BULLETS_MOBILE * 0.6));
+    } else {
+      this.ENTITY_LIMITS.enemies = bCfg.LOW_PERF_MAX_ENEMIES;
+      this.ENTITY_LIMITS.bullets = bCfg.LOW_PERF_MAX_BULLETS;
+    }
+    this.ENTITY_LIMITS.particles = Math.floor(this.ENTITY_LIMITS.particles * bCfg.LOW_PERF_PARTICLE_REDUCTION);
 
     // 触发事件通知其他系统
     if (window.eventBus) {

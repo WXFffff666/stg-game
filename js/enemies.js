@@ -4417,12 +4417,26 @@ class WaveSpawner {
     }
 
     if (this.waveState === 'active') {
-      // Check wave complete
+      // Check wave complete: all normal enemies spawned AND all non-boss enemies cleared
       let activeNonBoss = 0;
       for (let i = 0; i < game.enemies.length; i++) {
         if (game.enemies[i].active && !game.enemies[i].isBoss) activeNonBoss++;
       }
       if (this.waveEnemiesSpawned >= this.waveEnemiesTotal && activeNonBoss === 0) {
+        // Boss wave: spawn boss AFTER normal enemies are cleared
+        if (this.waveNumber % 10 === 0 && !this.waveBossSpawned) {
+          this._spawnWaveBoss(game, difficulty);
+          this.waveBossSpawned = true;
+          return; // Wait for boss fight
+        }
+        // For boss waves, verify boss is actually dead before completing
+        if (this.waveNumber % 10 === 0) {
+          let bossAlive = false;
+          for (let i = 0; i < game.enemies.length; i++) {
+            if (game.enemies[i].active && game.enemies[i].isBoss) { bossAlive = true; break; }
+          }
+          if (bossAlive) return; // Still fighting boss
+        }
         this._completeWave(game);
         return;
       }
@@ -4439,17 +4453,13 @@ class WaveSpawner {
           // Normal wave: use existing spawn logic
           this._spawnWaveGroup(game, difficulty, spawnRules);
         }
-
-        // Boss wave: spawn boss on first tick
-        if (this.waveNumber % 10 === 0 && !this.waveBossSpawned) {
-          this._spawnWaveBoss(game, difficulty);
-          this.waveBossSpawned = true;
-        }
+        // NOTE: Boss no longer spawns on first tick of boss waves.
+        // Boss now spawns after all normal enemies in the wave are cleared (see check above).
       }
     }
 
-    // --- Legacy boss spawn check (fallback for score triggers) ---
-    this._checkBossSpawns(game);
+    // --- Legacy boss spawn check disabled for wave mode (causes double boss spawns) ---
+    // this._checkBossSpawns(game);
   }
 
   // ---------------------------------------------------------------------------
@@ -4631,7 +4641,8 @@ class WaveSpawner {
     for (let i = 0; i < game.enemies.length; i++) {
       if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
     }
-    if (activeEnemies >= spawnRules.maxEnemiesOnScreen) return;
+    var maxOnScreen = (window.game && window.game.isMobile) ? (spawnRules.maxEnemiesOnScreenMobile || 8) : spawnRules.maxEnemiesOnScreen;
+    if (activeEnemies >= maxOnScreen) return;
 
     // Use enemy pool for random selection
     const pool = GAME_CONFIG.WAVES.enemyPool;
@@ -4715,7 +4726,8 @@ class WaveSpawner {
     for (let i = 0; i < game.enemies.length; i++) {
       if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
     }
-    if (activeEnemies >= spawnRules.maxEnemiesOnScreen) return;
+    var maxOnScreen = (window.game && window.game.isMobile) ? (spawnRules.maxEnemiesOnScreenMobile || 8) : spawnRules.maxEnemiesOnScreen;
+    if (activeEnemies >= maxOnScreen) return;
 
     // Elite wave compositions
     const eliteTemplates = [

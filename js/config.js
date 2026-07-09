@@ -91,9 +91,13 @@ const GAME_CONFIG = {
 
     // ============ 性能优化配置 ============
     // 对象池扩容
-    POOL_BULLETS: 400,
-    POOL_ENEMIES: 80,
-    POOL_PARTICLES: 250,
+  POOL_BULLETS: 400,
+  POOL_ENEMIES: 80,
+  POOL_PARTICLES: 250,
+  // Mobile/tablet reduced pools (auto-detected in core.js init)
+  POOL_BULLETS_MOBILE: 150,
+  POOL_ENEMIES_MOBILE: 35,
+  POOL_PARTICLES_MOBILE: 80,
 
     // 碰撞网格配置 (4x4空间网格)
     COLLISION_GRID_COLS: 4,
@@ -3201,6 +3205,7 @@ const GAME_CONFIG = {
       baseInterval: 4500,
       minInterval: 800,
       maxEnemiesOnScreen: 15,
+      maxEnemiesOnScreenMobile: 8,
       groups: [
         // Difficulty 0 (start): just small enemies
         { minDifficulty: 0, templates: [
@@ -3704,8 +3709,9 @@ const GAME_CONFIG = {
       ], dropGuaranteed: ['weaponCrate', 'fusionCore', 'overloadCore', 'timeCrystal'] },
   },
 
-  // ============ SHOP_ITEMS ============
-  SHOP_ITEMS: {
+  // ============ WAVE_SHOP_CONFIG ============
+  // In-run (wave) shop settings — NOT the meta shop items (see SHOP_ITEMS above)
+  WAVE_SHOP_CONFIG: {
     refreshCost: 20, maxRefreshPerRun: 5, autoRefreshWaves: 5, bossDiscountDuration: 30000,
     items: [
       { id: 'weaponUpgrade', name: '武器强化', icon: '⬆️', price: 40, description: '当前武器提升1级', category: 'upgrade' },
