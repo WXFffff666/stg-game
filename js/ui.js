@@ -3321,7 +3321,7 @@ class UIManager {
     screen.appendChild(title);
 
     var subtitle = document.createElement('div');
-    subtitle.style.cssText = 'font-size:11px;color:#888;margin-bottom:16px;';
+    subtitle.style.cssText = 'font-size:11px;color:#888;margin-bottom:10px;';
     subtitle.textContent = '点击物品 → 点击槽位进行装备/交换 | 按 I 关闭';
     screen.appendChild(subtitle);
 
@@ -3329,6 +3329,52 @@ class UIManager {
     var wm = window.weaponManager;
     var sm = window.skillManager;
     var cfg = window.GAME_CONFIG;
+
+    // === Stat Summary Panel ===
+    var p = window.playerEntity || (window.game ? window.game.player : null);
+    if (p) {
+      var statPanel = document.createElement('div');
+      statPanel.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:12px;';
+      var statTitle = document.createElement('div');
+      statTitle.style.cssText = 'font-size:12px;color:#ffdd00;margin-bottom:6px;font-weight:bold;';
+      statTitle.textContent = '📊 当前属性';
+      statPanel.appendChild(statTitle);
+
+      var stats = p.stats || {};
+      var hpPct = p.maxHp > 0 ? Math.round(p.hp / p.maxHp * 100) : 0;
+      var atkBonus = stats.attack ? Math.round((stats.attack - 1) * 100) : 0;
+      var spd = Math.round(p.speed);
+      var def = stats.defense ? Math.round(stats.defense * 100) : 0;
+      var crit = stats.critRate ? Math.round(stats.critRate * 100) : 0;
+      var cdmg = stats.critMult ? Math.round((stats.critMult - 1.5) * 100) : 0;
+      var ls = stats.lifesteal ? Math.round(stats.lifesteal * 100) : 0;
+      var dodge = stats.dodgeChance ? Math.round(stats.dodgeChance * 100) : 0;
+      var ap = stats.armorPenetration ? Math.round(stats.armorPenetration * 100) : 0;
+      var regen = stats.hpRegen || 0;
+      var wSlots = wm ? (wm.maxWeaponSlots || 0) : (sm ? sm.weaponSlotsUnlocked : 0);
+      var pSlots = wm ? (wm.maxPassiveSlots || 0) : 0;
+      var cores = sm ? (sm.fusionCoreCount || 0) : 0;
+
+      var statGrid = document.createElement('div');
+      statGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:11px;color:#aaa;';
+      statGrid.innerHTML =
+        '❤️ HP: ' + Math.floor(p.hp) + '/' + p.maxHp + ' (' + hpPct + '%)<br>' +
+        '⚔️ 攻击: ' + (atkBonus >= 0 ? '+' : '') + atkBonus + '%<br>' +
+        '👟 速度: ' + spd + '<br>' +
+        '🛡️ 减伤: ' + def + '%' +
+        '💥 暴击: ' + crit + '%' +
+        ' 📈 爆伤: ' + cdmg + '%' +
+        '🩸 吸血: ' + ls + '%' +
+        ' 💨 闪避: ' + dodge + '%' +
+        '🔱 穿甲: ' + ap + '%' +
+        ' 💚 再生: ' + regen + '/s' +
+        '🔫 武器槽: ' + wSlots +
+        ' 🛡️ 被动槽: ' + pSlots +
+        '🔮 核心: ' + cores;
+
+      statPanel.appendChild(statGrid);
+      screen.appendChild(statPanel);
+    }
 
     // === Weapon Slots Row ===
     var slotLabel = document.createElement('div');

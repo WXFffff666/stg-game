@@ -103,14 +103,31 @@ class Bullet {
     }
 
     // --- Homing ---
-    if (this.homingTarget && this.homingTarget.active && this.homingStrength > 0) {
-      const dx = this.homingTarget.x - this.x;
-      const dy = this.homingTarget.y - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const tx = (dx / dist) * this.speed;
-      const ty = (dy / dist) * this.speed;
-      this.vx += (tx - this.vx) * this.homingStrength;
-      this.vy += (ty - this.vy) * this.homingStrength;
+    if (this.homingStrength > 0) {
+      // Auto-acquire target if missing
+      if (!this.homingTarget || !this.homingTarget.active) {
+        var _g = window.game;
+        var _best = null, _bestD = Infinity;
+        if (_g && _g.enemies) {
+          for (var _hi = 0; _hi < _g.enemies.length; _hi++) {
+            var _e = _g.enemies[_hi];
+            if (!_e.active) continue;
+            var _dx = _e.x - this.x, _dy = _e.y - this.y;
+            var _d = _dx * _dx + _dy * _dy;
+            if (_d < _bestD) { _bestD = _d; _best = _e; }
+          }
+        }
+        this.homingTarget = _best;
+      }
+      if (this.homingTarget && this.homingTarget.active) {
+        const dx = this.homingTarget.x - this.x;
+        const dy = this.homingTarget.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const tx = (dx / dist) * this.speed;
+        const ty = (dy / dist) * this.speed;
+        this.vx += (tx - this.vx) * this.homingStrength;
+        this.vy += (ty - this.vy) * this.homingStrength;
+      }
     }
 
     // Store previous position for distance tracking
@@ -1450,6 +1467,20 @@ var BulletPatterns = {
   //  16. missile — Homing missile with explosion
   // ----------------------------------------------------------
   missile: function(x, y, angle, speed, damage, homingStrength, explosionRadius, color, trailColor) {
+    // Auto-acquire nearest target for homing
+    var nearest = null;
+    var game = window.game;
+    if (game && game.enemies) {
+      var minDist = Infinity;
+      var range = 400;
+      for (var i = 0; i < game.enemies.length; i++) {
+        var e = game.enemies[i];
+        if (!e.active) continue;
+        var dx = e.x - x, dy = e.y - y;
+        var d = dx * dx + dy * dy;
+        if (d < minDist && d < range * range) { minDist = d; nearest = e; }
+      }
+    }
     var bullet = this._create({
       x: x, y: y,
       vx: Math.cos(angle) * speed,
@@ -1463,6 +1494,7 @@ var BulletPatterns = {
       hitRadius: 6,
       lifetime: 4,
       homingStrength: homingStrength || 0.04,
+      homingTarget: nearest || null,
       explosionRadius: explosionRadius || 80
     });
     return [bullet];

@@ -898,8 +898,10 @@
     state.lockedIndices = [];
     state.lockSlots = [false, false, false, false, false, false];
 
-    // Generate items (reuse locked items if present)
-    _generateAndMergeShopItems(isWaveShop);
+    // A6: Only generate items if first open — prevent free refresh by close/reopen
+    if (!state.items || state.items.length === 0) {
+      _generateAndMergeShopItems(isWaveShop);
+    }
 
     // Build DOM structure if not yet built
     _ensureShopDOM();

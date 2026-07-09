@@ -560,16 +560,30 @@ canvas {
 }
 .toast.show { opacity: 1; }
 
-/* 暂停按钮基础样式 */
+/* HUD浮动按钮组 */
+.hud-btn-group {
+  display: none; flex-direction: row; align-items: center;
+}
+
+/* HUD浮动按钮 */
+.hud-fab-btn {
+  width: 40px; height: 40px;
+  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px; color: #fff; font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.hud-fab-btn:active {
+  background: rgba(255,255,255,0.2); transform: scale(0.92);
+}
+/* 旧暂停按钮选择器保留向下兼容 */
 .hud-pause-btn {
-  position: absolute; z-index: 15;
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  right: calc(12px + env(safe-area-inset-right, 0px));
-  width: 44px; height: 44px;
-  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 8px; color: #fff; font-size: 20px;
-  cursor: pointer; display: none; align-items: center; justify-content: center;
-  pointer-events: auto; transition: all 0.2s;
+  width: 40px; height: 40px;
+  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px; color: #fff; font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
   backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
 }
 .hud-pause-btn:active {
@@ -584,10 +598,9 @@ canvas {
   .char-card { width: 100px; padding: 8px; min-height: 44px; }
   .skill-card { width: 110px; padding: 10px 8px; min-height: 44px; }
 
-  /* 显示暂停按钮 */
-  .hud-pause-btn {
+  /* 显示悬浮按钮组 */
+  .hud-btn-group {
     display: flex;
-    width: 44px; height: 44px; font-size: 20px;
   }
 
   /* HUD基础样式 - 统一半透明黑底+圆角8px */
@@ -1827,9 +1840,9 @@ canvas {
   <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="window.toggleFullscreen()">⛶</button>
 
   <!-- HUD按钮组 (手机端右上角) -->
-  <div class="hud-btn-group" id="hud-btn-group" style="display:none;position:absolute;top:8px;right:8px;z-index:30;display:flex;gap:6px;">
-    <button class="hud-pause-btn" id="hud-backpack-btn" title="背包 (I)">🎒</button>
-    <button class="hud-pause-btn" id="hud-pause-btn" title="暂停 (P/ESC)">⏸</button>
+  <div class="hud-btn-group" id="hud-btn-group" style="display:none;position:absolute;top:8px;right:8px;z-index:30;gap:6px;">
+    <button class="hud-fab-btn" id="hud-backpack-btn" title="背包 (I)">🎒</button>
+    <button class="hud-fab-btn" id="hud-pause-btn" title="暂停 (P/ESC)">⏸</button>
   </div>
 
   <!-- HUD (hidden by default) -->
