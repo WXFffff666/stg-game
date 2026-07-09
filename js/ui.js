@@ -154,15 +154,18 @@ class UIManager {
 
   showHUD() {
     if (this.elHud) this.elHud.style.display = 'flex';
-    // 暂停按钮由CSS媒体查询控制显示（仅手机端显示）
-    // 移除内联样式，让CSS接管
+    // 显示悬浮按钮组(手机端右上角)
+    var btnGroup = document.getElementById('hud-btn-group');
+    if (btnGroup) btnGroup.style.removeProperty('display');
     if (this.elHudPauseBtn) this.elHudPauseBtn.style.removeProperty('display');
     this._startHUDLoop();
   }
 
   hideHUD() {
     if (this.elHud) this.elHud.style.display = 'none';
-    // 隐藏暂停按钮
+    // 隐藏悬浮按钮组
+    var btnGroup = document.getElementById('hud-btn-group');
+    if (btnGroup) btnGroup.style.display = 'none';
     if (this.elHudPauseBtn) this.elHudPauseBtn.style.display = 'none';
     this._stopHUDLoop();
   }
@@ -3460,6 +3463,60 @@ class UIManager {
           pSlotEl.style.opacity = '0.4';
         }
         passiveRow.appendChild(pSlotEl);
+      }
+    }
+
+    // === Fusion Core Count & Manual Fusion ===
+    var fusionSection = document.createElement('div');
+    fusionSection.style.cssText = 'margin-top:8px;border-top:1px solid #333;padding-top:10px;';
+    screen.appendChild(fusionSection);
+
+    var coreCount = sm ? (sm.fusionCoreCount || 0) : 0;
+    var coreLabel = document.createElement('div');
+    coreLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
+    coreLabel.textContent = '🔮 融合核心: ' + coreCount + ' 个';
+    fusionSection.appendChild(coreLabel);
+
+    if (sm && typeof sm.checkFusions === 'function') {
+      var fusions = sm.checkFusions();
+      if (fusions.length > 0 && coreCount > 0) {
+        var fusionHint = document.createElement('div');
+        fusionHint.style.cssText = 'font-size:11px;color:#aa66ff;margin-bottom:6px;';
+        fusionHint.textContent = '✨ 以下武器/技能可进行融合:';
+        fusionSection.appendChild(fusionHint);
+
+        for (var fi = 0; fi < fusions.length; fi++) {
+          (function(fusionItem) {
+            var fBtn = document.createElement('button');
+            var isWeapon = fusionItem.type === 'weapon';
+            var recipe = fusionItem.recipe;
+            var rName = recipe.name || (isWeapon ? '武器融合' : '技能融合');
+            fBtn.style.cssText = 'display:block;width:100%;padding:8px;margin-bottom:4px;border:1px solid #8844cc;border-radius:6px;background:rgba(136,68,204,0.1);color:#ddbbff;cursor:pointer;font-size:12px;text-align:left;';
+            fBtn.innerHTML = '🔀 ' + rName + ' <span style="float:right;color:#ffdd44;">消耗 1 核心</span>';
+
+            if (isWeapon) {
+              var wA = cfg.WEAPONS ? cfg.WEAPONS[recipe.ingredientA] : null;
+              var wB = cfg.WEAPONS ? cfg.WEAPONS[recipe.ingredientB] : null;
+              var wR = cfg.WEAPONS ? cfg.WEAPONS[recipe.result] : null;
+              fBtn.title = (wA ? wA.name : recipe.ingredientA) + ' + ' + (wB ? wB.name : recipe.ingredientB) + ' → ' + (wR ? wR.name : recipe.result);
+            }
+
+            fBtn.addEventListener('click', function() {
+              if (isWeapon && typeof sm.executeWeaponFusion === 'function') {
+                sm.executeWeaponFusion(recipe);
+              } else if (!isWeapon && typeof sm.executeSkillFusion === 'function') {
+                sm.executeSkillFusion(recipe);
+              }
+              self._renderBackpack();
+            });
+            fusionSection.appendChild(fBtn);
+          })(fusions[fi]);
+        }
+      } else if (coreCount > 0) {
+        var noFusion = document.createElement('div');
+        noFusion.style.cssText = 'font-size:11px;color:#666;margin-bottom:6px;';
+        noFusion.textContent = '当前没有可用的融合配方';
+        fusionSection.appendChild(noFusion);
       }
     }
 

@@ -1768,6 +1768,47 @@ class SkillManager {
     return this.fusionCoreCount > 0;
   }
 
+  /**
+   * Open a weapon crate: gives the player a random unowned weapon.
+   */
+  _openWeaponCrate() {
+    if (!this.weaponManager) return;
+    var allWeapons = GAME_CONFIG.WEAPONS;
+    if (!allWeapons) return;
+    var owned = [];
+    this.weaponLevels.forEach(function(lvl, wid) { owned.push(wid); });
+    var unowned = [];
+    for (var wid in allWeapons) {
+      if (allWeapons.hasOwnProperty(wid) && owned.indexOf(wid) === -1 && !allWeapons[wid].fused) {
+        unowned.push(wid);
+      }
+    }
+    if (unowned.length === 0) {
+      if (window.ui) window.ui.showToast('📦 已拥有所有武器!', 2000, '#ffaa00');
+      return;
+    }
+    var pick = unowned[Math.floor(Math.random() * unowned.length)];
+    this.weaponLevels.set(pick, 1);
+    // Try to equip to an empty slot
+    var emptySlot = -1;
+    if (this.weaponManager) {
+      for (var si = 0; si < this.weaponManager.weaponSlots.length; si++) {
+        if (!this.weaponManager.weaponSlots[si]) { emptySlot = si; break; }
+      }
+      if (emptySlot >= 0) {
+        this.weaponManager.addWeaponToSlot(pick, emptySlot);
+      }
+    }
+    if (window.ui) {
+      var wCfg = allWeapons[pick];
+      window.ui.showToast('📦 获得新武器: ' + (wCfg ? wCfg.name : pick) + '!', 2500, '#44ddff');
+    }
+    // Codex discovery
+    if (window.CodexProgressManager) {
+      window.CodexProgressManager.discoverWeapon(pick);
+    }
+  }
+
   // ====================================================================
   //  PASSIVE EFFECTS
   // ====================================================================

@@ -280,7 +280,8 @@ class WeaponManager {
    * @returns {number} -1 if all slots full
    */
   _findEmptySlot() {
-    for (var i = 0; i < this.weaponSlots.length; i++) {
+    var limit = this.maxWeaponSlots || this.weaponSlots.length;
+    for (var i = 0; i < Math.min(limit, this.weaponSlots.length); i++) {
       if (!this.weaponSlots[i]) return i;
     }
     return -1;

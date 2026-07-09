@@ -501,8 +501,17 @@
       hideInRunShop();
     });
 
-    // B1: Backpack toggle ('I' key)
+    // B1: Backpack toggle ('I' key or button)
     // B6: Quick-switch weapon focus ('1'-'6' keys)
+    var btnBackpack = document.getElementById('hud-backpack-btn');
+    if (btnBackpack) {
+      btnBackpack.addEventListener('click', function() {
+        if (window._isLevelingUp || window._isWaveShopOpen) return;
+        if (ui && typeof ui.toggleBackpack === 'function') {
+          ui.toggleBackpack();
+        }
+      });
+    }
     document.addEventListener('keydown', (e) => {
       if (game && game.scene === cfg.SCENES.GAMEPLAY && !game.isPaused) {
         // B1: Toggle backpack
@@ -1580,10 +1589,14 @@
         if (playerEntity) playerEntity.heal(playerEntity.maxHp);
         ui.showToast('恢复全部HP', '#44ff44');
         break;
+      case 'tempShield':
+        if (playerEntity) { playerEntity.shield = Math.min(playerEntity.maxShield || 100, (playerEntity.shield || 0) + 50); }
+        ui.showToast('获得50点护盾！', '#4488ff');
+        break;
       case 'fusionCore':
-        if (!window._fusionCores) window._fusionCores = 0;
-        window._fusionCores++;
-        ui.showToast('获得融合核心！', '#aa66ff');
+        if (skillManager && typeof skillManager.addFusionCore === 'function') {
+          skillManager.addFusionCore(1);
+        }
         break;
       case 'attackBoost':
         if (playerEntity) {
@@ -1596,6 +1609,33 @@
           playerEntity.applyStatModifiers([{ stat: 'speed', op: 'multiply', value: 0.10 }]);
         }
         ui.showToast('移动速度+10%', '#88ffff');
+        break;
+      case 'weaponSlot':
+        if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
+        if (skillManager.MAX_WEAPON_SLOTS >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
+          ui.showToast('武器槽已达上限!', '#ff4444'); break;
+        }
+        skillManager.MAX_WEAPON_SLOTS++;
+        skillManager.weaponSlotsUnlocked = Math.max(skillManager.weaponSlotsUnlocked, skillManager.MAX_WEAPON_SLOTS);
+        if (weaponManager) weaponManager.maxWeaponSlots = skillManager.MAX_WEAPON_SLOTS;
+        ui.showToast('🔫 武器槽+1 (共' + skillManager.MAX_WEAPON_SLOTS + '槽)', '#ffdd44');
+        break;
+      case 'passiveSlot':
+        if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
+        if (skillManager.MAX_PASSIVE_SLOTS >= (cfg.BALANCE.MAX_PASSIVE_SLOT_TOTAL || 8)) {
+          ui.showToast('被动槽已达上限!', '#ff4444'); break;
+        }
+        skillManager.MAX_PASSIVE_SLOTS++;
+        skillManager.passiveSlotsUnlocked = Math.max(skillManager.passiveSlotsUnlocked, skillManager.MAX_PASSIVE_SLOTS);
+        if (weaponManager) weaponManager.maxPassiveSlots = skillManager.MAX_PASSIVE_SLOTS;
+        ui.showToast('🛡️ 被动槽+1 (共' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#dd88ff');
+        break;
+      case 'weaponCrate':
+        if (skillManager && typeof skillManager._openWeaponCrate === 'function') {
+          skillManager._openWeaponCrate();
+        } else {
+          ui.showToast('📦 获得新武器！', '#44ddff');
+        }
         break;
     }
 

@@ -1826,8 +1826,11 @@ canvas {
   <!-- Fullscreen Toggle -->
   <button class="fs-toggle" id="fs-toggle" title="全屏 (F11)" onclick="window.toggleFullscreen()">⛶</button>
 
-  <!-- 暂停按钮 (手机端右上角) -->
-  <button class="hud-pause-btn" id="hud-pause-btn" title="暂停 (P/ESC)" style="display:none">⏸</button>
+  <!-- HUD按钮组 (手机端右上角) -->
+  <div class="hud-btn-group" id="hud-btn-group" style="display:none;position:absolute;top:8px;right:8px;z-index:30;display:flex;gap:6px;">
+    <button class="hud-pause-btn" id="hud-backpack-btn" title="背包 (I)">🎒</button>
+    <button class="hud-pause-btn" id="hud-pause-btn" title="暂停 (P/ESC)">⏸</button>
+  </div>
 
   <!-- HUD (hidden by default) -->
   <div id="hud">
