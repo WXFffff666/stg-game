@@ -118,12 +118,46 @@ stg-game/
 
 ## 🌐 Cloudflare Pages 部署
 
-1. Fork 本仓库
-2. 在 Cloudflare Pages 中连接仓库
-3. 构建设置：
-   - 构建命令：留空
-   - 输出目录：`/`（根目录）
-4. 部署完成
+### 方式 A：Git 连接（Dashboard）
+
+1. 在 Cloudflare Pages 中连接 GitHub 仓库 `WXFffff666/stg-game`
+2. 构建设置：
+   - **构建命令**：留空（或填 `exit 0`）
+   - **输出目录**：`.`（根目录，不要用 `/`）
+   - **生产分支**：`master`
+3. 部署完成
+
+若出现 `Failed: unable to submit build job`（卡在 Initializing build environment），这是 **Cloudflare 与 GitHub 集成故障**，不是代码问题。按下方「故障排查」处理。
+
+### 方式 B：GitHub Actions 直接上传（推荐，更稳定）
+
+仓库已包含 `.github/workflows/deploy-cloudflare-pages.yml`，用 Wrangler **Direct Upload** 上传静态文件，不经过 CF 的 Git 构建队列。
+
+**一次性配置：**
+
+1. Cloudflare Dashboard → **My Profile** → **API Tokens** → Create Token  
+   - 模板选 **Edit Cloudflare Workers**，或自定义权限包含 **Account → Cloudflare Pages → Edit**
+2. GitHub 仓库 → **Settings** → **Secrets and variables** → **Actions**，添加：
+   - `CLOUDFLARE_API_TOKEN`：上一步的 Token
+   - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 控制台右侧边栏 Account ID
+3. 确认 Pages 项目名称为 `stg-game`（若不同，改 workflow 里的 `--project-name=`）
+4. push 到 `master` 后 Actions 自动部署；也可在 Actions 页手动 **Run workflow**
+
+### 方式 C：本地命令行部署
+
+```bash
+npx wrangler login
+npx wrangler pages deploy . --project-name=stg-game --branch=master
+```
+
+### 故障排查：`unable to submit build job`
+
+| 步骤 | 操作 |
+|------|------|
+| 1 | Cloudflare Pages 项目 → **Settings** → **Builds** → 暂时关闭 **Automatic deployments**（若已用 Actions） |
+| 2 | GitHub → **Settings** → **Applications** → **Cloudflare Pages** → 检查授权 → 必要时 **Reconfigure** 或重装 |
+| 3 | Cloudflare → **Workers & Pages** → 创建项目 → **Connect to Git** → 重新连接 GitHub |
+| 4 | 改用 **方式 B（GitHub Actions）** 或 **方式 C（wrangler 本地）** |
 
 排行榜功能在本地使用 localStorage，部署后可配合 Cloudflare Workers + KV 实现联网排行。
 
