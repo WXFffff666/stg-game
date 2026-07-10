@@ -985,6 +985,36 @@ var BulletPatterns = {
    * Returns the bullet (already active and registered).
    */
   _create: function(props) {
+    // Inject pending faction modifiers (set by WeaponManager._fireWeapon)
+    if (window._pendingFactionMods) {
+      var fm = window._pendingFactionMods;
+      // Only apply to player bullets; skip if props already has these set explicitly
+      if (props.category === 'playerBullet') {
+        if (fm.chainCount !== undefined   && props.chainCount === undefined)   props.chainCount   = fm.chainCount;
+        if (fm.chainRange !== undefined   && props.chainRange === undefined)   props.chainRange   = fm.chainRange;
+        if (fm.chainDamage !== undefined  && props.chainDamage === undefined)  props.chainDamage  = fm.chainDamage;
+        if (fm.slowAmount !== undefined   && props.slowAmount === undefined)   props.slowAmount   = fm.slowAmount;
+        if (fm.slowDuration !== undefined && props.slowDuration === undefined) props.slowDuration = fm.slowDuration;
+        if (fm.burnDamage !== undefined   && props.burnDamage === undefined)   props.burnDamage   = fm.burnDamage;
+        if (fm.burnDuration !== undefined && props.burnDuration === undefined) props.burnDuration = fm.burnDuration;
+        if (fm.poisonDamage !== undefined && props.poisonDamage === undefined) props.poisonDamage = fm.poisonDamage;
+        if (fm.poisonDuration !== undefined && props.poisonDuration === undefined) props.poisonDuration = fm.poisonDuration;
+        if (fm.executeThreshold !== undefined && props.executeThreshold === undefined) props.executeThreshold = fm.executeThreshold;
+        if (fm.knockbackForce !== undefined  && props.knockbackForce === undefined)  props.knockbackForce  = fm.knockbackForce;
+        if (fm.gravityPull !== undefined   && props.pullForce === undefined && props.wellRadius === undefined) {
+          props.pullForce = fm.gravityPull;
+          props.wellRadius = 100;
+        }
+        if (fm.lifesteal !== undefined     && props.lifesteal === undefined)     props.lifesteal     = fm.lifesteal;
+        if (fm.blindChance !== undefined   && props.blindChance === undefined)   props.blindChance   = fm.blindChance;
+        if (fm.sleepChance !== undefined   && props.sleepChance === undefined)   props.sleepChance   = fm.sleepChance;
+        if (fm.tornadoChance !== undefined && props.tornadoChance === undefined) props.tornadoChance = fm.tornadoChance;
+        if (fm.healOnHit !== undefined    && props.healOnHit === undefined)     props.healOnHit     = fm.healOnHit;
+        if (fm.critRate !== undefined && props.factionCritBonus === undefined)  props.factionCritBonus = fm.critRate;
+        // Attach faction ID for on-hit effects
+        props.factionId = window._pendingFactionId || null;
+      }
+    }
     var game = window.game;
     var b = game.getFromPool(game.bulletPool, function(existing) {
       var bullet = existing || new Bullet();

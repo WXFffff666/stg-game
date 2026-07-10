@@ -1696,15 +1696,14 @@ class SkillManager {
       }
     }
 
-    // Check skill fusions
+    // Check skill fusions (also require fusion core for consistency)
     for (var j = 0; j < recipes.skills.length; j++) {
       var sRecipe = recipes.skills[j];
       if (this.fusedSkills.has(sRecipe.id)) continue;
       var hasA = this.learnedSkills.has(sRecipe.ingredientA);
       var hasB = this.learnedSkills.has(sRecipe.ingredientB);
-      // For skills, both must be learned (they don't have levels like weapons)
-      // We check if the skill IDs exist in learnedSkills
-      if (hasA && hasB) {
+      // For skills, both must be learned and a fusion core is required
+      if (hasA && hasB && hasFusionCore) {
         available.push({ type: 'skill', recipe: sRecipe });
       }
     }
@@ -1780,8 +1779,23 @@ class SkillManager {
   executeSkillFusion(recipe) {
     if (this.fusedSkills.has(recipe.id)) return false;
 
+    // Check fusion core
+    if (this.fusionCoreCount <= 0) return false;
+
     // Mark as fused
     this.fusedSkills.add(recipe.id);
+
+    // Consume one fusion core
+    this.fusionCoreCount--;
+
+    // Check that the result skill exists in SKILLS config
+    var fusedSkill = this._findSkill(recipe.result);
+    if (!fusedSkill) {
+      if (window.ui) {
+        window.ui.showToast('⚠️ 融合技能配置缺失: ' + recipe.result, 3000, '#ff4444');
+      }
+      return false;
+    }
 
     // Remove ingredient skills from learnedSkills (they're consumed)
     this.learnedSkills.delete(recipe.ingredientA);
@@ -1791,11 +1805,8 @@ class SkillManager {
     this.learnedSkills.set(recipe.result, 1);
 
     // Apply the fused skill's effects
-    var fusedSkill = this._findSkill(recipe.result);
-    if (fusedSkill) {
-      if (fusedSkill.type === 'active' && fusedSkill.cooldown) {
-        this.activeCooldowns.set(recipe.result, 0);
-      }
+    if (fusedSkill.type === 'active' && fusedSkill.cooldown) {
+      this.activeCooldowns.set(recipe.result, 0);
     }
 
     // Show toast

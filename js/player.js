@@ -1893,6 +1893,39 @@ class Player {
       ctx.globalAlpha = 1;
     }
 
+    // === FACTION AURA — pulsating glow ring ===
+    if (this.factionId && this.factionColor) {
+      var _auraPulse = 0.6 + Math.sin(this._visualTime * 3) * 0.2 + Math.sin(this._visualTime * 5.7) * 0.1;
+      var _auraRadius = this.hitboxRadius + 14 + Math.sin(this._visualTime * 2.5) * 4;
+      var _auraAlpha = 0.08 + _auraPulse * 0.08;
+
+      // Outer glow ring
+      ctx.strokeStyle = this.factionColor;
+      ctx.globalAlpha = _auraAlpha * 0.7;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, _auraRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Wider soft glow
+      ctx.strokeStyle = this.factionColor;
+      ctx.globalAlpha = _auraAlpha * 0.35;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(0, 0, _auraRadius + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner bright ring
+      ctx.strokeStyle = this.factionColor;
+      ctx.globalAlpha = _auraAlpha * 0.5;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.hitboxRadius + 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+    }
+
     ctx.restore();
   }
 

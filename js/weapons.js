@@ -586,6 +586,49 @@ class WeaponManager {
   }
 
   // ============================================================
+  //  FACTION BULLET MODIFIERS
+  // ============================================================
+
+  /**
+   * Get faction-specific modifiers to apply to every fired bullet.
+   * Called by _fireWeapon to augment bullets based on player's faction.
+   * @param {string} factionId
+   * @returns {object|null} modifier properties, or null
+   */
+  _getFactionBulletModifiers(factionId) {
+    var mods = {
+      thunder:     { chainCount: 2, chainRange: 120, chainDamage: 0.5 },
+      ice:         { slowAmount: 0.3, slowDuration: 2000 },
+      elemental:   { burnDamage: 5, burnDuration: 3000 },
+      poison:      { poisonDamage: 4, poisonDuration: 4000 },
+      decay:       { decayRate: 0.02, decayDuration: 5000 },
+      chain:       { chainCount: 3, chainDamage: 0.5 },
+      shadow:      { stealthOnHit: true },
+      phantom:     { dodgeOnHit: 0.1 },
+      wind:        { knockbackForce: 80 },
+      gravity:     { gravityPull: 30 },
+      void:        { voidExecuteThreshold: 0.05 },
+      magnet:      { bulletRepelChance: 0.05 },
+      lifesteal:   { lifesteal: 0.03 },
+      blood:       { lifesteal: 0.05, bloodRageDamage: 0.1 },
+      crystal:     { shatterOnKill: true },
+      forge:       { forgeStackOnHit: true },
+      dream:       { sleepChance: 0.03 },
+      pact:        { contractOnHit: 0.1 },
+      rebound:     { bounceCount: 1, bounceRetention: 0.6 },
+      shroud:      { blindChance: 0.05 },
+      storm:       { tornadoChance: 0.1 },
+      holy:        { healOnHit: 2 },
+      fury:        { lowHpBonus: 0.05 },
+      luck:        { critRate: 0.03, dropRateBonus: 0.05 },
+      time:        { slowAura: 0.05 },
+      star:        { chargeRate: 0.5 },
+      sonic:       { sonicDamage: 0.1 },
+    };
+    return mods[factionId] || null;
+  }
+
+  // ============================================================
   //  CORE FIRE — per-weapon pattern dispatch (extracted from old fire())
   // ============================================================
 
@@ -617,6 +660,23 @@ class WeaponManager {
     var factionColor = (this.player && this.player.factionColor) ? this.player.factionColor : null;
     var color = cfg.bulletColor || factionColor || '#ffffff';
     var trail = cfg.trailColor || color;
+
+    // === FACTION BULLET MODIFIERS ===
+    var playerFactionId = (this.player && this.player.factionId) ? this.player.factionId : null;
+    var factionMods = this._getFactionBulletModifiers(playerFactionId);
+    if (factionMods) {
+      // Merge faction modifiers into cfg for patterns that natively support them
+      if (factionMods.chainCount !== undefined)    cfg.chainCount    = Math.max(cfg.chainCount    || 0, factionMods.chainCount);
+      if (factionMods.chainRange !== undefined)    cfg.chainRange    = Math.max(cfg.chainRange    || 0, factionMods.chainRange);
+      if (factionMods.chainDamage !== undefined)   cfg.chainDamage   = (cfg.chainDamage || 0.5) + (factionMods.chainDamage || 0);
+      if (factionMods.slowAmount !== undefined)    cfg.slowAmount    = Math.max(cfg.slowAmount    || 0, factionMods.slowAmount);
+      if (factionMods.slowDuration !== undefined)  cfg.slowDuration  = Math.max(cfg.slowDuration  || 0, factionMods.slowDuration);
+      if (factionMods.burnDamage !== undefined)    cfg.burnDamage    = Math.max(cfg.burnDamage    || 0, factionMods.burnDamage);
+      if (factionMods.burnDuration !== undefined)  cfg.burnDuration  = Math.max(cfg.burnDuration  || 0, factionMods.burnDuration);
+    }
+    // Store pending faction data so BulletPatterns._create can inject them into each bullet
+    window._pendingFactionMods = factionMods;
+    window._pendingFactionId = playerFactionId;
 
     // === RANDOM ELEMENTS ===
     var critChance = (stats.critRate || 0) + 0.10;

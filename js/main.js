@@ -3108,6 +3108,213 @@
       damage = Math.floor(damage * playerEntity._stealthDamageMult);
     }
 
+    // === FACTION BULLET HIT EFFECTS ===
+    // Trigger faction-specific on-hit effects based on the bullet's faction origin
+    var _fid = bullet.factionId;
+    if (_fid) {
+      // Thunder / Chain: chain lightning to nearby enemies
+      if ((_fid === 'thunder' || _fid === 'chain') && bullet.chainCount && bullet.chainRange) {
+        chainDamage(enemy, damage * (bullet.chainDamage || 0.5), 0);
+      }
+      // Wind: knockback from bullet impact
+      if (_fid === 'wind' && (bullet.knockbackForce || bullet._factionKnockback)) {
+        var _kbForce = bullet.knockbackForce || bullet._factionKnockback || 80;
+        var _kbDx = enemy.x - bullet.x;
+        var _kbDy = enemy.y - bullet.y;
+        var _kbDist = Math.sqrt(_kbDx * _kbDx + _kbDy * _kbDy) || 1;
+        enemy.x += (_kbDx / _kbDist) * _kbForce;
+        enemy.y += (_kbDy / _kbDist) * _kbForce;
+      }
+      // Gravity: pull nearby enemies toward the hit enemy
+      if (_fid === 'gravity' && (bullet.pullForce || bullet._factionGravityPull)) {
+        var _gPull = bullet.pullForce || bullet._factionGravityPull || 30;
+        var _gRadius = bullet.wellRadius || 100;
+        for (var _gi = 0; _gi < game.enemies.length; _gi++) {
+          var _ge = game.enemies[_gi];
+          if (!_ge.active || _ge === enemy) continue;
+          var _gDx = enemy.x - _ge.x;
+          var _gDy = enemy.y - _ge.y;
+          var _gDist = Math.sqrt(_gDx * _gDx + _gDy * _gDy);
+          if (_gDist < _gRadius && _gDist > 1) {
+            var _gPullAmt = _gPull * (1 - _gDist / _gRadius);
+            _ge.x += (_gDx / _gDist) * _gPullAmt;
+            _ge.y += (_gDy / _gDist) * _gPullAmt;
+          }
+        }
+      }
+      // Shadow / Phantom: brief dodge chance buff on hit
+      if ((_fid === 'shadow' || _fid === 'phantom') && (bullet.stealthOnHit || bullet.dodgeOnHit)) {
+        if (!playerEntity._factionDodgeTimer) {
+          playerEntity._factionDodgeTimer = 500;
+          playerEntity._factionDodgeChance = bullet.dodgeOnHit || 0.1;
+        }
+      }
+      // Holy: small heal on bullet hit
+      if (_fid === 'holy' && bullet.healOnHit) {
+        playerEntity.heal(bullet.healOnHit);
+      }
+      // Lifesteal / Blood: additional bullet-based lifesteal
+      if ((_fid === 'lifesteal' || _fid === 'blood') && bullet.lifesteal) {
+        var _lsDmg = Math.min(damage, enemy.hp > 0 ? enemy.hp : damage);
+        var _lsHeal = Math.floor(_lsDmg * bullet.lifesteal);
+        if (_lsHeal > 0) playerEntity.heal(_lsHeal);
+      }
+      // Dream: chance to put enemy to sleep
+      if (_fid === 'dream' && bullet.sleepChance && Math.random() < bullet.sleepChance) {
+        enemy._sleepTimer = 3000;
+        enemy._sleeping = true;
+      }
+      // Shroud: chance to blind enemy
+      if (_fid === 'shroud' && bullet.blindChance && Math.random() < bullet.blindChance) {
+        enemy._blindTimer = 2000;
+        enemy._blindAmount = 0.5;
+      }
+      // Storm: chance to spawn tornado on hit
+      if (_fid === 'storm' && bullet.tornadoChance && Math.random() < bullet.tornadoChance) {
+        // Create a tornado entity at impact point
+        var _tornado = {
+          x: enemy.x, y: enemy.y,
+          size: 30, _age: 0, lifetime: 2.0,
+          active: true, category: 'particle', drawLayer: 3,
+          _pullRadius: 100, _pullForce: 60,
+          update: function(_dt) {
+            this._age += _dt;
+            if (this._age >= this.lifetime) { this.active = false; window.game.removeEntity(this); return; }
+            // Pull enemies toward tornado
+            for (var _ti = 0; _ti < window.game.enemies.length; _ti++) {
+              var _te = window.game.enemies[_ti];
+              if (!_te.active) continue;
+              var _tdx = this.x - _te.x;
+              var _tdy = this.y - _te.y;
+              var _tdist = Math.sqrt(_tdx * _tdx + _tdy * _tdy);
+              if (_tdist < this._pullRadius && _tdist > 5) {
+                var _tpull = this._pullForce * (1 - _tdist / this._pullRadius) * _dt;
+                _te.x += (_tdx / _tdist) * _tpull;
+                _te.y += (_tdy / _tdist) * _tpull;
+              }
+            }
+            this.size += _dt * 20;
+          },
+          draw: function(ctx) {
+            var _alpha = 1 - this._age / this.lifetime;
+            ctx.save();
+            ctx.globalAlpha = _alpha * 0.4;
+            ctx.strokeStyle = '#88ffcc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = _alpha * 0.2;
+            ctx.fillStyle = '#88ffcc';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        };
+        game.addEntity(_tornado);
+        if (window.ParticleSystem && window.ParticleSystem.tornado) {
+          window.ParticleSystem.tornado(enemy.x, enemy.y);
+        }
+      }
+      // Crystal: spawn shard particles on hit
+      if (_fid === 'crystal' && bullet.shatterOnKill) {
+        if (window.ParticleSystem && window.ParticleSystem.shards) {
+          window.ParticleSystem.shards(enemy.x, enemy.y);
+        } else {
+          // Fallback: simple expanding particles
+          for (var _si = 0; _si < 6; _si++) {
+            var _sa = (_si / 6) * Math.PI * 2;
+            game.addEntity({
+              x: enemy.x, y: enemy.y,
+              vx: Math.cos(_sa) * (60 + Math.random() * 40),
+              vy: Math.sin(_sa) * (60 + Math.random() * 40),
+              size: 2 + Math.random() * 3,
+              color: '#00e5ff', lifetime: 0.5,
+              active: true, category: 'particle', drawLayer: 5,
+              _age: 0,
+              update: function(dt) {
+                this._age += dt;
+                if (this._age >= this.lifetime) { this.active = false; window.game.removeEntity(this); return; }
+                this.x += this.vx * dt; this.vy += this.vy * dt;
+                this.size *= 0.95;
+              },
+              draw: function(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            });
+          }
+        }
+      }
+      // Luck: bonus crit rate on bullet hit
+      if (_fid === 'luck' && bullet.factionCritBonus) {
+        critRate += bullet.factionCritBonus;
+      }
+      // Void: bullet-based execute threshold
+      if (_fid === 'void' && bullet.executeThreshold && enemy.hp && enemy.maxHp && enemy.hp / enemy.maxHp < bullet.executeThreshold) {
+        damage = 9999;
+      }
+      // Forge: stack on hit (increment forge counter on player)
+      if (_fid === 'forge' && bullet.forgeStackOnHit) {
+        playerEntity._forgeStacks = (playerEntity._forgeStacks || 0) + 1;
+      }
+      // Time: slow aura application on hit
+      if (_fid === 'time' && bullet.slowAura) {
+        if (!playerEntity._timeSlowAuraActive) {
+          playerEntity._timeSlowAuraActive = true;
+          playerEntity._timeSlowAmount = bullet.slowAura;
+        }
+      }
+      // Fury: low HP bonus indicated by bullet prop
+      if (_fid === 'fury' && bullet.lowHpBonus) {
+        var _furyHpRatio = playerEntity.hp / playerEntity.maxHp;
+        if (_furyHpRatio < 0.5) {
+          damage = Math.floor(damage * (1 + bullet.lowHpBonus));
+        }
+      }
+      // Star: charge rate boost — accumulate on hit
+      if (_fid === 'star' && bullet.chargeRate) {
+        playerEntity._starCharge = (playerEntity._starCharge || 0) + bullet.chargeRate;
+      }
+      // Sonic: bonus sonic damage on hit
+      if (_fid === 'sonic' && bullet.sonicDamage) {
+        damage = Math.floor(damage * (1 + bullet.sonicDamage));
+        // Sonic pulse visual
+        if (window.ParticleSystem && window.ParticleSystem.ring) {
+          window.ParticleSystem.ring(enemy.x, enemy.y, 40, '#ff88ff');
+        }
+      }
+      // Rebound: bounce bullet to nearby enemy
+      if (_fid === 'rebound' && bullet.bounceCount && bullet.bounceCount > 0) {
+        var _nearestEnemy = null, _nearestDist = Infinity;
+        for (var _rbI = 0; _rbI < game.enemies.length; _rbI++) {
+          var _rbE = game.enemies[_rbI];
+          if (!_rbE.active || _rbE === enemy) continue;
+          var _rbDx = _rbE.x - enemy.x, _rbDy = _rbE.y - enemy.y;
+          var _rbD = _rbDx * _rbDx + _rbDy * _rbDy;
+          if (_rbD < _nearestDist) { _nearestDist = _rbD; _nearestEnemy = _rbE; }
+        }
+        if (_nearestEnemy) {
+          bullet.bounceCount--;
+          bullet.x = enemy.x; bullet.y = enemy.y;
+          var _rbAngle = Math.atan2(_nearestEnemy.y - enemy.y, _nearestEnemy.x - enemy.x);
+          bullet.vx = Math.cos(_rbAngle) * bullet.speed * (bullet.bounceRetention || 0.6);
+          bullet.vy = Math.sin(_rbAngle) * bullet.speed * (bullet.bounceRetention || 0.6);
+          damage = Math.floor(damage * (bullet.bounceRetention || 0.6));
+          bullet.active = true; // keep alive for bounce
+          // Don't remove the bullet; let it fly to the next enemy
+          if (bullet.pierceCount === undefined) bullet.pierceCount = 1;
+          // draw lightning trail
+          if (window.ParticleSystem && window.ParticleSystem.lightning) {
+            window.ParticleSystem.lightning(enemy.x, enemy.y, _nearestEnemy.x, _nearestEnemy.y, '#ffcc00');
+          }
+        }
+      }
+    }
+
     // Apply status effects + track applied elements for reaction system
     var _appliedElements = [];
     if (playerEntity.stats.slowChance && Math.random() < playerEntity.stats.slowChance) {

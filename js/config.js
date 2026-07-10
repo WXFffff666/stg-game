@@ -1602,6 +1602,27 @@ const GAME_CONFIG = {
       fused: true, cooldown: 25000,
       effects: [{ action: 'vampiricShield', shieldAmount: 60, duration: 10000, lifestealOnHit: 0.15, reflectDamage: 0.4 }] },
 
+    // ---- Fused Skills: Generation 3 (5 new) ----
+    { id: 'fusion_shadowPoison', name: '暗影剧毒', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 18000,
+      effects: [{ action: 'poisonCloud', damage: 12, duration: 5000, radius: 300, poisonDamage: 8, poisonDuration: 4000 }] },
+    { id: 'fusion_frostLightning', name: '冰霜雷暴', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 20000,
+      effects: [{ action: 'thunderclap', damage: 25, radius: 280, stunDuration: 1000 },
+                { stat: 'slowAmount', op: 'add', value: 0.3, duration: 5000 }] },
+    { id: 'fusion_burningVitality', name: '燃烧生机', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 22000,
+      effects: [{ action: 'inferno', damage: 18, duration: 4000, radius: 320, burnDamage: 10, burnDuration: 3000 },
+                { stat: 'lifesteal', op: 'add', value: 0.1, duration: 6000 }] },
+    { id: 'fusion_voidShield', name: '虚空护盾', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 25000,
+      effects: [{ action: 'frostArmor', duration: 8000, freezeAttackers: true, freezeDuration: 1500, defense: 0.25 },
+                { stat: 'shieldAmount', op: 'add', value: 40 }] },
+    { id: 'fusion_timeGravity', name: '时空重力', faction: 'any', type: 'active', rarity: 'legendary',
+      fused: true, cooldown: 28000,
+      effects: [{ action: 'timeSlow', amount: 0.5, duration: 5000 },
+                { action: 'shockwave', damage: 30, radius: 350 }] },
+
     // ============ NEW: Phantom Faction Skills (3) ============
     { id:'ph_ghostWalk', name:'幽魂漫步', faction:'phantom', type:'active', rarity:'rare',
       cooldown:8, description:'短暂虚化无视弹幕', effects:[{stat:'dodgeChance',op:'add',value:0.5}] },
@@ -1904,6 +1925,39 @@ const GAME_CONFIG = {
       wellRadius: 200, pullForce: 150, wellDamage: 15, executeThreshold: 0.15, bulletColor: '#6600aa', trailColor: '#440066',
     },
 
+    // ---- Fused Weapons: Generation 3 (5 new) ----
+    magmaCannon: {
+      id: 'magmaCannon', name: '熔岩炮', icon: '🌋', rarity: 'legendary', fused: true,
+      description: '火焰爆破弹附加持续灼烧',
+      pattern: 'explosive', fireRate: 850, damage: 40, bulletSpeed: 380, bulletSize: 7,
+      explosionRadius: 85, burnDamage: 10, burnDuration: 3000, bulletColor: '#ff4400', trailColor: '#cc2200',
+    },
+    stormBlade: {
+      id: 'stormBlade', name: '风暴之刃', icon: '🌪️', rarity: 'legendary', fused: true,
+      description: '高速旋转飞刃附带冰冻减速',
+      pattern: 'shuriken', fireRate: 450, damage: 22, bulletSpeed: 450, bulletSize: 5,
+      spinSpeed: 10, pierceCount: 6, slowAmount: 0.35, slowDuration: 2000, bulletColor: '#66ddff', trailColor: '#3399cc',
+    },
+    necroBeam: {
+      id: 'necroBeam', name: '死灵光束', icon: '💀', rarity: 'legendary', fused: true,
+      description: '虚空激光附带生命吸取和斩杀',
+      pattern: 'laser', fireRate: 100, damage: 5, bulletSpeed: 1000, bulletSize: 2.5,
+      beamWidth: 4, executeThreshold: 0.12, lifestealOnHit: 0.08, bulletColor: '#8800ff', trailColor: '#440088',
+    },
+    chainLightningGun: {
+      id: 'chainLightningGun', name: '超级连锁闪电', icon: '⚡', rarity: 'legendary', fused: true,
+      description: '强化连锁闪电弹射更多敌人',
+      pattern: 'lightningBolt', fireRate: 550, damage: 25, bulletSpeed: 1200, bulletSize: 2,
+      chainCount: 6, chainRange: 200, chainDamageFalloff: 0.2, bulletColor: '#ffff66', trailColor: '#ffcc00',
+    },
+    frostMissile: {
+      id: 'frostMissile', name: '冰霜导弹', icon: '🧊', rarity: 'legendary', fused: true,
+      description: '追踪冰冻导弹爆炸后减速范围敌人',
+      pattern: 'thunderMissile', fireRate: 700, damage: 42, bulletSpeed: 320, bulletSize: 7,
+      homingStrength: 0.05, homingRange: 380, explosionRadius: 85, slowAmount: 0.45, slowDuration: 2500,
+      missileCount: 3, bulletColor: '#88ddff', trailColor: '#4499cc',
+    },
+
     // ============ 25 New Weapons: Beam(5) / Projectile(5) / Area(5) / Special(5) / Hybrid(5) ============
 
     // --- Beam Weapons (5) ---
@@ -2166,6 +2220,23 @@ const GAME_CONFIG = {
       { id: 'w_piercingExplosive', ingredientA: 'pierce', ingredientB: 'explosive', result: 'piercingExplosive',
         name: '穿甲爆弹', icon: '🗡️', description: '穿甲弹 + 爆破弹 = 穿透后爆炸',
         colorA: '#ffffff', colorB: '#ff4444' },
+
+      // ---- 新增武器融合配方 (5种) ----
+      { id: 'w_magmaCannon', ingredientA: 'flame', ingredientB: 'explosive', result: 'magmaCannon',
+        name: '熔岩炮', icon: '🌋', description: '火焰 + 爆破 = 灼烧爆炸熔岩弹',
+        colorA: '#ff6600', colorB: '#ff4444' },
+      { id: 'w_stormBlade', ingredientA: 'shuriken', ingredientB: 'iceShard', result: 'stormBlade',
+        name: '风暴之刃', icon: '🌪️', description: '手里剑 + 冰晶 = 冰冻旋转风暴刃',
+        colorA: '#aaaacc', colorB: '#88ddff' },
+      { id: 'w_necroBeam', ingredientA: 'voidRift', ingredientB: 'needle', result: 'necroBeam',
+        name: '死灵光束', icon: '💀', description: '虚空裂隙 + 针弹 = 吸血斩杀光束',
+        colorA: '#440088', colorB: '#aaffff' },
+      { id: 'w_chainLightningGun', ingredientA: 'lightningBolt', ingredientB: 'arc', result: 'chainLightningGun',
+        name: '超级连锁闪电', icon: '⚡', description: '雷电 + 电弧链 = 强化连锁闪电',
+        colorA: '#ffff44', colorB: '#88ffff' },
+      { id: 'w_frostMissile', ingredientA: 'iceShard', ingredientB: 'missile', result: 'frostMissile',
+        name: '冰霜导弹', icon: '🧊', description: '冰晶 + 导弹群 = 追踪冰冻导弹',
+        colorA: '#88ddff', colorB: '#ff6622' },
     ],
     skills: [
       { id: 's_plagueBlizzard', ingredientA: 'ps_venom', ingredientB: 'ic_blizzard', result: 'fusion_plagueBlizzard',
@@ -2180,6 +2251,23 @@ const GAME_CONFIG = {
       { id: 's_voidGravity', ingredientA: 'gv_singularity', ingredientB: 'vd_voidRift', result: 'fusion_voidGravity',
         name: '虚空引力', icon: '🕳️', description: '奇点 + 虚空裂隙 = 引力吞噬黑洞',
         colorA: '#9966cc', colorB: '#440088' },
+
+      // ---- 新增技能融合配方 (5种) ----
+      { id: 's_shadowPoison', ingredientA: 'sd_ambush', ingredientB: 'ps_venom', result: 'fusion_shadowPoison',
+        name: '暗影剧毒', icon: '🕷️', description: '暗影伏击 + 剧毒 = 隐身施放毒云',
+        colorA: '#7755aa', colorB: '#55cc44' },
+      { id: 's_frostLightning', ingredientA: 'ic_freeze', ingredientB: 'th_charged', result: 'fusion_frostLightning',
+        name: '冰霜雷暴', icon: '🌨️', description: '冰冻 + 充能 = 冻结+雷暴连击',
+        colorA: '#66ddff', colorB: '#ffff00' },
+      { id: 's_burningVitality', ingredientA: 'el_burn', ingredientB: 'ls_vampire', result: 'fusion_burningVitality',
+        name: '燃烧生机', icon: '🔥', description: '灼烧 + 吸血鬼 = 火焰吸血地狱',
+        colorA: '#ff6600', colorB: '#ff3366' },
+      { id: 's_voidShield', ingredientA: 'vd_voidTouch', ingredientB: 'sh_bigger', result: 'fusion_voidShield',
+        name: '虚空护盾', icon: '🛡️', description: '虚空触碰 + 护盾强化 = 虚空吸收护盾',
+        colorA: '#8844cc', colorB: '#4488ff' },
+      { id: 's_timeGravity', ingredientA: 'tm_haste', ingredientB: 'gv_weight', result: 'fusion_timeGravity',
+        name: '时空重力', icon: '⏳', description: '加速 + 重力增幅 = 时间减速+冲击波',
+        colorA: '#88ccff', colorB: '#9966cc' },
     ],
     // Both ingredients must reach this level to fuse
     requiredLevel: 5,
