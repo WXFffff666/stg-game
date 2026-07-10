@@ -3409,37 +3409,43 @@
     // D5: Gold decay for high-level players (anti-snowball)
     var playerLevel = skillManager ? skillManager.level : 1;
     if (playerLevel > 30) goldGain = Math.floor(goldGain * Math.max(0.5, 1 - (playerLevel - 30) * 0.015));
-    if (typeof GoldCoin !== 'undefined' && GoldCoin) {
-      var coinCount = enemy.isBoss ? 8 + Math.floor(Math.random() * 5) : (enemy.type === 'elite' ? 3 + Math.floor(Math.random() * 3) : 1 + Math.floor(Math.random() * 2));
-      var coinValue = Math.floor(goldGain / coinCount);
-      for (var ci = 0; ci < coinCount; ci++) {
-        var cv = ci < coinCount - 1 ? coinValue : goldGain - coinValue * (coinCount - 1);
-        // A3: Ring pattern for boss, random scatter for others
-        var angle, speed;
-        if (enemy.isBoss) {
-          angle = (Math.PI * 2 / coinCount) * ci;
-          speed = 80 + Math.random() * 60;
-        } else {
-          angle = Math.random() * Math.PI * 2;
-          speed = 50 + Math.random() * 80;
-        }
-        var coin = new GoldCoin(enemy.x, enemy.y, cv, Math.cos(angle) * speed, Math.sin(angle) * speed - 100);
-        if (game.addEntity) game.addEntity(coin);
-      }
-    } else {
+    // Auto-collect gold and XP (configurable)
+    if (cfg.BALANCE.AUTO_COLLECT_GOLD_XP) {
       addInRunGold(goldGain);
-    }
+      if (skillManager) skillManager.addXp(xpGain);
+    } else {
+      // Legacy: spawn GoldCoin entities
+      if (typeof GoldCoin !== 'undefined' && GoldCoin) {
+        var coinCount = enemy.isBoss ? 8 + Math.floor(Math.random() * 5) : (enemy.type === 'elite' ? 3 + Math.floor(Math.random() * 3) : 1 + Math.floor(Math.random() * 2));
+        var coinValue = Math.floor(goldGain / coinCount);
+        for (var ci = 0; ci < coinCount; ci++) {
+          var cv = ci < coinCount - 1 ? coinValue : goldGain - coinValue * (coinCount - 1);
+          var angle, speed;
+          if (enemy.isBoss) {
+            angle = (Math.PI * 2 / coinCount) * ci;
+            speed = 80 + Math.random() * 60;
+          } else {
+            angle = Math.random() * Math.PI * 2;
+            speed = 50 + Math.random() * 80;
+          }
+          var coin = new GoldCoin(enemy.x, enemy.y, cv, Math.cos(angle) * speed, Math.sin(angle) * speed - 100);
+          if (game.addEntity) game.addEntity(coin);
+        }
+      } else {
+        addInRunGold(goldGain);
+      }
 
-    // C9: XP orbs drop from enemies (blue, smaller than gold, magnet pickup)
-    if (typeof XPOrb !== 'undefined' && XPOrb) {
-      var orbCount = enemy.isBoss ? 6 + Math.floor(Math.random() * 5) : (enemy.type === 'elite' ? 2 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2));
-      var xpOrbValue = Math.max(5, Math.floor(xpGain / orbCount));
-      for (var oi = 0; oi < orbCount; oi++) {
-        var orbVal = oi < orbCount - 1 ? xpOrbValue : xpGain - xpOrbValue * (orbCount - 1);
-        var oAngle = Math.random() * Math.PI * 2;
-        var oSpeed = 40 + Math.random() * 60;
-        var orb = new XPOrb(enemy.x, enemy.y, orbVal, Math.cos(oAngle) * oSpeed, Math.sin(oAngle) * oSpeed - 80);
-        if (game.addEntity) game.addEntity(orb);
+      // Legacy: spawn XPOrb entities
+      if (typeof XPOrb !== 'undefined' && XPOrb) {
+        var orbCount = enemy.isBoss ? 6 + Math.floor(Math.random() * 5) : (enemy.type === 'elite' ? 2 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2));
+        var xpOrbValue = Math.max(5, Math.floor(xpGain / orbCount));
+        for (var oi = 0; oi < orbCount; oi++) {
+          var orbVal = oi < orbCount - 1 ? xpOrbValue : xpGain - xpOrbValue * (orbCount - 1);
+          var oAngle = Math.random() * Math.PI * 2;
+          var oSpeed = 40 + Math.random() * 60;
+          var orb = new XPOrb(enemy.x, enemy.y, orbVal, Math.cos(oAngle) * oSpeed, Math.sin(oAngle) * oSpeed - 80);
+          if (game.addEntity) game.addEntity(orb);
+        }
       }
     }
 

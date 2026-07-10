@@ -2069,6 +2069,11 @@ class Player {
       s.armorPenetration = 0;
     }
 
+    // Base lifesteal for sustain (configurable)
+    if (s.lifesteal === undefined || s.lifesteal === 0) {
+      s.lifesteal = GAME_CONFIG.BALANCE.PLAYER_BASE_LIFESTEAL || 0;
+    }
+
     // Publish computed stats for other systems (weapons, skills, UI)
     this.stats = s;
 

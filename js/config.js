@@ -15,6 +15,7 @@ const GAME_CONFIG = {
     CANVAS_WIDTH: 600,
     CANVAS_HEIGHT: 900,
     PLAYER_BASE_HP: 150,
+  PLAYER_BASE_LIFESTEAL: 0.05,  // Base 5% lifesteal for sustain
     PLAYER_BASE_SPEED: 280,
     PLAYER_INVINCIBLE_MS: 2000,
     PLAYER_HITBOX_RADIUS: 8,
@@ -44,6 +45,7 @@ const GAME_CONFIG = {
     LOW_HP_THRESHOLD: 0.3,       // 低血量阈值
     LOW_HP_DROP_BONUS: 0.20,     // 低血量掉率加成
     ITEM_LIFETIME: 10000,
+  AUTO_COLLECT_GOLD_XP: true,  // Auto collect gold/xp instead of dropping orbs
     SCREEN_SHAKE_DECAY: 0.9,
     MAX_PARTICLES: 300,
     BOSS_SCORE_THRESHOLD: 5000,
