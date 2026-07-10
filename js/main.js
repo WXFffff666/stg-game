@@ -514,7 +514,7 @@
     if (btnStatus) {
       btnStatus.addEventListener('click', function() {
         if (window._isLevelingUp || window._isWaveShopOpen) return;
-        if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+        if (ui && typeof ui.toggleStatusPanel === 'function') ui.toggleStatusPanel();
       });
     }
     var btnShop = document.getElementById('tb-shop');
@@ -541,10 +541,10 @@
           if (window._isLevelingUp || window._isWaveShopOpen) return;
           if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
         }
-        // Status (C)
+        // Status (C) — DPS / stats panel
         if (e.key === 'c' || e.key === 'C') {
           if (window._isLevelingUp || window._isWaveShopOpen) return;
-          if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+          if (ui && typeof ui.toggleStatusPanel === 'function') ui.toggleStatusPanel();
         }
         // Shop (B) — only when game is running
         if ((e.key === 'b' || e.key === 'B') && !game.isPaused) {
@@ -1238,6 +1238,7 @@
           return false;
         }
         sm.weaponLevels.set(weaponId, curLevel + 1);
+        if (window.UpgradeTrack) UpgradeTrack.increment('weapons', weaponId);
         // 同步槽位等级
         if (weaponManager.weaponSlots) {
           for (var si = 0; si < weaponManager.weaponSlots.length; si++) {
@@ -1946,6 +1947,7 @@
       talentManager = new window.TalentManager();
     }
     talentManager.reset();
+    if (selectedFaction) talentManager.setFaction(selectedFaction);
 
     // Apply bonus talent points from meta shop purchases
     try {
@@ -2101,6 +2103,9 @@
     game.bossHpMultiplier = 1;
     gameOverShown = false;
     lastBossScore = 0;
+
+    if (window.UpgradeTrack) UpgradeTrack.reset();
+    if (window.homingTargets) window.homingTargets.reset();
 
     // G3: Initialize seed for this run
     _initSeed();
@@ -2675,12 +2680,19 @@
       game.dropMultiplier = 1;
     }
 
+    // Apply difficulty caps for endless play
+    game.difficulty = Math.min(game.difficulty, cfg.BALANCE.MAX_DIFFICULTY || 100);
+
     // Boss难度递增：第一个Boss简单，后续逐渐变强
     if (bossKillsThisRun === 0) {
       game.bossHpMultiplier = cfg.BALANCE.BOSS_FIRST_HP_SCALE; // 第一个Boss HP×0.7
     } else {
       game.bossHpMultiplier = 1 + bossKillsThisRun * cfg.BALANCE.BOSS_SCALING_PER_KILL;
     }
+    game.bossHpMultiplier = Math.min(
+      game.bossHpMultiplier,
+      cfg.BALANCE.MAX_BOSS_HP_MULTIPLIER || 5.0
+    );
 
     // Update wave spawner
     if (waveSpawner) waveSpawner.update(dt);

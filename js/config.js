@@ -65,7 +65,6 @@ const GAME_CONFIG = {
     ],
 
     // ============ D1: Time-based Difficulty ============
-    EARLY_GAME_DURATION: 300,
     MID_GAME_DURATION: 900,
     DIFFICULTY_EARLY_RATE: 0.002,
     DIFFICULTY_MID_RATE: 0.003,
@@ -2129,13 +2128,14 @@ const GAME_CONFIG = {
   // fireRateMult: multiplier applied to base fire rate (lower = faster)
   // specialMult: multiplier for weapon-specific stats (explosion radius, chain count, etc.)
   WEAPON_UPGRADE: {
-    maxLevel: 5,
-    damageMult:  [1.0, 1.25, 1.55, 1.9, 2.3],
-    fireRateMult:[1.0, 0.92, 0.85, 0.78, 0.72],
-    specialMult: [1.0, 1.15, 1.3, 1.5, 1.7],
+    maxLevel: 8,
+    damageMult:  [1.0, 1.20, 1.42, 1.65, 1.90, 2.15, 2.40, 2.70, 3.0],
+    fireRateMult:[1.0, 0.94, 0.88, 0.82, 0.76, 0.70, 0.65, 0.60, 0.55],
+    specialMult: [1.0, 1.12, 1.25, 1.38, 1.52, 1.68, 1.85, 2.05, 2.3],
     descriptions: [
-      '', '基础', '改良', '精良', '卓越', '传说'
+      '', '基础', '改良', '精良', '卓越', '大师', '传说', '神话', '超越'
     ],
+    milestones: [3, 5, 8],
   },
 
   // ============ FUSION RECIPES ============
@@ -3669,13 +3669,13 @@ const GAME_CONFIG = {
     },
   },
 
-  // ============ TALENTS (5 branches x 5 layers, 90 nodes) ============
+  // ============ TALENTS (3 universal + 2 faction-specific branches) ============
   TALENTS: {
-    branches: ['attack', 'defense', 'utility', 'elemental', 'ultimate'],
+    branches: ['combat', 'survival', 'utility', 'faction_attack', 'faction_ultimate'],
     pointsPerRun: 5,
     bonusPointsPerBoss: 1,
-    attack: {
-      id: 'attack', name: '攻击', icon: '⚔️', color: '#ff4444',
+    combat: {
+      id: 'combat', name: '战斗', icon: '⚔️', color: '#ff4444',
       layers: [
         [
           { id: 'atk_1a', name: '锋刃', description: '攻击力+10%', effect: { stat: 'attack', op: 'multiply', value: 0.10 } },
@@ -3707,8 +3707,8 @@ const GAME_CONFIG = {
         ],
       ],
     },
-    defense: {
-      id: 'defense', name: '防御', icon: '🛡️', color: '#4488ff',
+    survival: {
+      id: 'survival', name: '生存', icon: '🛡️', color: '#4488ff',
       layers: [
         [
           { id: 'def_1a', name: '铁壁', description: '最大HP+15%', effect: { stat: 'hp', op: 'multiply', value: 0.15 } },
@@ -3773,64 +3773,49 @@ const GAME_CONFIG = {
         ],
       ],
     },
-    elemental: {
-      id: 'elemental', name: '元素', icon: '🌀', color: '#ff8800',
+    faction_attack: {
+      id: 'faction_attack', name: '流派·攻击', icon: '⚡', color: '#ff8800',
+      _factionDynamic: true,
       layers: [
         [
-          { id: 'ele_1a', name: '火焰附魔', description: '攻击附带灼烧(5伤害/2秒)', effect: { stat: 'burnDamage', op: 'add', value: 5 } },
-          { id: 'ele_1b', name: '冰霜附魔', description: '攻击附带减速(30%/2秒)', effect: { stat: 'slowAmount', op: 'add', value: 0.30 } },
-          { id: 'ele_1c', name: '雷电附魔', description: '攻击附带闪电链(弹射2次)', effect: { stat: 'chainLightningChance', op: 'add', value: 0.15 } },
+          { id: 'fac_1a', name: '元素附魔', description: '攻击附带流派元素效果', effect: { stat: 'elementalBonus', op: 'add', value: 0.10 } },
+          { id: 'fac_1b', name: '连锁打击', description: '击杀15%概率触发闪电链', effect: { stat: 'chainLightningChance', op: 'add', value: 0.15 } },
+          { id: 'fac_1c', name: '穿透强化', description: '子弹穿透+1', effect: { stat: 'pierceCount', op: 'add', value: 1 } },
         ],
         [
-          { id: 'ele_2a', name: '烈焰', description: '灼烧伤害+50%', effect: { stat: 'burnDamage', op: 'multiply', value: 0.50 } },
-          { id: 'ele_2b', name: '寒冰', description: '减速效果+50%', effect: { stat: 'slowAmount', op: 'multiply', value: 0.50 } },
-          { id: 'ele_2c', name: '雷霆', description: '闪电链+2次弹射', effect: { stat: 'chainCount', op: 'add', value: 2 } },
-          { id: 'ele_2d', name: '元素亲和', description: '元素伤害+25%', effect: { stat: 'elementalBonus', op: 'multiply', value: 0.25 } },
+          { id: 'fac_2a', name: '烈焰印记', description: '灼烧伤害+40%', effect: { stat: 'burnDamage', op: 'multiply', value: 0.40 } },
+          { id: 'fac_2b', name: '寒霜印记', description: '减速效果+40%', effect: { stat: 'slowAmount', op: 'multiply', value: 0.40 } },
+          { id: 'fac_2c', name: '雷霆印记', description: '闪电链弹射+2', effect: { stat: 'chainCount', op: 'add', value: 2 } },
         ],
         [
-          { id: 'ele_3a', name: '陨石', description: '每20秒召唤陨石(80伤害/范围)', effect: { stat: 'meteorAbility', op: 'add', value: 80, cooldown: 20000 } },
-          { id: 'ele_3b', name: '暴风雪', description: '每25秒召唤暴风雪(持续3秒/减速40%)', effect: { stat: 'blizzardAbility', op: 'add', value: 1, cooldown: 25000 } },
-          { id: 'ele_3c', name: '闪电链', description: '闪电链弹射5次', effect: { stat: 'chainCount', op: 'set', value: 5 } },
-          { id: 'ele_3d', name: '元素爆发', description: '元素效果触发时，15%概率造成双倍伤害', effect: { stat: 'elementalCrit', op: 'add', value: 0.15 } },
+          { id: 'fac_3a', name: '专属武器强化', description: '流派武器伤害+25%', effect: { stat: 'factionWeaponDamage', op: 'multiply', value: 0.25 } },
+          { id: 'fac_3b', name: '击杀回响', description: '击杀时触发范围伤害(30%攻击)', effect: { stat: 'killNova', op: 'add', value: 0.30 } },
+          { id: 'fac_3c', name: '暴击元素', description: '暴击时100%触发元素效果', effect: { stat: 'critElemental', op: 'add', value: 1.0 } },
         ],
         [
-          { id: 'ele_4a', name: '炼狱', description: '灼烧伤害+100%，可传播给周围敌人', effect: { multi: [{ stat: 'burnDamage', op: 'multiply', value: 1.00 }, { stat: 'burnSpread', op: 'add', value: 0.30 }] } },
-          { id: 'ele_4b', name: '绝对零度', description: '20%概率冰冻敌人2秒', effect: { stat: 'freezeChance', op: 'add', value: 0.20 } },
-          { id: 'ele_4c', name: '等离子', description: '闪电链+3次弹射，伤害+50%', effect: { multi: [{ stat: 'chainCount', op: 'add', value: 3 }, { stat: 'chainDamage', op: 'multiply', value: 0.50 }] } },
-          { id: 'ele_4d', name: '元素穿透', description: '元素效果无视敌人30%抗性', effect: { stat: 'elementalPen', op: 'add', value: 0.30 } },
-        ],
-        [
-          { id: 'ele_5a', name: '元素风暴', description: '所有元素效果+80%', effect: { multi: [{ stat: 'burnDamage', op: 'multiply', value: 0.80 }, { stat: 'slowAmount', op: 'multiply', value: 0.80 }, { stat: 'chainDamage', op: 'multiply', value: 0.80 }] } },
-          { id: 'ele_5b', name: '元素共鸣', description: '同时触发所有元素效果(灼烧+冰冻+闪电)', effect: { stat: 'allElements', op: 'add', value: 1 } },
-          { id: 'ele_5c', name: '元素超载', description: '元素伤害+120%，范围+50%', effect: { multi: [{ stat: 'elementalBonus', op: 'multiply', value: 1.20 }, { stat: 'elementalRadius', op: 'multiply', value: 0.50 }] } },
+          { id: 'fac_4a', name: '元素风暴', description: '元素伤害+60%', effect: { stat: 'elementalBonus', op: 'multiply', value: 0.60 } },
+          { id: 'fac_4b', name: '连锁风暴', description: '闪电链+3弹射，伤害+40%', effect: { multi: [{ stat: 'chainCount', op: 'add', value: 3 }, { stat: 'chainDamage', op: 'multiply', value: 0.40 }] } },
         ],
       ],
     },
-    ultimate: {
-      id: 'ultimate', name: '终极', icon: '👑', color: '#aa44ff',
+    faction_ultimate: {
+      id: 'faction_ultimate', name: '流派·终极', icon: '👑', color: '#aa44ff',
+      _factionDynamic: true,
       layers: [
         [
-          { id: 'ult_1a', name: '超载', description: '攻击力+100%，持续5秒(30秒冷却)', effect: { stat: 'overdrive', op: 'add', value: 1.00, duration: 5000, cooldown: 30000 } },
-          { id: 'ult_1b', name: '时间停止', description: '冻结全场敌人3秒(45秒冷却)', effect: { stat: 'timeStop', op: 'add', value: 1, duration: 3000, cooldown: 45000 } },
+          { id: 'fult_1a', name: '流派觉醒', description: '全属性+8%', effect: { multi: [{ stat: 'attack', op: 'multiply', value: 0.08 }, { stat: 'hp', op: 'multiply', value: 0.08 }] } },
+          { id: 'fult_1b', name: '专属共鸣', description: '流派专属技能冷却-15%', effect: { stat: 'factionCooldownReduction', op: 'add', value: 0.15 } },
         ],
         [
-          { id: 'ult_2a', name: '黑洞', description: '召唤黑洞吸引并爆炸(200伤害)', effect: { stat: 'blackHole', op: 'add', value: 200, cooldown: 40000 } },
-          { id: 'ult_2b', name: '无限弹幕', description: '攻击速度+200%，持续8秒', effect: { stat: 'infiniteBarrage', op: 'add', value: 2.00, duration: 8000, cooldown: 50000 } },
-          { id: 'ult_2c', name: '虚空之眼', description: '全屏透视，显示所有敌人位置(15秒)', effect: { stat: 'voidEye', op: 'add', value: 1, duration: 15000, cooldown: 60000 } },
+          { id: 'fult_2a', name: '超载模式', description: '攻击力+50%持续6秒(35秒冷却)', effect: { stat: 'overdrive', op: 'add', value: 0.50, duration: 6000, cooldown: 35000 } },
+          { id: 'fult_2b', name: '终极连锁', description: '闪电链弹射+5，伤害+50%', effect: { multi: [{ stat: 'chainCount', op: 'add', value: 5 }, { stat: 'chainDamage', op: 'multiply', value: 0.50 }] } },
         ],
         [
-          { id: 'ult_3a', name: '神之制裁', description: '全屏伤害500点(60秒冷却)', effect: { stat: 'divineJudgment', op: 'add', value: 500, cooldown: 60000 } },
-          { id: 'ult_3b', name: '轮回', description: '死亡时复活(满HP+5秒无敌)', effect: { stat: 'reincarnation', op: 'add', value: 1, healPercent: 1.0, invincibleDuration: 5000 } },
-          { id: 'ult_3c', name: '命运逆转', description: 'HP降至0时，50%概率恢复至50%HP', effect: { stat: 'fateReverse', op: 'add', value: 0.50 } },
+          { id: 'fult_3a', name: '流派终极技', description: '学满3专属技能后，终极被动伤害+80%', effect: { stat: 'ultimateDamageBonus', op: 'add', value: 0.80 } },
+          { id: 'fult_3b', name: '不灭意志', description: '死亡时复活1次(50%HP)', effect: { stat: 'revive', op: 'add', value: 1 } },
         ],
         [
-          { id: 'ult_4a', name: '湮灭', description: 'HP低于25%的敌人直接斩杀', effect: { stat: 'voidExecute', op: 'add', value: 0.25 } },
-          { id: 'ult_4b', name: '永恒之光', description: '圣光光环(每秒200伤害/范围200px)', effect: { stat: 'eternalLight', op: 'add', value: 200, radius: 200 } },
-          { id: 'ult_4c', name: '时空裂隙', description: '攻击有10%概率打开时空裂隙(500伤害)', effect: { stat: 'riftChance', op: 'add', value: 0.10, riftDamage: 500 } },
-        ],
-        [
-          { id: 'ult_5a', name: '创世', description: '全属性+100%，持续10秒(60秒冷却)', effect: { stat: 'genesis', op: 'add', value: 1.00, duration: 10000, cooldown: 60000 } },
-          { id: 'ult_5b', name: '命运之轮', description: '随机获得3个其他分支的终极天赋效果', effect: { stat: 'fateWheel', op: 'add', value: 3 } },
+          { id: 'fult_4a', name: '流派主宰', description: '攻击力+35%，元素伤害+50%，暴击率+10%', effect: { multi: [{ stat: 'attack', op: 'multiply', value: 0.35 }, { stat: 'elementalBonus', op: 'multiply', value: 0.50 }, { stat: 'critRate', op: 'add', value: 0.10 }] } },
         ],
       ],
     },

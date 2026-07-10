@@ -730,6 +730,16 @@ class Game {
       try { this._update(dt); } catch(e) { console.warn('update err:', e.message); }
     }
 
+    // HUD + homing target manager (single RAF — no separate ui loop)
+    if (this.scene === GAME_CONFIG.SCENES.GAMEPLAY && !this.isPaused) {
+      if (window.homingTargets && this.player) {
+        window.homingTargets.tick(dt, this.player.x, this.player.y);
+      }
+      if (window.ui && typeof window.ui.updateHUD === 'function') {
+        try { window.ui.updateHUD(); } catch(e) { /* ignore */ }
+      }
+    }
+
     try { this._draw(); } catch(e) { console.warn('draw err:', e.message); }
     this.rafId = requestAnimationFrame(this._loop);
   }

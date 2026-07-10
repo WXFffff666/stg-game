@@ -4391,9 +4391,8 @@ class WaveSpawner {
     const cfg = GAME_CONFIG.BALANCE;
     const spawnRules = GAME_CONFIG.WAVES.spawnRules;
 
-    // Calculate current difficulty
-    const difficulty = Math.floor(game.score / 5000) + Math.floor(game.gameTime / cfg.DIFFICULTY_INTERVAL);
-    game.difficulty = difficulty;
+    // Read phase-modified difficulty from main.js (do not overwrite)
+    const difficulty = game.difficulty || 0;
 
     // Update spawn interval based on difficulty
     this.spawnInterval = spawnRules.baseInterval / (1 + difficulty * cfg.DIFFICULTY_SPAWN_RATE);

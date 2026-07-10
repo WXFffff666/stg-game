@@ -1316,6 +1316,7 @@ class SkillManager {
     // Track stack count: increment if already learned, start at 1 if new
     var prevCount = this.learnedSkills.get(skillId) || 0;
     this.learnedSkills.set(skillId, prevCount + 1);
+    if (window.UpgradeTrack) UpgradeTrack.increment('skills', skillId);
 
     switch (skill.type) {
       case 'passive':
@@ -1408,6 +1409,7 @@ class SkillManager {
     if (curLvl < maxLvl) {
       curLvl++;
       this.weaponLevels.set(weaponId, curLvl);
+      if (window.UpgradeTrack) UpgradeTrack.increment('weapons', weaponId);
     }
 
     // Slot management via WeaponManager
@@ -5883,16 +5885,34 @@ window._smCloneSpawnBullet = function(x, y, angle) {
 class TalentManager {
   constructor() {
     this.cfg = GAME_CONFIG.TALENTS;
-    this.branches = this.cfg.branches; // ['attack','defense','utility','elemental','ultimate']
+    this.branches = this.cfg.branches;
     this.pointsPerRun = this.cfg.pointsPerRun || 5;
     this.bonusPerBoss = this.cfg.bonusPointsPerBoss || 1;
+    this._factionId = null;
 
-    // Per-run state (reset each run)
     this.remaining = 0;
-    this.selected = {};  // { branchId: { layerIndex: talentId } }
+    this.selected = {};
     this._player = null;
 
     this.reset();
+  }
+
+  /**
+   * Bind selected faction — customizes faction_attack / faction_ultimate branch colors.
+   */
+  setFaction(factionId) {
+    this._factionId = factionId;
+    var f = GAME_CONFIG.FACTIONS && GAME_CONFIG.FACTIONS[factionId];
+    if (!f) return;
+    var color = f.color || '#ff8800';
+    if (this.cfg.faction_attack) {
+      this.cfg.faction_attack.name = (f.name || factionId) + '·攻击';
+      this.cfg.faction_attack.color = color;
+    }
+    if (this.cfg.faction_ultimate) {
+      this.cfg.faction_ultimate.name = (f.name || factionId) + '·终极';
+      this.cfg.faction_ultimate.color = color;
+    }
   }
 
   /**
@@ -6420,6 +6440,69 @@ var ElementalReactionSystem = {
     }
   }
 };
+
+// ====================================================================
+//  AUTO-COMPLETE FACTION_SYSTEM for all config factions
+// ====================================================================
+(function _completeMissingFactions() {
+  var factions = GAME_CONFIG.FACTIONS || {};
+  var visualTypes = ['lightning', 'fire', 'ice', 'poison', 'holy', 'shadow', 'void', 'arc'];
+  var vi = 0;
+  for (var fid in factions) {
+    if (!factions.hasOwnProperty(fid)) continue;
+    if (FACTION_SYSTEM[fid]) continue;
+    var f = factions[fid];
+    var vt = visualTypes[vi % visualTypes.length];
+    vi++;
+    var skA = fid + '_ex1';
+    var skB = fid + '_ex2';
+    var skC = fid + '_ex3';
+    var stats = f.baseStats || {};
+    var effects = [];
+    for (var sk in stats) {
+      if (!stats.hasOwnProperty(sk)) continue;
+      effects.push({ stat: sk, op: 'multiply', value: stats[sk] });
+    }
+    if (effects.length === 0) {
+      effects.push({ stat: 'attack', op: 'multiply', value: 0.08 });
+    }
+    FACTION_SYSTEM[fid] = {
+      corePassive: { effects: effects },
+      exclusiveSkills: [skA, skB, skC],
+      ultimate: {
+        id: 'ut_' + fid, name: (f.icon || '✨') + ' ' + (f.name || fid) + '终极',
+        faction: fid, type: 'passive', rarity: 'legendary', ultimate: true,
+        description: (f.description || '') + ' — 终极形态',
+        effects: effects.length ? effects : [{ stat: 'attack', op: 'multiply', value: 0.25 }],
+        visualColor: f.color || '#ffffff', visualType: vt
+      }
+    };
+    var skillDefs = [
+      { id: skA, name: f.name + '·本能', type: 'passive', effects: effects.slice(0, 1) },
+      { id: skB, name: f.name + '·战技', type: 'active', cooldown: 12000, effects: [{ action: 'nova', damage: 40, radius: 120 }] },
+      { id: skC, name: f.name + '·秘术', type: 'conditional', trigger: 'onKill', effects: [{ action: 'heal', amount: 5 }] }
+    ];
+    for (var si = 0; si < skillDefs.length; si++) {
+      var sd = skillDefs[si];
+      var exists = false;
+      for (var ki = 0; ki < GAME_CONFIG.SKILLS.length; ki++) {
+        if (GAME_CONFIG.SKILLS[ki].id === sd.id) { exists = true; break; }
+      }
+      if (!exists) {
+        GAME_CONFIG.SKILLS.push({
+          id: sd.id, name: sd.name, faction: fid, type: sd.type,
+          rarity: si === 0 ? 'uncommon' : (si === 1 ? 'rare' : 'epic'),
+          cooldown: sd.cooldown, trigger: sd.trigger, effects: sd.effects
+        });
+      }
+    }
+    if (typeof _EXCLUSIVE_TO_FACTION !== 'undefined') {
+      _EXCLUSIVE_TO_FACTION[skA] = fid;
+      _EXCLUSIVE_TO_FACTION[skB] = fid;
+      _EXCLUSIVE_TO_FACTION[skC] = fid;
+    }
+  }
+})();
 
 // ====================================================================
 //  EXPORT

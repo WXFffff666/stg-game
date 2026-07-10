@@ -50,10 +50,6 @@ class UIManager {
     // HUD - Buff bar
     this.elBuffBar = gid('buff-bar');
 
-    // HUD - Minimap
-    this.elMinimap = gid('minimap');
-    this._minimapCtx = this.elMinimap ? this.elMinimap.getContext('2d') : null;
-
     // Low HP warning
     this.elLowHpWarning = gid('low-hp-warning');
     this._lowHpActive = false;
@@ -117,9 +113,8 @@ class UIManager {
     // Fusion notification timer
     this._fusionNotificationTimer = null;
 
-    // HUD auto-update loop (requestAnimationFrame)
-    this._hudRAFId = null;
-    this._hudUpdateBound = this._hudUpdateLoop.bind(this);
+    this.elStatusPanel = gid('status-panel');
+    this.elStatusContent = gid('status-panel-content');
 
     // Callbacks (set by main.js)
     this.onStartGame = null;       // (factionId) => {}
@@ -156,47 +151,14 @@ class UIManager {
     if (this.elHud) this.elHud.style.display = 'flex';
     var toolbar = document.getElementById('hud-toolbar');
     if (toolbar) toolbar.style.display = 'flex';
-    this._startHUDLoop();
+    // HUD updates via core.js game loop (single RAF)
   }
 
   hideHUD() {
     if (this.elHud) this.elHud.style.display = 'none';
     var toolbar = document.getElementById('hud-toolbar');
     if (toolbar) toolbar.style.display = 'none';
-    this._stopHUDLoop();
-  }
-
-  /**
-   * Start the HUD auto-update loop (called when HUD becomes visible).
-   * Uses requestAnimationFrame for smooth updates.
-   */
-  _startHUDLoop() {
-    if (this._hudRAFId) return; // Already running
-    this._hudRAFId = requestAnimationFrame(this._hudUpdateBound);
-  }
-
-  /**
-   * Stop the HUD auto-update loop.
-   */
-  _stopHUDLoop() {
-    if (this._hudRAFId) {
-      cancelAnimationFrame(this._hudRAFId);
-      this._hudRAFId = null;
-    }
-  }
-
-  /**
-   * HUD update loop - called every animation frame.
-   * Only runs during gameplay scene.
-   */
-  _hudUpdateLoop() {
-    this._hudRAFId = null;
-    if (!game || game.scene !== GAME_CONFIG.SCENES.GAMEPLAY || game.isPaused) {
-      // Don't continue the loop if not in gameplay
-      return;
-    }
-    this.updateHUD();
-    this._hudRAFId = requestAnimationFrame(this._hudUpdateBound);
+    this.closeStatusPanel();
   }
 
   // ====================================================================
@@ -522,7 +484,7 @@ class UIManager {
   _getUnlockCondition(charId) {
     switch (charId) {
       case 'vanguard': return '默认解锁';
-      case 'ironWall': return '累计击杀500敌人解锁';
+      case 'fortress': return '累计击杀500敌人解锁';
       case 'agile': return '击败BOSS解锁';
       default: return '未解锁';
     }
@@ -741,7 +703,7 @@ class UIManager {
     var self = this;
     var branchColor = branchCfg.color || '#ffdd00';
     var tm = this._talentMgr;
-    var isUltimateBranch = branchId === 'ultimate';
+    var isUltimateBranch = branchId === 'faction_ultimate';
     var totalLayers = branchCfg.layers.length;
 
     // Build layer status data
@@ -1555,9 +1517,6 @@ class UIManager {
     // Pause overlay
     this.updatePause();
 
-    // Minimap
-    this.updateMinimap();
-
     // Buff bar
     this.updateBuffBar();
 
@@ -1565,70 +1524,104 @@ class UIManager {
     this.updateLowHpWarning();
   }
 
+  /**
+   * Toggle in-game status / DPS panel (toolbar C key).
+   */
+  toggleStatusPanel() {
+    var panel = this.elStatusPanel;
+    if (!panel) return;
+    if (panel.style.display === 'flex') {
+      this.closeStatusPanel();
+      return;
+    }
+    if (window.game) window.game.pause();
+    if (this.elStatusContent) this.showDpsStats(this.elStatusContent);
+    panel.style.display = 'flex';
+    var self = this;
+    if (!this._statusEscHandler) {
+      this._statusEscHandler = function(e) {
+        if (e.key === 'Escape') self.closeStatusPanel();
+      };
+    }
+    document.addEventListener('keydown', this._statusEscHandler);
+  }
+
+  closeStatusPanel() {
+    var panel = this.elStatusPanel;
+    if (panel) panel.style.display = 'none';
+    if (window.game && window.game.isPaused) window.game.resume();
+    if (this._statusEscHandler) {
+      document.removeEventListener('keydown', this._statusEscHandler);
+    }
+  }
+
   // ====================================================================
-  //  Minimap — world 1200×800 → canvas (reads actual CSS size)
+  //  DPS Stats Panel — shows weapon damage breakdown when paused
   // ====================================================================
-  updateMinimap() {
-    var ctx = this._minimapCtx;
-    var el = this.elMinimap;
-    if (!ctx || !el) return;
-    if (!game || !game.player) return;
+  showDpsStats(container) {
+    if (!container) return;
+    var wm = (typeof weaponManager !== 'undefined') ? weaponManager : null;
+    var cfg = GAME_CONFIG;
 
-    var w = el.width;
-    var h = el.height;
-    var worldW = game.width || 1200;
-    var worldH = game.height || 800;
-    var scaleX = w / worldW;
-    var scaleY = h / worldH;
-
-    // Clear
-    ctx.clearRect(0, 0, w, h);
-
-    // Dark background
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, w, h);
-
-    // Draw enemies (red dots)
-    if (game.enemies) {
-      for (var i = 0; i < game.enemies.length; i++) {
-        var e = game.enemies[i];
-        if (!e.active) continue;
-        var ex = e.x * scaleX;
-        var ey = e.y * scaleY;
-        if (e.isBoss) {
-          // Boss: purple 5px
-          ctx.fillStyle = '#cc44ff';
-          ctx.beginPath();
-          ctx.arc(ex, ey, 5, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          // Normal enemy: red 3px
-          ctx.fillStyle = '#ff3333';
-          ctx.fillRect(ex - 1.5, ey - 1.5, 3, 3);
-        }
-      }
+    if (!wm || !wm._dpsData || Object.keys(wm._dpsData).length === 0) {
+      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据（继续游戏以收集）</div>';
+      return;
     }
 
-    // Draw items (green dots)
-    if (game.items) {
-      ctx.fillStyle = '#44ff44';
-      for (var j = 0; j < game.items.length; j++) {
-        var it = game.items[j];
-        if (!it.active || it.collected) continue;
-        ctx.fillRect(it.x * scaleX - 1, it.y * scaleY - 1, 2, 2);
-      }
+    var totalDmg = 0;
+    var entries = [];
+    for (var wId in wm._dpsData) {
+      if (!wm._dpsData.hasOwnProperty(wId)) continue;
+      var dmg = wm._dpsData[wId];
+      totalDmg += dmg;
+      var weaponCfg = cfg.WEAPONS ? cfg.WEAPONS[wId] : null;
+      entries.push({
+        id: wId,
+        name: weaponCfg ? weaponCfg.name : wId,
+        icon: weaponCfg ? (weaponCfg.icon || '🔫') : '🔫',
+        damage: dmg
+      });
     }
 
-    // Draw player (white dot with glow)
-    var px = game.player.x * scaleX;
-    var py = game.player.y * scaleY;
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(px, py, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    if (totalDmg <= 0) {
+      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据</div>';
+      return;
+    }
+
+    entries.sort(function (a, b) { return b.damage - a.damage; });
+
+    var html = '';
+    var maxDmg = entries[0].damage;
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var barPct = maxDmg > 0 ? (e.damage / maxDmg) * 100 : 0;
+      var totalPct = totalDmg > 0 ? ((e.damage / totalDmg) * 100).toFixed(1) : '0.0';
+      var dmgLabel = e.damage >= 1000000 ? (e.damage / 1000000).toFixed(1) + 'M' :
+                     e.damage >= 1000 ? (e.damage / 1000).toFixed(0) + 'K' :
+                     Math.floor(e.damage).toString();
+
+      html += '<div class="dps-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08)">' +
+        '<span style="font-size:18px;width:28px;text-align:center">' + e.icon + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;color:#ddd;margin-bottom:3px">' + e.name + '</div>' +
+          '<div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">' +
+            '<div style="height:100%;width:' + barPct + '%;background:linear-gradient(90deg,' + (i === 0 ? '#ffaa00' : '#4488ff') + ', ' + (i === 0 ? '#ffdd44' : '#66aaff') + ');border-radius:4px;transition:width 0.3s"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;font-size:12px;min-width:60px">' +
+          '<div style="color:#fff;font-weight:bold">' + dmgLabel + '</div>' +
+          '<div style="color:#888">' + totalPct + '%</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var totalLabel = totalDmg >= 1000000 ? (totalDmg / 1000000).toFixed(1) + 'M' :
+                     totalDmg >= 1000 ? (totalDmg / 1000).toFixed(0) + 'K' :
+                     Math.floor(totalDmg).toString();
+    html += '<div style="text-align:center;margin-top:10px;font-size:13px;color:#aaa">总伤害输出: <span style="color:#ffdd44;font-weight:bold">' + totalLabel + '</span></div>';
+
+    container.innerHTML = html;
   }
 
   // ====================================================================
@@ -1717,78 +1710,6 @@ class UIManager {
       this.elLowHpWarning.classList.remove('critical');
       this._lowHpActive = false;
     }
-  }
-
-  // ====================================================================
-  //  DPS Stats Panel — shows weapon damage breakdown when paused
-  // ====================================================================
-  showDpsStats(container) {
-    if (!container) return;
-    var wm = (typeof weaponManager !== 'undefined') ? weaponManager : null;
-    var cfg = GAME_CONFIG;
-
-    if (!wm || !wm._dpsData || Object.keys(wm._dpsData).length === 0) {
-      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据（继续游戏以收集）</div>';
-      return;
-    }
-
-    // Compute totals
-    var totalDmg = 0;
-    var entries = [];
-    for (var wId in wm._dpsData) {
-      if (!wm._dpsData.hasOwnProperty(wId)) continue;
-      var dmg = wm._dpsData[wId];
-      totalDmg += dmg;
-      var weaponCfg = cfg.WEAPONS ? cfg.WEAPONS[wId] : null;
-      entries.push({
-        id: wId,
-        name: weaponCfg ? weaponCfg.name : wId,
-        icon: weaponCfg ? (weaponCfg.icon || '🔫') : '🔫',
-        damage: dmg
-      });
-    }
-
-    if (totalDmg <= 0) {
-      container.innerHTML = '<div class="pause-sub-empty">暂无伤害数据</div>';
-      return;
-    }
-
-    // Sort by damage descending
-    entries.sort(function (a, b) { return b.damage - a.damage; });
-
-    var html = '';
-    var maxDmg = entries[0].damage;
-
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
-      var barPct = maxDmg > 0 ? (e.damage / maxDmg) * 100 : 0;
-      var totalPct = totalDmg > 0 ? ((e.damage / totalDmg) * 100).toFixed(1) : '0.0';
-      var dmgLabel = e.damage >= 1000000 ? (e.damage / 1000000).toFixed(1) + 'M' :
-                     e.damage >= 1000 ? (e.damage / 1000).toFixed(0) + 'K' :
-                     Math.floor(e.damage).toString();
-
-      html += '<div class="dps-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08)">' +
-        '<span style="font-size:18px;width:28px;text-align:center">' + e.icon + '</span>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:13px;color:#ddd;margin-bottom:3px">' + e.name + '</div>' +
-          '<div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">' +
-            '<div style="height:100%;width:' + barPct + '%;background:linear-gradient(90deg,' + (i === 0 ? '#ffaa00' : '#4488ff') + ', ' + (i === 0 ? '#ffdd44' : '#66aaff') + ');border-radius:4px;transition:width 0.3s"></div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="text-align:right;font-size:12px;min-width:60px">' +
-          '<div style="color:#fff;font-weight:bold">' + dmgLabel + '</div>' +
-          '<div style="color:#888">' + totalPct + '%</div>' +
-        '</div>' +
-      '</div>';
-    }
-
-    // Total
-    var totalLabel = totalDmg >= 1000000 ? (totalDmg / 1000000).toFixed(1) + 'M' :
-                     totalDmg >= 1000 ? (totalDmg / 1000).toFixed(0) + 'K' :
-                     Math.floor(totalDmg).toString();
-    html += '<div style="text-align:center;margin-top:10px;font-size:13px;color:#aaa">总伤害输出: <span style="color:#ffdd44;font-weight:bold">' + totalLabel + '</span></div>';
-
-    container.innerHTML = html;
   }
 
   // ====================================================================
