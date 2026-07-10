@@ -102,23 +102,27 @@ class Bullet {
       this._hitTargets = new Set();
     }
 
-    // --- Homing ---
+    // --- Homing (with performance guard: search every 10 frames, max 20 enemies) ---
     if (this.homingStrength > 0) {
-      // Auto-acquire target if missing (limit search to 30 enemies per frame)
+      // Auto-acquire target: only search when missing, every 10 frames max
       if (!this.homingTarget || !this.homingTarget.active) {
-        var _g = window.game;
-        var _best = null, _bestD = Infinity;
-        if (_g && _g.enemies) {
-          var _searchLimit = Math.min(_g.enemies.length, 30);
-          for (var _hi = 0; _hi < _searchLimit; _hi++) {
-            var _e = _g.enemies[_hi];
-            if (!_e.active) continue;
-            var _dx = _e.x - this.x, _dy = _e.y - this.y;
-            var _d = _dx * _dx + _dy * _dy;
-            if (_d < _bestD) { _bestD = _d; _best = _e; }
+        this._homingSearchTimer = (this._homingSearchTimer || 0) + 1;
+        if (this._homingSearchTimer >= 10) {
+          this._homingSearchTimer = 0;
+          var _g = window.game;
+          var _best = null, _bestD = Infinity;
+          if (_g && _g.enemies) {
+            var _searchLimit = Math.min(_g.enemies.length, 20);
+            for (var _hi = 0; _hi < _searchLimit; _hi++) {
+              var _e = _g.enemies[_hi];
+              if (!_e.active) continue;
+              var _dx = _e.x - this.x, _dy = _e.y - this.y;
+              var _d = _dx * _dx + _dy * _dy;
+              if (_d < _bestD) { _bestD = _d; _best = _e; }
+            }
           }
+          this.homingTarget = _best;
         }
-        this.homingTarget = _best;
       }
       if (this.homingTarget && this.homingTarget.active) {
         const dx = this.homingTarget.x - this.x;

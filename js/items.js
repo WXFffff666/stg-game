@@ -907,7 +907,7 @@ GoldCoin.prototype = {
     // Magnet pull toward player + auto-collect
     var player = game.player;
     if (player && player.active) {
-      var baseRange = 60;
+      var baseRange = 120;
       var statRange = (player.stats && player.stats.pickupRange) ? player.stats.pickupRange : 0;
       var magnetRange = baseRange + statRange;
       var dx = player.x - this.x;
