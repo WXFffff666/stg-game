@@ -728,6 +728,10 @@ class Game {
     if (!this.isPaused) {
       this.gameTime += rawDt;
       try { this._update(dt); } catch(e) { console.warn('update err:', e.message); }
+    } else {
+      // Keep damage numbers / short UI particles ticking while paused
+      var pauseDt = Math.min(rawDt, 50) * 0.001;
+      this._updateEphemeralParticles(pauseDt);
     }
 
     // HUD + homing target manager (single RAF — no separate ui loop)
@@ -742,6 +746,27 @@ class Game {
 
     try { this._draw(); } catch(e) { console.warn('draw err:', e.message); }
     this.rafId = requestAnimationFrame(this._loop);
+  }
+
+  _updateEphemeralParticles(dt) {
+    for (let i = this.entities.length - 1; i >= 0; i--) {
+      const entity = this.entities[i];
+      if (!entity.active) {
+        this._uncategorizeEntity(entity);
+        this.entities[i] = this.entities[this.entities.length - 1];
+        this.entities.pop();
+        continue;
+      }
+      if (entity.drawLayer === 7 && entity.update) {
+        entity.update(dt);
+      }
+    }
+    if (this._purgeCounter === undefined) this._purgeCounter = 0;
+    this._purgeCounter++;
+    if (this._purgeCounter >= 60) {
+      this._purgeCounter = 0;
+      this._purgeCategoryArrays();
+    }
   }
 
   _update(dt) {
@@ -821,6 +846,7 @@ class Game {
     for (let i = this.entities.length - 1; i >= 0; i--) {
       const entity = this.entities[i];
       if (!entity.active) {
+        this._uncategorizeEntity(entity);
         // Swap-and-pop: O(1) removal instead of splice O(N)
         this.entities[i] = this.entities[this.entities.length - 1];
         this.entities.pop();
@@ -1007,6 +1033,13 @@ class Game {
         break;
       case 'f':
       case 'F':
+        if (this.scene !== GAME_CONFIG.SCENES.GAMEPLAY) {
+          e.preventDefault();
+          if (typeof window.toggleFullscreen === 'function') {
+            window.toggleFullscreen();
+          }
+        }
+        break;
       case 'F11':
         e.preventDefault();
         if (typeof window.toggleFullscreen === 'function') {

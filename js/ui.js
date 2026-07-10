@@ -710,18 +710,11 @@ class UIManager {
     var layerData = [];
     for (var l = 0; l < totalLayers; l++) {
       var layer = branchCfg.layers[l];
-      var selectedId = tm.getSelectedInLayer(branchId, l);
-      var selectedTalent = null;
-      if (selectedId) {
-        for (var ti = 0; ti < layer.length; ti++) {
-          if (layer[ti].id === selectedId) { selectedTalent = layer[ti]; break; }
-        }
-      }
+      var layerMap = tm.getSelectedInLayer(branchId, l);
+      var layerPoints = tm.getLayerTotalPoints(branchId, l);
+      var layerLocked = l > 0 && !tm.isLayerUnlocked(branchId, l);
 
-      // Layer locked: previous layer must have a selection
-      var layerLocked = l > 0 && (tm.getSelectedInLayer(branchId, l - 1) === null);
-
-      layerData.push({ layer: layer, selectedId: selectedId, selectedTalent: selectedTalent, layerLocked: layerLocked, isUltimate: (l === totalLayers - 1) });
+      layerData.push({ layer: layer, layerMap: layerMap, layerPoints: layerPoints, layerLocked: layerLocked, isUltimate: (l === totalLayers - 1) });
     }
 
     // Render each layer
@@ -748,18 +741,15 @@ class UIManager {
       // Selection status
       var statusText = document.createElement('div');
       statusText.style.cssText = 'font-size:11px;';
-      if (ld.selectedId && ld.selectedTalent) {
+      if (ld.layerPoints > 0) {
         statusText.style.color = branchColor;
-        statusText.textContent = (ld.selectedTalent.icon || '') + ' ' + ld.selectedTalent.name + ' ✓';
+        statusText.textContent = '已投入 ' + ld.layerPoints + ' 点';
       } else if (ld.layerLocked) {
         statusText.style.color = '#555';
-        statusText.textContent = '🔒 锁定';
-      } else if (l === 0) {
-        statusText.style.color = '#888';
-        statusText.textContent = '请选择';
+        statusText.textContent = '🔒 需先点上一层';
       } else {
-        statusText.style.color = '#666';
-        statusText.textContent = '等待上层解锁';
+        statusText.style.color = '#888';
+        statusText.textContent = '可重复加点';
       }
       header.appendChild(statusText);
 
@@ -769,7 +759,7 @@ class UIManager {
       var progressBar = document.createElement('div');
       progressBar.style.cssText = 'height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-bottom:8px;overflow:hidden;width:100%;';
       var progressFill = document.createElement('div');
-      progressFill.style.cssText = 'height:100%;width:' + (ld.selectedId ? '100' : '0') + '%;background:' + branchColor + ';border-radius:2px;transition:width 0.4s ease;';
+      progressFill.style.cssText = 'height:100%;width:' + (ld.layerPoints > 0 ? '100' : '0') + '%;background:' + branchColor + ';border-radius:2px;transition:width 0.4s ease;';
       progressBar.appendChild(progressFill);
       layerDiv.appendChild(progressBar);
 
@@ -779,9 +769,10 @@ class UIManager {
 
       for (var t = 0; t < layer.length; t++) {
         var talent = layer[t];
-        var isSelected = talent.id === ld.selectedId;
+        var stack = tm.getTalentStack(branchId, l, talent.id);
+        var isSelected = stack > 0;
         var nodeLocked = ld.layerLocked;
-        var canSelectNow = !isSelected && !nodeLocked && tm.remaining > 0 && tm.canSelect(branchId, l, talent.id);
+        var canSelectNow = !nodeLocked && tm.remaining > 0 && tm.canSelect(branchId, l, talent.id);
 
         var node = document.createElement('div');
         node.className = 'talent-node';
@@ -824,10 +815,13 @@ class UIManager {
         node.appendChild(name);
         node.appendChild(desc);
 
-        // Radio indicator (dot instead of checkmark for single-selection feel)
-        var radio = document.createElement('div');
-        radio.style.cssText = 'position:absolute;top:2px;right:3px;width:10px;height:10px;border-radius:50%;border:1.5px solid ' + (isSelected ? branchColor : 'transparent') + ';background:' + (isSelected ? branchColor : 'transparent') + ';';
-        node.appendChild(radio);
+        // Stack count badge
+        if (stack > 0) {
+          var stackBadge = document.createElement('div');
+          stackBadge.style.cssText = 'position:absolute;top:2px;right:3px;min-width:14px;height:14px;padding:0 3px;border-radius:8px;background:' + branchColor + ';color:#000;font-size:9px;font-weight:bold;line-height:14px;text-align:center;';
+          stackBadge.textContent = '×' + stack;
+          node.appendChild(stackBadge);
+        }
 
         // Lock overlay for locked layers
         if (nodeLocked) {
@@ -3353,6 +3347,141 @@ class UIManager {
       document.removeEventListener('keydown', this._backpackEscHandler);
       this._backpackEscHandler = null;
     }
+    this._fusionOnlyMode = false;
+  }
+
+  toggleFusionPanel() {
+    var screen = document.getElementById('fusion-screen');
+    if (!screen) return;
+    if (screen.style.display === 'flex') {
+      this.closeFusionPanel();
+      return;
+    }
+    if (window.game) window.game.pause();
+    this._renderFusionScreen();
+    screen.style.display = 'flex';
+    var self = this;
+    if (!this._fusionEscHandler) {
+      this._fusionEscHandler = function(e) {
+        if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') self.closeFusionPanel();
+      };
+    }
+    document.addEventListener('keydown', this._fusionEscHandler);
+  }
+
+  closeFusionPanel() {
+    var screen = document.getElementById('fusion-screen');
+    if (screen) screen.style.display = 'none';
+    if (window.game && window.game.isPaused) window.game.resume();
+    if (this._fusionEscHandler) {
+      document.removeEventListener('keydown', this._fusionEscHandler);
+    }
+  }
+
+  _renderFusionScreen() {
+    var screen = document.getElementById('fusion-screen');
+    if (!screen) return;
+    screen.innerHTML = '';
+    screen.className = 'menu-screen';
+    screen.style.zIndex = '45';
+    screen.style.overflowY = 'auto';
+    screen.style.padding = '20px 16px';
+
+    var sm = window.skillManager;
+    var cfg = window.GAME_CONFIG;
+    var self = this;
+
+    var title = document.createElement('h2');
+    title.style.cssText = 'color:#aa66ff;font-size:22px;margin-bottom:4px;';
+    title.textContent = '🔀 融合合成';
+    screen.appendChild(title);
+
+    var subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size:11px;color:#888;margin-bottom:12px;';
+    subtitle.textContent = '消耗融合核心合成武器/技能 | 按 F 或 ESC 关闭';
+    screen.appendChild(subtitle);
+
+    var coreCount = sm ? (sm.fusionCoreCount || 0) : 0;
+    var coreLabel = document.createElement('div');
+    coreLabel.style.cssText = 'font-size:14px;color:#ffdd00;margin-bottom:14px;';
+    coreLabel.textContent = '🔮 融合核心: ' + coreCount;
+    screen.appendChild(coreLabel);
+
+    if (!sm || typeof sm.checkFusions !== 'function') {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'color:#666;font-size:12px;';
+      empty.textContent = '融合系统未就绪';
+      screen.appendChild(empty);
+      return;
+    }
+
+    var fusions = sm.checkFusions();
+    if (fusions.length === 0) {
+      var noFus = document.createElement('div');
+      noFus.style.cssText = 'color:#888;font-size:12px;padding:12px;border:1px dashed #444;border-radius:8px;';
+      noFus.textContent = '暂无可融合配方。继续收集武器/技能并获取融合核心。';
+      screen.appendChild(noFus);
+      return;
+    }
+
+    if (coreCount <= 0) {
+      var warn = document.createElement('div');
+      warn.style.cssText = 'color:#ffaa44;font-size:11px;margin-bottom:10px;';
+      warn.textContent = '⚠️ 需要至少 1 个融合核心才能执行融合';
+      screen.appendChild(warn);
+    }
+
+    for (var fi = 0; fi < fusions.length; fi++) {
+      (function(fusionItem) {
+        var isWeapon = fusionItem.type === 'weapon';
+        var recipe = fusionItem.recipe;
+        var rName = recipe.name || (isWeapon ? '武器融合' : '技能融合');
+        var card = document.createElement('button');
+        card.style.cssText = 'display:block;width:100%;max-width:480px;margin:0 auto 10px;padding:12px 14px;border:1px solid #8844cc;border-radius:10px;background:rgba(136,68,204,0.12);color:#eee;cursor:pointer;text-align:left;font-size:13px;';
+        card.disabled = coreCount <= 0;
+
+        var ingA = '', ingB = '', result = '';
+        if (isWeapon && cfg.WEAPONS) {
+          var wA = cfg.WEAPONS[recipe.ingredientA];
+          var wB = cfg.WEAPONS[recipe.ingredientB];
+          var wR = cfg.WEAPONS[recipe.result];
+          ingA = wA ? wA.name : recipe.ingredientA;
+          ingB = wB ? wB.name : recipe.ingredientB;
+          result = wR ? wR.name : recipe.result;
+        } else if (cfg.SKILLS) {
+          for (var si = 0; si < cfg.SKILLS.length; si++) {
+            if (cfg.SKILLS[si].id === recipe.ingredientA) ingA = cfg.SKILLS[si].name;
+            if (cfg.SKILLS[si].id === recipe.ingredientB) ingB = cfg.SKILLS[si].name;
+            if (cfg.SKILLS[si].id === recipe.result) result = cfg.SKILLS[si].name;
+          }
+        }
+
+        card.innerHTML = '<div style="font-weight:bold;color:#ddbbff;margin-bottom:4px;">' + rName + '</div>' +
+          '<div style="font-size:11px;color:#aaa;">' + ingA + ' + ' + ingB + ' → <span style="color:#44ffaa;">' + (result || recipe.result) + '</span></div>' +
+          '<div style="font-size:10px;color:#ffdd44;margin-top:6px;">消耗 1 融合核心</div>';
+
+        card.addEventListener('click', function() {
+          if (coreCount <= 0) return;
+          if (isWeapon && typeof sm.executeWeaponFusion === 'function') {
+            sm.executeWeaponFusion(recipe);
+          } else if (!isWeapon && typeof sm.executeSkillFusion === 'function') {
+            sm.executeSkillFusion(recipe);
+          }
+          self._renderFusionScreen();
+          if (window.ui && window.ui.showToast) {
+            window.ui.showToast('🔀 融合成功: ' + rName, 2500, '#aa66ff');
+          }
+        });
+        screen.appendChild(card);
+      })(fusions[fi]);
+    }
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'menu-btn';
+    closeBtn.style.cssText = 'margin-top:16px;';
+    closeBtn.textContent = '关闭 (F)';
+    closeBtn.addEventListener('click', function() { self.closeFusionPanel(); });
+    screen.appendChild(closeBtn);
   }
 
   /**
@@ -3406,7 +3535,7 @@ class UIManager {
       var ap = stats.armorPenetration ? Math.round(stats.armorPenetration * 100) : 0;
       var regen = stats.hpRegen || 0;
       var wSlots = wm ? (wm.maxWeaponSlots || 0) : (sm ? sm.weaponSlotsUnlocked : 0);
-      var pSlots = wm ? (wm.maxPassiveSlots || 0) : 0;
+      var pSlots = sm ? (sm.passiveSlotsUnlocked || 0) : 0;
       var cores = sm ? (sm.fusionCoreCount || 0) : 0;
 
       var statGrid = document.createElement('div');
@@ -3532,37 +3661,50 @@ class UIManager {
       });
     }
 
-    // === Passive Slots Row ===
+    // === Passive Skill Slots Row ===
     var passiveLabel = document.createElement('div');
     passiveLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;margin-top:8px;';
-    passiveLabel.textContent = '🛡️ 被动槽位';
+    var passiveUsed = sm && typeof sm._countEquippedPassiveSkills === 'function'
+      ? sm._countEquippedPassiveSkills() : 0;
+    var passiveMax = sm ? (sm.passiveSlotsUnlocked || 0) : 0;
+    passiveLabel.textContent = '🛡️ 被动技能槽 (' + passiveUsed + '/' + passiveMax + ')';
     screen.appendChild(passiveLabel);
 
     var passiveRow = document.createElement('div');
     passiveRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;';
     screen.appendChild(passiveRow);
 
-    var maxPSlots = (wm && wm.maxPassiveSlots) || 4;
-    if (wm && wm.passiveSlots) {
-      for (var pi = 0; pi < Math.min(maxPSlots, wm.passiveSlots.length); pi++) {
-        var pSlot = wm.passiveSlots[pi];
-        var pSlotEl = document.createElement('div');
-        pSlotEl.style.cssText = 'width:48px;height:48px;border:2px solid ' + (pSlot ? '#dd88ff' : '#444') +
-          ';border-radius:8px;display:flex;align-items:center;justify-content:center;' +
-          'background:' + (pSlot ? 'rgba(221,136,255,0.12)' : 'rgba(255,255,255,0.03)') +
-          ';font-size:18px;position:relative;';
-        if (pSlot) {
-          var pCfg = cfg.WEAPONS ? cfg.WEAPONS[pSlot.weaponId] : null;
-          pSlotEl.textContent = pCfg ? (pCfg.icon || '🛡️') : '🛡️';
-          var pLvl = document.createElement('span');
-          pLvl.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#cc88ff;text-shadow:0 0 2px #000;';
-          pLvl.textContent = 'Lv' + (pSlot.level || 1);
-          pSlotEl.appendChild(pLvl);
-        } else {
-          pSlotEl.textContent = '－';
-          pSlotEl.style.opacity = '0.4';
+    for (var pi = 0; pi < passiveMax; pi++) {
+      var pSlotEl = document.createElement('div');
+      pSlotEl.style.cssText = 'width:48px;height:48px;border:2px solid #444;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);font-size:18px;position:relative;';
+      passiveRow.appendChild(pSlotEl);
+    }
+    // Fill passive slots with learned passive skills
+    if (sm && sm.learnedSkills) {
+      var passiveIdx = 0;
+      var passiveIds = Array.from(sm.learnedSkills.keys());
+      for (var psk = 0; psk < passiveIds.length && passiveIdx < passiveMax; psk++) {
+        var _pskId = passiveIds[psk];
+        var _pskCfg = null;
+        for (var _pskJ = 0; _pskJ < (cfg.SKILLS || []).length; _pskJ++) {
+          if (cfg.SKILLS[_pskJ].id === _pskId) { _pskCfg = cfg.SKILLS[_pskJ]; break; }
         }
-        passiveRow.appendChild(pSlotEl);
+        if (!_pskCfg || _pskCfg.type !== 'passive') continue;
+        var slotEl = passiveRow.children[passiveIdx];
+        if (!slotEl) break;
+        slotEl.style.borderColor = '#dd88ff';
+        slotEl.style.background = 'rgba(221,136,255,0.12)';
+        slotEl.textContent = _pskCfg.icon || '🛡️';
+        var pLvl = document.createElement('span');
+        pLvl.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#cc88ff;text-shadow:0 0 2px #000;';
+        pLvl.textContent = 'Lv' + (sm.learnedSkills.get(_pskId) || 1);
+        slotEl.appendChild(pLvl);
+        slotEl.title = _pskCfg.name;
+        passiveIdx++;
+      }
+      for (var emptyPi = passiveIdx; emptyPi < passiveMax; emptyPi++) {
+        var emptyEl = passiveRow.children[emptyPi];
+        if (emptyEl) { emptyEl.textContent = '－'; emptyEl.style.opacity = '0.4'; }
       }
     }
 
@@ -3599,7 +3741,7 @@ class UIManager {
     // === Items / Consumables Section ===
     var itemLabel = document.createElement('div');
     itemLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
-    itemLabel.textContent = '📦 道具';
+    itemLabel.textContent = '📦 道具（点击使用）';
     screen.appendChild(itemLabel);
 
     var itemRow = document.createElement('div');
@@ -3609,12 +3751,26 @@ class UIManager {
       for (var ii = 0; ii < inRunItems.length; ii++) {
         (function(itemData, idx) {
           var iEl = document.createElement('div');
-          iEl.style.cssText = 'padding:6px 10px;border:1px solid #558;border-radius:6px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);font-size:12px;';
-          iEl.innerHTML = '<span>' + (itemData.icon || '📦') + '</span><span style="color:#ddd;">' + (itemData.name || '道具') + '</span>';
+          iEl.style.cssText = 'padding:6px 10px;border:1px solid #558;border-radius:6px;display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.04);font-size:12px;min-width:120px;';
+          var topRow = document.createElement('div');
+          topRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+          topRow.innerHTML = '<span>' + (itemData.icon || '📦') + '</span><span style="color:#ddd;">' + (itemData.name || '道具') + '</span>';
+          iEl.appendChild(topRow);
+          if (itemData.useEffect) {
+            var hint = document.createElement('div');
+            hint.style.cssText = 'font-size:9px;color:#888;line-height:1.2;';
+            var fx = itemData.useEffect;
+            if (fx.heal) hint.textContent = '恢复 ' + fx.heal + ' HP';
+            else if (fx.healFull && fx.clearDebuffs) hint.textContent = '满血并清除负面状态';
+            else if (fx.healFull) hint.textContent = '恢复全部 HP';
+            else if (fx.shield) hint.textContent = '护盾 +' + fx.shield;
+            iEl.appendChild(hint);
+          }
           var useBtn = document.createElement('button');
-          useBtn.style.cssText = 'padding:2px 8px;font-size:10px;border:1px solid #44dd88;border-radius:4px;background:rgba(68,221,136,0.15);color:#44dd88;cursor:pointer;margin-left:4px;';
+          useBtn.style.cssText = 'padding:4px 8px;font-size:10px;border:1px solid #44dd88;border-radius:4px;background:rgba(68,221,136,0.15);color:#44dd88;cursor:pointer;align-self:flex-start;';
           useBtn.textContent = '使用';
-          useBtn.addEventListener('click', function() {
+          useBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
             if (typeof window._useInRunItem === 'function') {
               window._useInRunItem(idx);
               self._renderBackpack();
@@ -3632,6 +3788,7 @@ class UIManager {
 
     // === Fusion Core Count & Manual Fusion ===
     var fusionSection = document.createElement('div');
+    fusionSection.id = 'backpack-fusion-section';
     fusionSection.style.cssText = 'margin-top:8px;border-top:1px solid #333;padding-top:10px;';
     screen.appendChild(fusionSection);
 

@@ -562,8 +562,13 @@ canvas {
 
 /* 侧边工具栏 (桌面端右侧, 移动端底部) */
 .hud-toolbar {
-  position: absolute; z-index: 25;
+  position: absolute; z-index: 30;
   display: flex; gap: 4px; box-sizing: border-box;
+  pointer-events: auto;
+}
+.hud-toolbar .toolbar-btn {
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 /* Desktop: right side vertical */
 @media (min-width: 769px) {
@@ -1802,6 +1807,7 @@ canvas {
   <div class="hud-toolbar" id="hud-toolbar" style="display:none">
     <button class="toolbar-btn" id="tb-backpack" title="背包 (I)">🎒 <span class="tb-label">背包</span></button>
     <button class="toolbar-btn" id="tb-status" title="状态 (C)">📊 <span class="tb-label">状态</span></button>
+    <button class="toolbar-btn" id="tb-fusion" title="融合 (F)">🔀 <span class="tb-label">融合</span></button>
     <button class="toolbar-btn" id="tb-shop" title="商店 (B)">🛒 <span class="tb-label">商店</span></button>
     <button class="toolbar-btn" id="tb-pause" title="暂停 (ESC)">⏸ <span class="tb-label">暂停</span></button>
   </div>
@@ -2130,6 +2136,9 @@ canvas {
   <!-- B1: Backpack Screen -->
   <div class="menu-screen" id="backpack-screen" style="display:none"></div>
 
+  <!-- Fusion Screen (独立融合界面) -->
+  <div class="menu-screen" id="fusion-screen" style="display:none;z-index:45"></div>
+
 </div>
 
 <!-- Loading screen starfield (runs immediately, before game scripts) -->
@@ -2184,22 +2193,25 @@ canvas {
 </script>
 
 <!-- Scripts loaded in dependency order -->
-<script src="js/config.js?v=7"></script>
-<script src="js/homing.js?v=7"></script>
-<script src="js/upgrade-track.js?v=7"></script>
-<script src="js/core.js?v=7"></script>
-<script src="js/storage.js?v=7"></script>
-<script src="js/audio.js?v=7"></script>
-<script src="js/codex.js?v=7"></script>
-<script src="js/particles.js?v=7"></script>
-<script src="js/player.js?v=7"></script>
-<script src="js/bullets.js?v=7"></script>
-<script src="js/weapons.js?v=7"></script>
-<script src="js/enemies.js?v=7"></script>
-<script src="js/items.js?v=7"></script>
-<script src="js/skills.js?v=7"></script>
-<script src="js/ui.js?v=7"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/faction-effects.js?v=13"></script>
+<script src="js/faction-talents.js?v=13"></script>
+<script src="js/faction-weapon-mods.js?v=13"></script>
+<script src="js/config.js?v=13"></script>
+<script src="js/homing.js?v=9"></script>
+<script src="js/upgrade-track.js?v=9"></script>
+<script src="js/core.js?v=9"></script>
+<script src="js/storage.js?v=9"></script>
+<script src="js/audio.js?v=9"></script>
+<script src="js/codex.js?v=9"></script>
+<script src="js/particles.js?v=9"></script>
+<script src="js/player.js?v=9"></script>
+<script src="js/bullets.js?v=13"></script>
+<script src="js/weapons.js?v=13"></script>
+<script src="js/enemies.js?v=9"></script>
+<script src="js/items.js?v=9"></script>
+<script src="js/skills.js?v=13"></script>
+<script src="js/ui.js?v=13"></script>
+<script src="js/main.js?v=13"></script>
 
 <!-- Service Worker: register once, update via user prompt -->
 <script>

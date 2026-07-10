@@ -191,6 +191,7 @@ function _createDamageNumber() {
       if (this.life <= 0) {
         this.active = false;
         _damageNumberPool.push(this);
+        if (window.game) window.game.removeEntity(this);
       }
     },
 

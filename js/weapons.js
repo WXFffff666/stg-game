@@ -24,9 +24,9 @@
   if (!W.plagueFlame) {
     W.plagueFlame = {
       id: 'plagueFlame', name: '瘟疫火焰', icon: '☣️', rarity: 'legendary', fused: true,
-      description: '持续灼烧穿透火焰',
+      description: '穿透毒焰，灼烧并持续中毒',
       pattern: 'plagueFlame', fireRate: 60, damage: 5, bulletSpeed: 400, bulletSize: 6,
-      pierceCount: 3, burnDamage: 8, burnDuration: 3000, flameLength: 200,
+      pierceCount: 3, burnDamage: 8, burnDuration: 3000, poisonDamage: 6, poisonDuration: 3500, flameLength: 200,
       bulletColor: '#ccff44', trailColor: '#88cc22',
     };
   }
@@ -596,36 +596,10 @@ class WeaponManager {
    * @returns {object|null} modifier properties, or null
    */
   _getFactionBulletModifiers(factionId) {
-    var mods = {
-      thunder:     { chainCount: 2, chainRange: 120, chainDamage: 0.5 },
-      ice:         { slowAmount: 0.3, slowDuration: 2000 },
-      elemental:   { burnDamage: 5, burnDuration: 3000 },
-      poison:      { poisonDamage: 4, poisonDuration: 4000 },
-      decay:       { decayRate: 0.02, decayDuration: 5000 },
-      chain:       { chainCount: 3, chainDamage: 0.5 },
-      shadow:      { stealthOnHit: true },
-      phantom:     { dodgeOnHit: 0.1 },
-      wind:        { knockbackForce: 80 },
-      gravity:     { gravityPull: 30 },
-      void:        { voidExecuteThreshold: 0.05 },
-      magnet:      { bulletRepelChance: 0.05 },
-      lifesteal:   { lifesteal: 0.03 },
-      blood:       { lifesteal: 0.05, bloodRageDamage: 0.1 },
-      crystal:     { shatterOnKill: true },
-      forge:       { forgeStackOnHit: true },
-      dream:       { sleepChance: 0.03 },
-      pact:        { contractOnHit: 0.1 },
-      rebound:     { bounceCount: 1, bounceRetention: 0.6 },
-      shroud:      { blindChance: 0.05 },
-      storm:       { tornadoChance: 0.1 },
-      holy:        { healOnHit: 2 },
-      fury:        { lowHpBonus: 0.05 },
-      luck:        { critRate: 0.03, dropRateBonus: 0.05 },
-      time:        { slowAura: 0.05 },
-      star:        { chargeRate: 0.5 },
-      sonic:       { sonicDamage: 0.1 },
-    };
-    return mods[factionId] || null;
+    if (window.FACTION_BULLET_MODS && window.FACTION_BULLET_MODS[factionId]) {
+      return window.FACTION_BULLET_MODS[factionId];
+    }
+    return null;
   }
 
   // ============================================================
@@ -665,18 +639,36 @@ class WeaponManager {
     var playerFactionId = (this.player && this.player.factionId) ? this.player.factionId : null;
     var factionMods = this._getFactionBulletModifiers(playerFactionId);
     if (factionMods) {
-      // Merge faction modifiers into cfg for patterns that natively support them
       if (factionMods.chainCount !== undefined)    cfg.chainCount    = Math.max(cfg.chainCount    || 0, factionMods.chainCount);
       if (factionMods.chainRange !== undefined)    cfg.chainRange    = Math.max(cfg.chainRange    || 0, factionMods.chainRange);
       if (factionMods.chainDamage !== undefined)   cfg.chainDamage   = (cfg.chainDamage || 0.5) + (factionMods.chainDamage || 0);
       if (factionMods.slowAmount !== undefined)    cfg.slowAmount    = Math.max(cfg.slowAmount    || 0, factionMods.slowAmount);
       if (factionMods.slowDuration !== undefined)  cfg.slowDuration  = Math.max(cfg.slowDuration  || 0, factionMods.slowDuration);
+      if (factionMods.freezeChance !== undefined)  cfg.freezeChance  = Math.max(cfg.freezeChance  || 0, factionMods.freezeChance);
       if (factionMods.burnDamage !== undefined)    cfg.burnDamage    = Math.max(cfg.burnDamage    || 0, factionMods.burnDamage);
       if (factionMods.burnDuration !== undefined)  cfg.burnDuration  = Math.max(cfg.burnDuration  || 0, factionMods.burnDuration);
+      if (factionMods.poisonDamage !== undefined)  cfg.poisonDamage  = Math.max(cfg.poisonDamage  || 0, factionMods.poisonDamage);
+      if (factionMods.poisonDuration !== undefined) cfg.poisonDuration = Math.max(cfg.poisonDuration || 0, factionMods.poisonDuration);
+      if (factionMods.executeThreshold !== undefined) cfg.executeThreshold = factionMods.executeThreshold;
+      if (factionMods.pierceCount !== undefined)   cfg.pierceCount   = Math.max(cfg.pierceCount   || 0, factionMods.pierceCount);
+      if (factionMods.bounceCount !== undefined)   cfg.bounceCount   = Math.max(cfg.bounceCount   || 0, factionMods.bounceCount);
+      if (factionMods.bounceRetention !== undefined) cfg.bounceRetention = factionMods.bounceRetention;
     }
     // Store pending faction data so BulletPatterns._create can inject them into each bullet
     window._pendingFactionMods = factionMods;
     window._pendingFactionId = playerFactionId;
+    window._pendingWeaponId = weaponId;
+    window._pendingWeaponCfg = cfg;
+    var _patternElements = {
+      iceShard: 'ice', frostCannon: 'ice', frostMine: 'ice', frostStorm: 'ice',
+      frostMissile: 'ice', thunderIce: 'ice', stormBlade: 'ice',
+      lightningBolt: 'lightning', chainLightningGun: 'lightning', electricWave: 'lightning',
+      lightningGun: 'lightning', arc: 'lightning', teslaField: 'lightning', thunderShock: 'lightning',
+      flame: 'fire', flameThrower: 'fire', flamePuddle: 'fire', rocketBarrage: 'fire',
+      magmaCannon: 'fire', venomFlame: 'fire', iceFlame: 'fire',
+      venomGun: 'poison', acidSplash: 'poison', plagueFlame: 'poison'
+    };
+    window._pendingWeaponElement = cfg.element || _patternElements[weaponId] || _patternElements[cfg.pattern] || null;
 
     // === RANDOM ELEMENTS ===
     var critChance = (stats.critRate || 0) + 0.10;
@@ -819,7 +811,7 @@ class WeaponManager {
         break;
 
       case 'plagueFlame':
-        if (B) B.plagueFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, color, trail);
+        if (B) B.plagueFlame(x, y, angleUp, spd, dmg, cfg.flameLength || 200, cfg.pierceCount || 3, cfg.burnDamage || 8, cfg.poisonDamage || 6, cfg.poisonDuration || 3500, color, trail);
         break;
 
       case 'thunderIce':
@@ -887,7 +879,7 @@ class WeaponManager {
         break;
 
       case 'venomGun':
-        if (B) B.venomGun(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, cfg.burnDamage || 4, cfg.burnDuration || 3000, color, trail);
+        if (B) B.venomGun(x, y, angleUp, spd, dmg, cfg.pierceCount || 2, cfg.poisonDamage || 8, cfg.poisonDuration || 3500, color, trail);
         break;
 
       case 'magnetGun':
@@ -994,7 +986,7 @@ class WeaponManager {
         break;
 
       case 'acidSplash':
-        if (B) B.acidSplash(x, y, angleUp, spd, dmg, cfg.pierceCount || 1, cfg.burnDamage || 5, cfg.burnDuration || 3000, color, trail);
+        if (B) B.acidSplash(x, y, angleUp, spd, dmg, cfg.pierceCount || 1, cfg.poisonDamage || 6, cfg.poisonDuration || 3500, color, trail);
         break;
 
       case 'droneSwarm':

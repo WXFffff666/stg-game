@@ -788,7 +788,7 @@ class SkillManager {
     this.MAX_WEAPON_SLOTS = 6;
     this.MAX_PASSIVE_SLOTS = 6;
     this.weaponSlotsUnlocked = 2;   // Start with 2 weapon slots
-    this.passiveSlotsUnlocked = 0;  // Passive slots unlock at level 5
+    this.passiveSlotsUnlocked = 2;  // Start with 2 passive skill slots
     this._slotUnlockLevel = 5;      // Minimum level for passive slot expansion
 
     // Fusion system state
@@ -1169,6 +1169,11 @@ class SkillManager {
       var ownerFaction = _EXCLUSIVE_TO_FACTION[skill.id];
       if (ownerFaction && ownerFaction !== playerFaction) continue;
       var curStack = this.learnedSkills.get(skill.id) || 0;
+      // Skip new passive skills when passive slots are full
+      if (skill.type === 'passive' && curStack === 0 &&
+          this._countEquippedPassiveSkills() >= this.passiveSlotsUnlocked) {
+        continue;
+      }
       pool.push({ _choiceType: 'skill', _data: skill, _stackCount: curStack });
     }
 
@@ -1260,6 +1265,13 @@ class SkillManager {
         if (item._choiceType === 'skill' && d.faction === factionId) {
           weight *= 3;
         }
+        // Faction signature weapons: 2.5x weight for thematic weapons
+        if (item._choiceType === 'weapon' && factionId && GAME_CONFIG.FACTION_SIGNATURE_WEAPONS) {
+          var sigList = GAME_CONFIG.FACTION_SIGNATURE_WEAPONS[factionId];
+          if (sigList && sigList.indexOf(item._weaponId) >= 0) {
+            weight *= 2.5;
+          }
+        }
         // Weapon upgrade: slight weight boost for already-owned weapons (encourage upgrading)
         if (item._choiceType === 'weapon' && item._currentLevel > 0) {
           weight *= 1.5;
@@ -1301,6 +1313,16 @@ class SkillManager {
     return choices;
   }
 
+  _countEquippedPassiveSkills() {
+    var count = 0;
+    var self = this;
+    this.learnedSkills.forEach(function(stack, skillId) {
+      var sk = self._findSkill(skillId);
+      if (sk && sk.type === 'passive' && stack > 0) count++;
+    });
+    return count;
+  }
+
   // ====================================================================
   //  LEARN SKILL
   // ====================================================================
@@ -1315,6 +1337,18 @@ class SkillManager {
 
     // Track stack count: increment if already learned, start at 1 if new
     var prevCount = this.learnedSkills.get(skillId) || 0;
+
+    // Enforce passive skill slot limit for new passives
+    if (skill.type === 'passive' && prevCount === 0) {
+      var passiveCount = this._countEquippedPassiveSkills();
+      if (passiveCount >= this.passiveSlotsUnlocked) {
+        if (window.ui) {
+          window.ui.showToast('🛡️ 被动槽已满 (' + passiveCount + '/' + this.passiveSlotsUnlocked + ')', 2000, '#ffaa00');
+        }
+        return;
+      }
+    }
+
     this.learnedSkills.set(skillId, prevCount + 1);
     if (window.UpgradeTrack) UpgradeTrack.increment('skills', skillId);
 
@@ -1586,9 +1620,8 @@ class SkillManager {
     if (slotType === 'weapon') {
       if (this.weaponSlotsUnlocked >= this.MAX_WEAPON_SLOTS) return;
       this.weaponSlotsUnlocked++;
-      // Notify WeaponManager to mark the new slot as usable
-      if (this.weaponManager && typeof this.weaponManager.addWeaponToSlot === 'function') {
-        this.weaponManager.addWeaponToSlot(null, this.weaponSlotsUnlocked - 1);
+      if (this.weaponManager) {
+        this.weaponManager.maxWeaponSlots = this.weaponSlotsUnlocked;
       }
       if (window.ui) {
         window.ui.showToast('🔫 新武器槽已解锁 (' + this.weaponSlotsUnlocked + '/' + this.MAX_WEAPON_SLOTS + ')', 2000, '#ffdd44');
@@ -1596,6 +1629,7 @@ class SkillManager {
     } else if (slotType === 'passive') {
       if (this.passiveSlotsUnlocked >= this.MAX_PASSIVE_SLOTS) return;
       this.passiveSlotsUnlocked++;
+      if (this.weaponManager) this.weaponManager.maxPassiveSlots = this.passiveSlotsUnlocked;
       if (window.ui) {
         window.ui.showToast('🛡️ 新被动槽已解锁 (' + this.passiveSlotsUnlocked + '/' + this.MAX_PASSIVE_SLOTS + ')', 2000, '#44ddff');
       }
@@ -1997,7 +2031,16 @@ class SkillManager {
   }
 
   /**
-   * Fire onHit trigger. Called when the player takes damage.
+   * Fire onHit trigger when player lands an attack on an enemy.
+   * @param {number} x - Hit position X
+   * @param {number} y - Hit position Y
+   */
+  onAttackHit(x, y) {
+    this._fireConditional('onHit', x, y);
+  }
+
+  /**
+   * @deprecated Use onAttackHit for attack conditionals; kept for player-damage hooks.
    */
   onHit() {
     this._fireConditional('onHit');
@@ -2260,6 +2303,9 @@ class SkillManager {
           break;
         case 'chainDamage':
           this._doChainDamage(x, y, fx.damage, fx.radius);
+          break;
+        case 'chainLightning':
+          this._doChainLightningFromHit(x, y, fx.damage, fx.chainCount, fx.chainRange);
           break;
         case 'execute':
           this._doExecute(fx.threshold, fx.damage);
@@ -3237,6 +3283,36 @@ class SkillManager {
         e.takeDamage(baseDamage * damage);
       }
     }
+  }
+
+  /**
+   * Chain lightning from attack hit position (th_arc etc.).
+   */
+  _doChainLightningFromHit(x, y, damage, chainCount, chainRange) {
+    var game = window.game;
+    if (!game || !game.enemies) return;
+    chainCount = chainCount || 3;
+    chainRange = chainRange || 200;
+    damage = damage || 25;
+
+    var origin = null, bestD = 60 * 60;
+    for (var i = 0; i < game.enemies.length; i++) {
+      var e = game.enemies[i];
+      if (!e.active) continue;
+      var dx = e.x - x, dy = e.y - y;
+      var d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; origin = e; }
+    }
+    if (!origin) return;
+
+    var chainFn = game._chainDamage;
+    if (typeof chainFn === 'function') {
+      chainFn(origin, damage, 0);
+      return;
+    }
+
+    // Fallback: radial zap
+    this._doChainDamage(x, y, damage / 20, chainRange);
   }
 
   /**
@@ -5904,15 +5980,41 @@ class TalentManager {
     this._factionId = factionId;
     var f = GAME_CONFIG.FACTIONS && GAME_CONFIG.FACTIONS[factionId];
     if (!f) return;
-    var color = f.color || '#ff8800';
-    if (this.cfg.faction_attack) {
-      this.cfg.faction_attack.name = (f.name || factionId) + '·攻击';
-      this.cfg.faction_attack.color = color;
+
+    // Load handcrafted per-faction talent branches
+    if (window.FactionTalents) {
+      var fb = window.FactionTalents.getBranches(factionId);
+      if (fb) {
+        if (fb.attack) this.cfg.faction_attack = fb.attack;
+        if (fb.ultimate) this.cfg.faction_ultimate = fb.ultimate;
+      }
+    } else if (f.color) {
+      if (this.cfg.faction_attack) this.cfg.faction_attack.color = f.color;
+      if (this.cfg.faction_ultimate) this.cfg.faction_ultimate.color = f.color;
     }
-    if (this.cfg.faction_ultimate) {
-      this.cfg.faction_ultimate.name = (f.name || factionId) + '·终极';
-      this.cfg.faction_ultimate.color = color;
+  }
+
+  getLayerTotalPoints(branchId, layerIndex) {
+    var branch = this.selected[branchId];
+    if (!branch) return 0;
+    var layer = branch[layerIndex];
+    if (!layer || typeof layer !== 'object') return 0;
+    var sum = 0;
+    for (var id in layer) {
+      if (layer.hasOwnProperty(id)) sum += layer[id];
     }
+    return sum;
+  }
+
+  getTalentStack(branchId, layerIndex, talentId) {
+    var branch = this.selected[branchId];
+    if (!branch || !branch[layerIndex]) return 0;
+    return branch[layerIndex][talentId] || 0;
+  }
+
+  isLayerUnlocked(branchId, layerIndex) {
+    if (layerIndex <= 0) return true;
+    return this.getLayerTotalPoints(branchId, layerIndex - 1) > 0;
   }
 
   /**
@@ -5944,47 +6046,33 @@ class TalentManager {
 
   /**
    * Check if a talent can be selected.
-   * Rules: must have points, single selection per layer (radio-button style),
-   * layer N-1 must be completed to unlock layer N (sequential unlock).
+   * Rules: must have points; same talent/layer can be picked repeatedly;
+   * layer N requires at least 1 point spent in layer N-1.
    */
   canSelect(branchId, layerIndex, talentId) {
     if (this.remaining <= 0) return false;
-    var branch = this.selected[branchId];
-    if (!branch) return false;
-
-    // Talent already selected (prevent duplicate in same or different layer)
-    for (var lk in branch) {
-      if (branch[lk] === talentId) return false;
+    if (!this.isLayerUnlocked(branchId, layerIndex)) return false;
+    var branchCfg = this.cfg[branchId];
+    if (!branchCfg || !branchCfg.layers || !branchCfg.layers[layerIndex]) return false;
+    var layerCfg = branchCfg.layers[layerIndex];
+    for (var i = 0; i < layerCfg.length; i++) {
+      if (layerCfg[i].id === talentId) return true;
     }
-
-    // Single selection per layer: layer already has a selection → reject
-    if (branch[layerIndex] !== undefined) return false;
-
-    // Sequential layer unlock: layer N-1 must have a selection
-    if (layerIndex > 0) {
-      var branchCfg = this.cfg[branchId];
-      if (branchCfg && branchCfg.layers) {
-        // Check the immediately previous layer has a selection
-        if (branch[layerIndex - 1] === undefined) return false;
-      }
-    }
-
-    return true;
+    return false;
   }
 
   /**
-   * Select a talent. Returns true if successful.
-   * Single selection per layer (radio-button style).
+   * Select a talent (stackable). Returns true if successful.
    */
   select(branchId, layerIndex, talentId) {
     if (!this.canSelect(branchId, layerIndex, talentId)) return false;
 
-    var branch = this.selected[branchId];
-    // Single value per layer (radio-button style)
-    branch[layerIndex] = talentId;
+    if (!this.selected[branchId]) this.selected[branchId] = {};
+    if (!this.selected[branchId][layerIndex]) this.selected[branchId][layerIndex] = {};
+    var layer = this.selected[branchId][layerIndex];
+    layer[talentId] = (layer[talentId] || 0) + 1;
     this.remaining--;
 
-    // Apply effects immediately if player exists
     if (this._player) {
       this._applyTalentEffects(branchId, layerIndex, talentId);
     }
@@ -6017,9 +6105,14 @@ class TalentManager {
       var branchSelections = this.selected[branchId];
       for (var layerIdx in branchSelections) {
         if (!branchSelections.hasOwnProperty(layerIdx)) continue;
-        var talentId = branchSelections[layerIdx];
-        if (typeof talentId === 'string') {
-          this._applyTalentEffects(branchId, parseInt(layerIdx), talentId);
+        var layerMap = branchSelections[layerIdx];
+        if (!layerMap || typeof layerMap !== 'object') continue;
+        for (var talentId in layerMap) {
+          if (!layerMap.hasOwnProperty(talentId)) continue;
+          var stacks = layerMap[talentId] || 0;
+          for (var s = 0; s < stacks; s++) {
+            this._applyTalentEffects(branchId, parseInt(layerIdx, 10), talentId);
+          }
         }
       }
     }
@@ -6060,9 +6153,10 @@ class TalentManager {
         });
       }
     } else if (effect.stat) {
-      // Single effect
+      var statName = effect.stat;
+      if (statName === 'armorPen') statName = 'armorPenetration';
       mods.push({
-        stat: effect.stat,
+        stat: statName,
         op: effect.op || 'add',
         value: effect.value
       });
@@ -6097,27 +6191,20 @@ class TalentManager {
   getSelectedInLayer(branchId, layerIndex) {
     var branch = this.selected[branchId];
     if (!branch) return null;
-    var val = branch[layerIndex];
-    return (val !== undefined) ? val : null;
+    return branch[layerIndex] || null;
   }
 
-  /**
-   * Get count of selected talents in a specific layer (0 or 1).
-   */
   getSelectedCountInLayer(branchId, layerIndex) {
-    return this.getSelectedInLayer(branchId, layerIndex) ? 1 : 0;
+    return this.getLayerTotalPoints(branchId, layerIndex);
   }
 
-  /**
-   * Check if a talent is already selected (across all layers).
-   */
   isTalentSelected(branchId, talentId) {
     var branch = this.selected[branchId];
     if (!branch) return false;
     for (var lk in branch) {
-      var val = branch[lk];
-      if (Array.isArray(val) && val.indexOf(talentId) !== -1) return true;
-      if (val === talentId) return true;
+      if (!branch.hasOwnProperty(lk)) continue;
+      var layerMap = branch[lk];
+      if (layerMap && layerMap[talentId]) return true;
     }
     return false;
   }
@@ -6442,9 +6529,9 @@ var ElementalReactionSystem = {
 };
 
 // ====================================================================
-//  AUTO-COMPLETE FACTION_SYSTEM for all config factions
+//  AUTO-COMPLETE FACTION_SYSTEM — disabled (hand-crafted factions only)
 // ====================================================================
-(function _completeMissingFactions() {
+if (false) (function _completeMissingFactions() {
   var factions = GAME_CONFIG.FACTIONS || {};
   var visualTypes = ['lightning', 'fire', 'ice', 'poison', 'holy', 'shadow', 'void', 'arc'];
   var vi = 0;

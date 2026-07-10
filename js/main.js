@@ -502,53 +502,75 @@
     });
 
     // Toolbar buttons + keyboard shortcuts
-    // B1: Backpack toggle ('I' key or toolbar button)
+    function _canOpenGamePanel() {
+      return game && game.scene === cfg.SCENES.GAMEPLAY &&
+        !window._isLevelingUp && !window._isWaveShopOpen;
+    }
+    function _toolbarClick(fn) {
+      return function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (!_canOpenGamePanel()) return;
+        fn();
+      };
+    }
+
     var btnBackpack = document.getElementById('tb-backpack');
     if (btnBackpack) {
-      btnBackpack.addEventListener('click', function() {
-        if (window._isLevelingUp || window._isWaveShopOpen) return;
-        if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
-      });
+      btnBackpack.addEventListener('click', _toolbarClick(function() {
+        if (window.ui && typeof window.ui.toggleBackpack === 'function') window.ui.toggleBackpack();
+      }));
     }
     var btnStatus = document.getElementById('tb-status');
     if (btnStatus) {
-      btnStatus.addEventListener('click', function() {
-        if (window._isLevelingUp || window._isWaveShopOpen) return;
-        if (ui && typeof ui.toggleStatusPanel === 'function') ui.toggleStatusPanel();
-      });
+      btnStatus.addEventListener('click', _toolbarClick(function() {
+        if (window.ui && typeof window.ui.toggleStatusPanel === 'function') window.ui.toggleStatusPanel();
+      }));
     }
     var btnShop = document.getElementById('tb-shop');
     if (btnShop) {
-      btnShop.addEventListener('click', function() {
-        if (window._isLevelingUp || window._isWaveShopOpen) return;
+      btnShop.addEventListener('click', _toolbarClick(function() {
         if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
-      });
+      }));
+    }
+    var btnFusion = document.getElementById('tb-fusion');
+    if (btnFusion) {
+      btnFusion.addEventListener('click', _toolbarClick(function() {
+        if (window.ui && typeof window.ui.toggleFusionPanel === 'function') window.ui.toggleFusionPanel();
+      }));
     }
     var btnPause = document.getElementById('tb-pause');
     if (btnPause) {
-      btnPause.addEventListener('click', function() {
+      btnPause.addEventListener('click', function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (!_canOpenGamePanel() && !game.isPaused) return;
         if (window.game) window.game.togglePause();
         var po = document.getElementById('pause-overlay');
         if (po) po.style.display = po.style.display === 'flex' ? 'none' : 'flex';
       });
     }
 
-    // B6: Quick-switch weapon focus ('1'-'6' keys)
+    // B6: Quick-switch weapon focus ('1'-'6' keys) + panel shortcuts
     document.addEventListener('keydown', (e) => {
       if (game && game.scene === cfg.SCENES.GAMEPLAY) {
-        // Backpack (I) — allow even when paused (to allow closing)
+        if (window._isLevelingUp || window._isWaveShopOpen) return;
+        // Backpack (I)
         if (e.key === 'i' || e.key === 'I') {
-          if (window._isLevelingUp || window._isWaveShopOpen) return;
-          if (ui && typeof ui.toggleBackpack === 'function') ui.toggleBackpack();
+          e.preventDefault();
+          if (window.ui && typeof window.ui.toggleBackpack === 'function') window.ui.toggleBackpack();
         }
-        // Status (C) — DPS / stats panel
+        // Status (C)
         if (e.key === 'c' || e.key === 'C') {
-          if (window._isLevelingUp || window._isWaveShopOpen) return;
-          if (ui && typeof ui.toggleStatusPanel === 'function') ui.toggleStatusPanel();
+          e.preventDefault();
+          if (window.ui && typeof window.ui.toggleStatusPanel === 'function') window.ui.toggleStatusPanel();
+        }
+        // Fusion (F) — gameplay only; fullscreen uses F11
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          if (window.ui && typeof window.ui.toggleFusionPanel === 'function') window.ui.toggleFusionPanel();
         }
         // Shop (B) — only when game is running
         if ((e.key === 'b' || e.key === 'B') && !game.isPaused) {
-          if (window._isLevelingUp || window._isWaveShopOpen) return;
+          e.preventDefault();
           if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
         }
         // B6: Quick-switch weapon focus with number keys — only when running
@@ -745,33 +767,148 @@
   let inRunGold = 0;
   // In-run items inventory (consumables bought from wave shop, used from backpack)
   window._inRunItems = [];
+
+  /** Default use effects when item has no useEffect (legacy entries). */
+  var _CONSUMABLE_DEFAULT_EFFECTS = {
+    healthSmall: { heal: 30 },
+    healthMedium: { heal: 80 },
+    healthLarge: { healFull: true },
+    healthMega: { healFull: true, clearDebuffs: true },
+    tempShield: { shield: 50, shieldDuration: 60000 },
+    mystery_shield: { shield: 80, shieldDuration: 90000 },
+  };
+
+  function _getConsumableUseEffect(item) {
+    if (item.useEffect) return item.useEffect;
+    return _CONSUMABLE_DEFAULT_EFFECTS[item.id] || null;
+  }
+
+  function _addInRunConsumable(itemDef) {
+    var entry = {
+      id: itemDef.id,
+      name: itemDef.name || itemDef.id,
+      icon: itemDef.icon || '📦',
+    };
+    if (itemDef.useEffect) entry.useEffect = itemDef.useEffect;
+    else if (_CONSUMABLE_DEFAULT_EFFECTS[itemDef.id]) {
+      entry.useEffect = _CONSUMABLE_DEFAULT_EFFECTS[itemDef.id];
+    }
+    window._inRunItems.push(entry);
+  }
+
+  function _applyConsumableUseEffect(item) {
+    if (!playerEntity || !playerEntity.active) return false;
+    var fx = _getConsumableUseEffect(item);
+    if (!fx) return false;
+
+    if (fx.heal && fx.heal > 0) {
+      playerEntity.heal(fx.heal);
+      if (window.ParticleSystem && window.ParticleSystem.healEffect) {
+        window.ParticleSystem.healEffect(playerEntity.x, playerEntity.y);
+      }
+    }
+    if (fx.healFull) {
+      playerEntity.heal(playerEntity.maxHp);
+      if (window.ParticleSystem && window.ParticleSystem.healEffect) {
+        window.ParticleSystem.healEffect(playerEntity.x, playerEntity.y);
+      }
+    }
+    if (fx.clearDebuffs && buffManager && typeof buffManager.clearAll === 'function') {
+      buffManager.clearAll();
+    }
+    if (fx.shield && fx.shield > 0) {
+      var shieldDur = fx.shieldDuration || 60000;
+      var maxSh = playerEntity.maxShield || 200;
+      playerEntity.shield = Math.min(maxSh, (playerEntity.shield || 0) + fx.shield);
+      // Track timed bonus shield for expiry
+      playerEntity._consumableShieldBonus = (playerEntity._consumableShieldBonus || 0) + fx.shield;
+      playerEntity._consumableShieldTimer = Math.max(
+        playerEntity._consumableShieldTimer || 0,
+        shieldDur
+      );
+      if (window.ParticleSystem && window.ParticleSystem.shieldBreak) {
+        window.ParticleSystem.shieldBreak(playerEntity.x, playerEntity.y, 'rgba(100,180,255,0.6)');
+      }
+    }
+    if (fx.attackBoost && playerEntity.applyStatModifiers) {
+      playerEntity.applyStatModifiers([{ stat: 'attack', op: 'multiply', value: fx.attackBoost }]);
+    }
+    if (fx.speedBoost && playerEntity.applyStatModifiers) {
+      playerEntity.applyStatModifiers([{ stat: 'speed', op: 'multiply', value: fx.speedBoost }]);
+    }
+
+    return !!(fx.heal || fx.healFull || fx.shield || fx.attackBoost || fx.speedBoost || fx.clearDebuffs);
+  }
+
   window._useInRunItem = function(index) {
     var items = window._inRunItems;
     if (index < 0 || index >= items.length) return;
     var item = items[index];
-    var used = false;
-    switch (item.id) {
-      case 'healthSmall':
-        if (playerEntity) { playerEntity.heal(30); used = true; }
-        break;
-      case 'healthMedium':
-        if (playerEntity) { playerEntity.heal(80); used = true; }
-        break;
-      case 'healthLarge':
-        if (playerEntity) { playerEntity.heal(playerEntity.maxHp); used = true; }
-        break;
-      case 'healthMega':
-        if (playerEntity) { playerEntity.heal(playerEntity.maxHp); used = true; }
-        break;
-      case 'tempShield':
-        if (playerEntity) { playerEntity.shield = Math.min(playerEntity.maxShield || 100, (playerEntity.shield || 0) + 50); used = true; }
-        break;
-    }
+    var used = _applyConsumableUseEffect(item);
     if (used) {
       items.splice(index, 1);
       if (window.ui) window.ui.showToast('✅ 使用: ' + (item.name || item.id), 1500, '#44ff44');
+      if (window.audio && window.audio.playPickup) window.audio.playPickup();
+    } else if (window.ui) {
+      window.ui.showToast('无法使用: ' + (item.name || item.id), 1500, '#ffaa00');
     }
   };
+
+  /**
+   * Consume one queued meta-shop consumable per effect type at run start.
+   * Items are stored in localStorage stg_active_consumables after purchase.
+   */
+  function _applyActiveMetaConsumables() {
+    var active = {};
+    try {
+      var raw = localStorage.getItem('stg_active_consumables');
+      active = raw ? JSON.parse(raw) : {};
+    } catch (e) { return; }
+    if (!active || typeof active !== 'object') return;
+
+    var shopDefs = cfg.SHOP_ITEMS || {};
+    var changed = false;
+
+    function consumeOne(id) {
+      if (!active[id] || active[id] <= 0) return false;
+      active[id]--;
+      if (active[id] <= 0) delete active[id];
+      changed = true;
+      return true;
+    }
+
+    if (consumeOne('luckyCharm') && playerEntity && playerEntity.applyStatModifiers) {
+      playerEntity.applyStatModifiers([{ stat: 'dropRate', op: 'multiply', value: 0.25 }]);
+      if (ui) ui.showToast('🍀 幸运符生效：掉落率+25%', 2500, '#44ff88');
+    }
+    if (consumeOne('xpPotion')) {
+      game.xpMultiplier = (game.xpMultiplier || 1) * 1.5;
+      if (ui) ui.showToast('🧪 经验药水生效：经验+50%', 2500, '#88ccff');
+    }
+    if (consumeOne('damageScroll') && playerEntity && playerEntity.applyStatModifiers) {
+      playerEntity.applyStatModifiers([{ stat: 'attack', op: 'multiply', value: 0.20 }]);
+      if (ui) ui.showToast('📜 力量卷轴生效：攻击+20%', 2500, '#ff8844');
+    }
+    if (consumeOne('shieldCrystal') && playerEntity) {
+      playerEntity.shield = Math.min(
+        playerEntity.maxShield || 200,
+        (playerEntity.shield || 0) + 100
+      );
+      if (ui) ui.showToast('🔮 护盾水晶生效：+100护盾', 2500, '#4488ff');
+    }
+    if (consumeOne('reviveToken') && playerEntity && playerEntity.applyStatModifiers) {
+      playerEntity.applyStatModifiers([{ stat: 'reviveCount', op: 'add', value: 1 }]);
+      if (ui) ui.showToast('💎 复活币生效：本局可复活1次', 2500, '#dd88ff');
+    }
+    if (consumeOne('factionTicket')) {
+      window._factionTicketActive = true;
+      if (ui) ui.showToast('🎫 流派选择券生效：可自选流派', 2500, '#ffdd44');
+    }
+
+    if (changed) {
+      try { localStorage.setItem('stg_active_consumables', JSON.stringify(active)); } catch (e) {}
+    }
+  }
 
   // Legacy upgrade tracking (kept for backwards compat)
   let inRunUpgrades = {
@@ -1270,34 +1407,16 @@
 
   function _purchaseConsumableItem(item) {
     if (!playerEntity) return false;
-    var cfg = item.config;
-    var effect = cfg.effect || '';
-    var name = cfg.name || cfg.description || '';
-    // Heal items
-    if (cfg.id === 'healthSmall' || name.indexOf('30HP') >= 0 || cfg.price === 30) {
-      playerEntity.heal(30); ui.showToast('恢复30HP', '#44ff44'); return true;
-    }
-    if (cfg.id === 'healthLarge' || cfg.id === 'healthMega' || name.indexOf('80HP') >= 0) {
-      playerEntity.heal(80); ui.showToast('恢复80HP', '#44ff44'); return true;
-    }
-    if (cfg.id === 'healthMedium' || cfg.id === 'healthMega' || name.indexOf('全部HP') >= 0) {
-      playerEntity.heal(playerEntity.maxHp); ui.showToast('恢复全部HP', '#44ff44'); return true;
-    }
-    // Temp shield
-    if (cfg.id === 'tempShield' || name.indexOf('护盾') >= 0) {
-      if (buffManager) {
-        buffManager.apply('shield', { duration: 60000, amount: 50 });
-      } else {
-        playerEntity.shield = (playerEntity.shield || 0) + 50;
-      }
-      ui.showToast('获得50点临时护盾', '#4488ff'); return true;
-    }
-    // Generic consumable
-    if (cfg.description && cfg.description.indexOf('恢复') >= 0) {
-      var hpMatch = cfg.description.match(/(\d+)HP/);
-      if (hpMatch) { playerEntity.heal(parseInt(hpMatch[1])); ui.showToast('恢复' + hpMatch[1] + 'HP', '#44ff44'); return true; }
-    }
-    ui.showToast('使用: ' + name, '#ffdd00');
+    var cfg = item.config || item;
+    var itemId = cfg.id || '';
+    var name = cfg.name || cfg.description || itemId;
+    _addInRunConsumable({
+      id: itemId,
+      name: name,
+      icon: cfg.icon || '📦',
+      useEffect: cfg.useEffect,
+    });
+    ui.showToast('📦 获得 ' + name + ' (背包 I 使用)', '#44ddff');
     return true;
   }
 
@@ -1342,11 +1461,13 @@
         ui.showToast('🔮 融合核心 +1', '#aa66ff');
         return true;
       case 'mystery_shield':
-        if (playerEntity) {
-          if (buffManager) { buffManager.apply('shield', { duration: 90000, amount: 80 }); }
-          else { playerEntity.shield = (playerEntity.shield || 0) + 80; }
-        }
-        ui.showToast('🛡️ 80点临时护盾', '#4488ff');
+        _addInRunConsumable({
+          id: 'mystery_shield',
+          name: cfg.name || '临时护盾',
+          icon: cfg.icon || '🛡️',
+          useEffect: { shield: 80, shieldDuration: 90000 },
+        });
+        ui.showToast('📦 获得临时护盾 (背包 I 使用)', '#4488ff');
         return true;
       case 'mystery_damage':
         if (playerEntity) playerEntity.applyStatModifiers([{ stat: 'attack', op: 'multiply', value: 0.08 }]);
@@ -1566,10 +1687,10 @@
       if (inRunGold < wSlotCost) { ui.showToast('金币不足! (需要 ' + wSlotCost + '💰)', 1500, '#ff4444'); return false; }
       inRunGold -= wSlotCost;
       skillManager.MAX_WEAPON_SLOTS = curWMax + 1;
-      skillManager.weaponSlotsUnlocked = skillManager.MAX_WEAPON_SLOTS;
-      if (weaponManager) weaponManager.maxWeaponSlots = skillManager.MAX_WEAPON_SLOTS;
+      skillManager.weaponSlotsUnlocked++;
+      if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
       inRunUpgrades[itemId] = level + 1;
-      ui.showToast('🔫 武器槽 +1 (共' + skillManager.MAX_WEAPON_SLOTS + '槽)', 2000, '#ffdd44');
+      ui.showToast('🔫 武器槽 +1 (共' + skillManager.weaponSlotsUnlocked + '/' + skillManager.MAX_WEAPON_SLOTS + '槽)', 2000, '#ffdd44');
       return true;
     }
     if (itemId === 'passiveSlot') {
@@ -1581,10 +1702,10 @@
       if (inRunGold < pSlotCost) { ui.showToast('金币不足! (需要 ' + pSlotCost + '💰)', 1500, '#ff4444'); return false; }
       inRunGold -= pSlotCost;
       skillManager.MAX_PASSIVE_SLOTS = curPMax + 1;
-      skillManager.passiveSlotsUnlocked = skillManager.MAX_PASSIVE_SLOTS;
-      if (weaponManager) weaponManager.maxPassiveSlots = skillManager.MAX_PASSIVE_SLOTS;
+      skillManager.passiveSlotsUnlocked++;
+      if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
       inRunUpgrades[itemId] = level + 1;
-      ui.showToast('🛡️ 被动槽 +1 (共' + skillManager.MAX_PASSIVE_SLOTS + '槽)', 2000, '#44ddff');
+      ui.showToast('🛡️ 被动槽 +1 (共' + skillManager.passiveSlotsUnlocked + '/' + skillManager.MAX_PASSIVE_SLOTS + '槽)', 2000, '#44ddff');
       return true;
     }
 
@@ -1677,7 +1798,7 @@
       case 'healthLarge':
       case 'healthMega':
       case 'tempShield':
-        window._inRunItems.push({ id: item.id, name: item.name || item.id, icon: item.icon || '📦' });
+        _addInRunConsumable(item);
         ui.showToast('📦 获得 ' + (item.name || item.id) + ' (可在背包使用)', '#44ddff');
         break;
       // Fusion cores: direct add
@@ -1702,23 +1823,22 @@
       // Slot expansions: direct apply
       case 'weaponSlot':
         if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
-        if (skillManager.MAX_WEAPON_SLOTS >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
+        if (skillManager.weaponSlotsUnlocked >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
           ui.showToast('武器槽已达上限!', '#ff4444'); break;
         }
         skillManager.MAX_WEAPON_SLOTS++;
-        skillManager.weaponSlotsUnlocked = Math.max(skillManager.weaponSlotsUnlocked, skillManager.MAX_WEAPON_SLOTS);
-        if (weaponManager) weaponManager.maxWeaponSlots = skillManager.MAX_WEAPON_SLOTS;
-        ui.showToast('🔫 武器槽+1 (共' + skillManager.MAX_WEAPON_SLOTS + '槽)', '#ffdd44');
+        skillManager.weaponSlotsUnlocked++;
+        if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
+        ui.showToast('🔫 武器槽+1 (共' + skillManager.weaponSlotsUnlocked + '/' + skillManager.MAX_WEAPON_SLOTS + '槽)', '#ffdd44');
         break;
       case 'passiveSlot':
         if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
-        if (skillManager.MAX_PASSIVE_SLOTS >= (cfg.BALANCE.MAX_PASSIVE_SLOT_TOTAL || 8)) {
+        if (skillManager.passiveSlotsUnlocked >= skillManager.MAX_PASSIVE_SLOTS) {
           ui.showToast('被动槽已达上限!', '#ff4444'); break;
         }
-        skillManager.MAX_PASSIVE_SLOTS++;
-        skillManager.passiveSlotsUnlocked = Math.max(skillManager.passiveSlotsUnlocked, skillManager.MAX_PASSIVE_SLOTS);
-        if (weaponManager) weaponManager.maxPassiveSlots = skillManager.MAX_PASSIVE_SLOTS;
-        ui.showToast('🛡️ 被动槽+1 (共' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#dd88ff');
+        skillManager.passiveSlotsUnlocked++;
+        if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
+        ui.showToast('🛡️ 被动槽+1 (共' + skillManager.passiveSlotsUnlocked + '/' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#dd88ff');
         break;
       // Weapon crate: direct open
       case 'weaponCrate':
@@ -2121,6 +2241,7 @@
 
     // Reset in-run shop
     inRunGold = 0;
+    window._inRunItems = [];
     inRunUpgrades = {
       attackPower: 0,
       maxHp: 0,
@@ -2171,9 +2292,11 @@
 
     // Initialize systems
     skillManager = new window.SkillManager(playerEntity);
+    window.skillManager = skillManager;
     skillManager._pendingLevelUps = 0;
     skillManager._isChoosing = false;
     weaponManager = new window.WeaponManager(playerEntity);
+    window.weaponManager = weaponManager;
     // Equip loadout weapons (first weapon via setWeapon, rest via addWeaponToSlot)
     var loadoutWeapons = (typeof loadoutWeaponIds !== 'undefined' && loadoutWeaponIds.length > 0)
       ? loadoutWeaponIds : ['normal'];
@@ -2191,11 +2314,18 @@
     itemSpawner = new window.ItemSpawner();
     buffManager = new window.BuffManager(playerEntity);
     playerEntity.buffManager = buffManager;
+
+    // Apply meta-shop consumables queued for this run (between-run shop)
+    _applyActiveMetaConsumables();
+
     waveSpawner = new window.WaveSpawner();
     waveSpawner.reset(0);
 
     // Connect skill manager to weapon manager for weapon upgrades
     skillManager.weaponManager = weaponManager;
+    // Sync slot limits between skill manager and weapon manager
+    weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
+    weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
     // Expose skillManager globally so weapons.js can access upgrade multipliers
     window._skillManagerRef = skillManager;
 
@@ -2355,11 +2485,11 @@
     };
 
     // Connect event triggers
-    playerEntity.onKill = function() {
-      skillManager.onKill();
+    playerEntity.onKill = function(x, y) {
+      skillManager.onKill(x, y);
     };
     playerEntity.onHit = function() {
-      skillManager.onHit();
+      // Player taking damage — no attack conditional skills here
     };
     playerEntity.onDodge = function() {
       skillManager.onDodge();
@@ -2533,6 +2663,8 @@
     buffManager = null;
     waveSpawner = null;
     window._skillManagerRef = null;
+    window.skillManager = null;
+    window.weaponManager = null;
 
     // Hide fusion notification
     if (ui) ui.hideFusionNotification();
@@ -2746,8 +2878,26 @@
     // Update skill manager
     if (skillManager) skillManager.update(dt);
 
+    // Per-faction tick effects (soul aura, forge stacks, genesis buffs, etc.)
+    if (window.FactionEffects && playerEntity) {
+      window.FactionEffects.tick(playerEntity, dt);
+    }
+
     // Update buff manager
     if (buffManager) buffManager.update(dt);
+
+    // Expire consumable temp shield bonus after duration
+    if (playerEntity && playerEntity._consumableShieldTimer > 0) {
+      playerEntity._consumableShieldTimer -= dt * 1000;
+      if (playerEntity._consumableShieldTimer <= 0) {
+        var shBonus = playerEntity._consumableShieldBonus || 0;
+        if (shBonus > 0) {
+          playerEntity.shield = Math.max(0, (playerEntity.shield || 0) - shBonus);
+        }
+        playerEntity._consumableShieldBonus = 0;
+        playerEntity._consumableShieldTimer = 0;
+      }
+    }
 
     // Update combo
     if (game.comboTimer > 0) {
@@ -2900,8 +3050,8 @@
           var _bdx = bullet.x - playerEntity.x;
           var _bdy = bullet.y - playerEntity.y;
           if (Math.sqrt(_bdx * _bdx + _bdy * _bdy) < _repelRadius) {
-            bullet.active = false;
-            game.removeEntity(bullet);
+            if (typeof bullet._deactivate === 'function') bullet._deactivate();
+            else { bullet.active = false; game.removeEntity(bullet); }
             if (window.ParticleSystem) window.ParticleSystem.spark(bullet.x, bullet.y);
             continue;
           }
@@ -3104,6 +3254,7 @@
     let damage = bullet.damage;
     let critRate = playerEntity.stats.critRate || 0;
     if (buffManager) critRate += buffManager.getModifier('critRate');
+    if (bullet.factionCritBonus) critRate += bullet.factionCritBonus;
     const isCrit = Math.random() < critRate;
     if (isCrit) {
       damage *= playerEntity.stats.critMult || 1.5;
@@ -3120,212 +3271,8 @@
       damage = Math.floor(damage * playerEntity._stealthDamageMult);
     }
 
-    // === FACTION BULLET HIT EFFECTS ===
-    // Trigger faction-specific on-hit effects based on the bullet's faction origin
-    var _fid = bullet.factionId;
-    if (_fid) {
-      // Thunder / Chain: chain lightning to nearby enemies
-      if ((_fid === 'thunder' || _fid === 'chain') && bullet.chainCount && bullet.chainRange) {
-        chainDamage(enemy, damage * (bullet.chainDamage || 0.5), 0);
-      }
-      // Wind: knockback from bullet impact
-      if (_fid === 'wind' && (bullet.knockbackForce || bullet._factionKnockback)) {
-        var _kbForce = bullet.knockbackForce || bullet._factionKnockback || 80;
-        var _kbDx = enemy.x - bullet.x;
-        var _kbDy = enemy.y - bullet.y;
-        var _kbDist = Math.sqrt(_kbDx * _kbDx + _kbDy * _kbDy) || 1;
-        enemy.x += (_kbDx / _kbDist) * _kbForce;
-        enemy.y += (_kbDy / _kbDist) * _kbForce;
-      }
-      // Gravity: pull nearby enemies toward the hit enemy
-      if (_fid === 'gravity' && (bullet.pullForce || bullet._factionGravityPull)) {
-        var _gPull = bullet.pullForce || bullet._factionGravityPull || 30;
-        var _gRadius = bullet.wellRadius || 100;
-        for (var _gi = 0; _gi < game.enemies.length; _gi++) {
-          var _ge = game.enemies[_gi];
-          if (!_ge.active || _ge === enemy) continue;
-          var _gDx = enemy.x - _ge.x;
-          var _gDy = enemy.y - _ge.y;
-          var _gDist = Math.sqrt(_gDx * _gDx + _gDy * _gDy);
-          if (_gDist < _gRadius && _gDist > 1) {
-            var _gPullAmt = _gPull * (1 - _gDist / _gRadius);
-            _ge.x += (_gDx / _gDist) * _gPullAmt;
-            _ge.y += (_gDy / _gDist) * _gPullAmt;
-          }
-        }
-      }
-      // Shadow / Phantom: brief dodge chance buff on hit
-      if ((_fid === 'shadow' || _fid === 'phantom') && (bullet.stealthOnHit || bullet.dodgeOnHit)) {
-        if (!playerEntity._factionDodgeTimer) {
-          playerEntity._factionDodgeTimer = 500;
-          playerEntity._factionDodgeChance = bullet.dodgeOnHit || 0.1;
-        }
-      }
-      // Holy: small heal on bullet hit
-      if (_fid === 'holy' && bullet.healOnHit) {
-        playerEntity.heal(bullet.healOnHit);
-      }
-      // Lifesteal / Blood: additional bullet-based lifesteal
-      if ((_fid === 'lifesteal' || _fid === 'blood') && bullet.lifesteal) {
-        var _lsDmg = Math.min(damage, enemy.hp > 0 ? enemy.hp : damage);
-        var _lsHeal = Math.floor(_lsDmg * bullet.lifesteal);
-        if (_lsHeal > 0) playerEntity.heal(_lsHeal);
-      }
-      // Dream: chance to put enemy to sleep
-      if (_fid === 'dream' && bullet.sleepChance && Math.random() < bullet.sleepChance) {
-        enemy._sleepTimer = 3000;
-        enemy._sleeping = true;
-      }
-      // Shroud: chance to blind enemy
-      if (_fid === 'shroud' && bullet.blindChance && Math.random() < bullet.blindChance) {
-        enemy._blindTimer = 2000;
-        enemy._blindAmount = 0.5;
-      }
-      // Storm: chance to spawn tornado on hit
-      if (_fid === 'storm' && bullet.tornadoChance && Math.random() < bullet.tornadoChance) {
-        // Create a tornado entity at impact point
-        var _tornado = {
-          x: enemy.x, y: enemy.y,
-          size: 30, _age: 0, lifetime: 2.0,
-          active: true, category: 'particle', drawLayer: 3,
-          _pullRadius: 100, _pullForce: 60,
-          update: function(_dt) {
-            this._age += _dt;
-            if (this._age >= this.lifetime) { this.active = false; window.game.removeEntity(this); return; }
-            // Pull enemies toward tornado
-            for (var _ti = 0; _ti < window.game.enemies.length; _ti++) {
-              var _te = window.game.enemies[_ti];
-              if (!_te.active) continue;
-              var _tdx = this.x - _te.x;
-              var _tdy = this.y - _te.y;
-              var _tdist = Math.sqrt(_tdx * _tdx + _tdy * _tdy);
-              if (_tdist < this._pullRadius && _tdist > 5) {
-                var _tpull = this._pullForce * (1 - _tdist / this._pullRadius) * _dt;
-                _te.x += (_tdx / _tdist) * _tpull;
-                _te.y += (_tdy / _tdist) * _tpull;
-              }
-            }
-            this.size += _dt * 20;
-          },
-          draw: function(ctx) {
-            var _alpha = 1 - this._age / this.lifetime;
-            ctx.save();
-            ctx.globalAlpha = _alpha * 0.4;
-            ctx.strokeStyle = '#88ffcc';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.globalAlpha = _alpha * 0.2;
-            ctx.fillStyle = '#88ffcc';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
-        };
-        game.addEntity(_tornado);
-        if (window.ParticleSystem && window.ParticleSystem.tornado) {
-          window.ParticleSystem.tornado(enemy.x, enemy.y);
-        }
-      }
-      // Crystal: spawn shard particles on hit
-      if (_fid === 'crystal' && bullet.shatterOnKill) {
-        if (window.ParticleSystem && window.ParticleSystem.shards) {
-          window.ParticleSystem.shards(enemy.x, enemy.y);
-        } else {
-          // Fallback: simple expanding particles
-          for (var _si = 0; _si < 6; _si++) {
-            var _sa = (_si / 6) * Math.PI * 2;
-            game.addEntity({
-              x: enemy.x, y: enemy.y,
-              vx: Math.cos(_sa) * (60 + Math.random() * 40),
-              vy: Math.sin(_sa) * (60 + Math.random() * 40),
-              size: 2 + Math.random() * 3,
-              color: '#00e5ff', lifetime: 0.5,
-              active: true, category: 'particle', drawLayer: 5,
-              _age: 0,
-              update: function(dt) {
-                this._age += dt;
-                if (this._age >= this.lifetime) { this.active = false; window.game.removeEntity(this); return; }
-                this.x += this.vx * dt; this.vy += this.vy * dt;
-                this.size *= 0.95;
-              },
-              draw: function(ctx) {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-              }
-            });
-          }
-        }
-      }
-      // Luck: bonus crit rate on bullet hit
-      if (_fid === 'luck' && bullet.factionCritBonus) {
-        critRate += bullet.factionCritBonus;
-      }
-      // Void: bullet-based execute threshold
-      if (_fid === 'void' && bullet.executeThreshold && enemy.hp && enemy.maxHp && enemy.hp / enemy.maxHp < bullet.executeThreshold) {
-        damage = 9999;
-      }
-      // Forge: stack on hit (increment forge counter on player)
-      if (_fid === 'forge' && bullet.forgeStackOnHit) {
-        playerEntity._forgeStacks = (playerEntity._forgeStacks || 0) + 1;
-      }
-      // Time: slow aura application on hit
-      if (_fid === 'time' && bullet.slowAura) {
-        if (!playerEntity._timeSlowAuraActive) {
-          playerEntity._timeSlowAuraActive = true;
-          playerEntity._timeSlowAmount = bullet.slowAura;
-        }
-      }
-      // Fury: low HP bonus indicated by bullet prop
-      if (_fid === 'fury' && bullet.lowHpBonus) {
-        var _furyHpRatio = playerEntity.hp / playerEntity.maxHp;
-        if (_furyHpRatio < 0.5) {
-          damage = Math.floor(damage * (1 + bullet.lowHpBonus));
-        }
-      }
-      // Star: charge rate boost — accumulate on hit
-      if (_fid === 'star' && bullet.chargeRate) {
-        playerEntity._starCharge = (playerEntity._starCharge || 0) + bullet.chargeRate;
-      }
-      // Sonic: bonus sonic damage on hit
-      if (_fid === 'sonic' && bullet.sonicDamage) {
-        damage = Math.floor(damage * (1 + bullet.sonicDamage));
-        // Sonic pulse visual
-        if (window.ParticleSystem && window.ParticleSystem.ring) {
-          window.ParticleSystem.ring(enemy.x, enemy.y, 40, '#ff88ff');
-        }
-      }
-      // Rebound: bounce bullet to nearby enemy
-      if (_fid === 'rebound' && bullet.bounceCount && bullet.bounceCount > 0) {
-        var _nearestEnemy = null, _nearestDist = Infinity;
-        for (var _rbI = 0; _rbI < game.enemies.length; _rbI++) {
-          var _rbE = game.enemies[_rbI];
-          if (!_rbE.active || _rbE === enemy) continue;
-          var _rbDx = _rbE.x - enemy.x, _rbDy = _rbE.y - enemy.y;
-          var _rbD = _rbDx * _rbDx + _rbDy * _rbDy;
-          if (_rbD < _nearestDist) { _nearestDist = _rbD; _nearestEnemy = _rbE; }
-        }
-        if (_nearestEnemy) {
-          bullet.bounceCount--;
-          bullet.x = enemy.x; bullet.y = enemy.y;
-          var _rbAngle = Math.atan2(_nearestEnemy.y - enemy.y, _nearestEnemy.x - enemy.x);
-          bullet.vx = Math.cos(_rbAngle) * bullet.speed * (bullet.bounceRetention || 0.6);
-          bullet.vy = Math.sin(_rbAngle) * bullet.speed * (bullet.bounceRetention || 0.6);
-          damage = Math.floor(damage * (bullet.bounceRetention || 0.6));
-          bullet.active = true; // keep alive for bounce
-          // Don't remove the bullet; let it fly to the next enemy
-          if (bullet.pierceCount === undefined) bullet.pierceCount = 1;
-          // draw lightning trail
-          if (window.ParticleSystem && window.ParticleSystem.lightning) {
-            window.ParticleSystem.lightning(enemy.x, enemy.y, _nearestEnemy.x, _nearestEnemy.y, '#ffcc00');
-          }
-        }
-      }
-    }
+    // Faction bullet-hit effects: FactionEffects via eventBus
+    if (window.eventBus) window.eventBus.emit('bulletHit', {enemy: enemy, bullet: bullet, damage: damage, isCrit: isCrit});
 
     // Apply status effects + track applied elements for reaction system
     var _appliedElements = [];
@@ -3377,8 +3324,8 @@
     if (enemy.isBoss && playerEntity.stats.bossDamageBonus) {
       damage = Math.floor(damage * (1 + playerEntity.stats.bossDamageBonus));
     }
-    // Wind: push enemy away (支持 windPushForce 和 pushForce 两种命名)
-    var _pushForce = playerEntity.stats.windPushForce || playerEntity.stats.pushForce;
+    // Wind / bullet knockback: push enemy away from player
+    var _pushForce = bullet.knockbackForce || playerEntity.stats.windPushForce || playerEntity.stats.pushForce;
     if (_pushForce) {
       const dx = enemy.x - playerEntity.x;
       const dy = enemy.y - playerEntity.y;
@@ -3409,25 +3356,14 @@
       }
     }
 
-    // Pierce handling
-    if (bullet.pierceCount > 0) {
-      bullet.pierceCount--;
-      // Don't deactivate bullet
-    } else {
-      bullet.active = false;
-      game.removeEntity(bullet);
-    }
-
     // Void rift execute: instant kill enemies below HP threshold
     if (bullet.executeThreshold && enemy.hp && enemy.maxHp && enemy.hp / enemy.maxHp < bullet.executeThreshold) {
       damage = 9999;
     }
 
-    // 触发子弹命中事件（供流派效果系统使用）
-    if (window.eventBus) window.eventBus.emit('bulletHit', {enemy: enemy, bullet: bullet, damage: damage, isCrit: isCrit});
-
-    // Capture HP before damage for overkill calculation (C6)
+    // Capture HP / frozen state before damage
     var preDamageHp = enemy.hp;
+    var wasFrozen = (enemy.frozenTimer > 0);
 
     // C7: Armor Penetration — bypass a portion of enemy shields
     if (playerEntity.stats.armorPenetration && playerEntity.stats.armorPenetration > 0
@@ -3446,9 +3382,11 @@
     const alive = enemy.takeDamage(damage);
 
     // C8: On-hit lifesteal (heal % of damage dealt, capped at 20% maxHP/sec)
-    if (playerEntity.stats.lifesteal && playerEntity.stats.lifesteal > 0) {
+    var bulletLs = bullet.lifesteal || 0;
+    var totalLs = (playerEntity.stats.lifesteal || 0) + bulletLs;
+    if (totalLs > 0) {
       var actualHitDamage = Math.min(damage, preDamageHp); // don't lifesteal overkill
-      var lsHeal = Math.floor(actualHitDamage * playerEntity.stats.lifesteal);
+      var lsHeal = Math.floor(actualHitDamage * totalLs);
       var lsCapPerSec = Math.floor(playerEntity.maxHp * 0.2);
       var lsAvailable = lsCapPerSec - playerEntity._lifestealThisSecond;
       if (lsHeal > 0 && lsAvailable > 0) {
@@ -3456,6 +3394,9 @@
         playerEntity._lifestealThisSecond += lsHeal;
         playerEntity.heal(lsHeal);
       }
+    }
+    if (bullet.healOnHit && bullet.healOnHit > 0) {
+      playerEntity.heal(bullet.healOnHit);
     }
 
     // C1: Color-coded damage numbers
@@ -3468,17 +3409,65 @@
     // Hit particles
     window.ParticleSystem.hitEffect(enemy.x, enemy.y);
 
+    // Conditional skills: onHit (attack landed)
+    if (skillManager && typeof skillManager.onAttackHit === 'function') {
+      skillManager.onAttackHit(enemy.x, enemy.y);
+    }
+
     if (!alive) {
-      handleEnemyKilled(enemy, isCrit, damage, preDamageHp);
+      if (wasFrozen && skillManager && typeof skillManager.onKillFrozen === 'function') {
+        skillManager.onKillFrozen(enemy.x, enemy.y);
+      }
+      handleEnemyKilled(enemy, isCrit, damage, preDamageHp, bullet);
     }
 
     // Arc weapon chain (if player has arc weapon in any slot)
     if (weaponManager && weaponManager.hasWeapon('arc')) {
       chainDamage(enemy, damage * 0.3, 0);
     }
+
+    // Resolve bullet lifecycle (pierce / chain / pool return)
+    if (bullet._keepAliveAfterHit) {
+      bullet._keepAliveAfterHit = false;
+    } else if (bullet.active) {
+      if (typeof bullet.onHit === 'function') {
+        bullet.onHit(enemy);
+      } else {
+        _destroyPlayerBullet(bullet);
+      }
+    }
   }
 
-  function handleEnemyKilled(enemy, isCrit, damage, preDamageHp) {
+  function _destroyPlayerBullet(bullet) {
+    if (!bullet || !bullet.active) return;
+    if (typeof bullet._deactivate === 'function') {
+      bullet._deactivate();
+    } else {
+      bullet.active = false;
+      game.removeEntity(bullet);
+      if (game.bulletPool) game.returnToPool(game.bulletPool, bullet, 600);
+    }
+  }
+
+  function handleEnemyKilled(enemy, isCrit, damage, preDamageHp, killingBullet) {
+    // Ice shard / frozen shatter: AoE on kill per weapon description
+    if (killingBullet && killingBullet.shatterDamage) {
+      var shDmg = killingBullet.shatterDamage;
+      var shRad = killingBullet.shatterRadius || 80;
+      for (var _si = 0; _si < game.enemies.length; _si++) {
+        var _se = game.enemies[_si];
+        if (!_se.active || _se === enemy) continue;
+        var _sdx = _se.x - enemy.x, _sdy = _se.y - enemy.y;
+        if (_sdx * _sdx + _sdy * _sdy < shRad * shRad) {
+          var _salive = _se.takeDamage(shDmg);
+          if (!_salive) handleEnemyKilled(_se, false, shDmg, _se.hp + shDmg, null);
+        }
+      }
+      if (window.ParticleSystem && window.ParticleSystem.shatterEffect) {
+        window.ParticleSystem.shatterEffect(enemy.x, enemy.y);
+      }
+    }
+
     // C6: Overkill damage splash
     if (typeof preDamageHp === 'number' && preDamageHp > 0) {
       var overkill = damage - preDamageHp;
@@ -3697,7 +3686,7 @@
     }
 
     // On-kill effects
-    if (playerEntity.onKill) playerEntity.onKill();
+    if (playerEntity.onKill) playerEntity.onKill(enemy.x, enemy.y);
 
     // Conditional: explosion on kill (elemental)
     if (playerEntity.stats.fireTrail) {
@@ -3798,6 +3787,7 @@
       else chainDamage(closest, damage * 0.7, depth + 1);
     }
   }
+  game._chainDamage = chainDamage;
 
   function drawLightningLine(x1, y1, x2, y2) {
     // Create a particle that looks like lightning

@@ -80,6 +80,22 @@ class Bullet {
 
     // IDs for hit tracking (prevent multi-hit on same frame)
     this._hitTargets = null;
+
+    // Weapon / element effect props (must reset on pool reuse)
+    this.slowAmount       = props.slowAmount       || 0;
+    this.slowDuration     = props.slowDuration     || 0;
+    this.freezeChance     = props.freezeChance     || 0;
+    this.freezeDuration   = props.freezeDuration   || 0;
+    this.burnDamage       = props.burnDamage       || 0;
+    this.burnDuration     = props.burnDuration     || 0;
+    this.chainCount       = props.chainCount       || 0;
+    this.chainRange       = props.chainRange       || 0;
+    this.chainDamage      = props.chainDamage      || 0;
+    this.factionId        = props.factionId        || null;
+    this.weaponId         = props.weaponId         || null;
+    this.element          = props.element          || null;
+    this._chainHit        = false;
+    this._keepAliveAfterHit = false;
   }
 
   // ============================================================
@@ -717,21 +733,56 @@ class Bullet {
       target.takeDamage(9999);
     }
 
-    // Ice shard: apply slow debuff
-    if (this.slowAmount && this.slowDuration) {
-      if (target && !target._slowTimer) {
-        target._slowMult = 1 - (this.slowAmount || 0.4);
-        target._slowTimer = this.slowDuration || 2000;
+    // Ice / frost: slow + chance to freeze
+    if (this.slowAmount && this.slowDuration && target) {
+      target.slowAmount = Math.max(target.slowAmount || 0, this.slowAmount);
+      target.slowTimer = Math.max(target.slowTimer || 0, this.slowDuration);
+      var fChance = this.freezeChance || (this.slowAmount >= 0.45 ? 0.22 : 0);
+      if (this.element === 'ice' || this.weaponId === 'frostMine' || this.weaponId === 'thunderIce') {
+        fChance = Math.max(fChance, 0.18);
+      }
+      if (fChance > 0 && Math.random() < fChance) {
+        target.frozenTimer = Math.max(target.frozenTimer || 0, this.freezeDuration || 1500);
+      }
+      if (window.ParticleSystem && window.ParticleSystem.spawn) {
+        window.ParticleSystem.spawn(target.x, target.y, {
+          count: 2, speed: 20, life: 500, size: 2,
+          colors: ['#88ddff', '#aaeeff']
+        });
       }
     }
 
-    // Flame: apply burn damage over time
-    if (this.size >= 7 && this.lifetime <= 0.6 && this.pierceCount >= 1) {
-      if (target && !target._burnTimer) {
-        target._burnDamage = this.damage * 0.3;
-        target._burnTimer = 2000;
-        target._burnTick = 0;
+    // Burn DoT
+    if (this.burnDamage && this.burnDuration && target) {
+      target.burnDamage = this.burnDamage;
+      target.burnTimer = this.burnDuration;
+      target.burnDuration = this.burnDuration;
+    } else if (this.size >= 7 && this.lifetime <= 0.6 && this.pierceCount >= 1 && target) {
+      target.burnDamage = this.damage * 0.3;
+      target.burnTimer = 2000;
+      target.burnDuration = 2000;
+    }
+
+    // Poison DoT
+    if (this.poisonDamage && target) {
+      target.poisonDamage = Math.max(target.poisonDamage || 0, this.poisonDamage);
+      var pDur = this.poisonDuration || 3000;
+      target.poisonTimer = Math.max(target.poisonTimer || 0, pDur);
+      target.poisonDuration = pDur;
+      if (window.ParticleSystem && window.ParticleSystem.spawn) {
+        window.ParticleSystem.spawn(target.x, target.y, {
+          count: 3, speed: 25, life: 400, size: 2, colors: ['#55cc44', '#88ff66']
+        });
       }
+    }
+
+    // Status: blind / sleep from bullet or faction mods
+    if (target && this.blindChance && Math.random() < this.blindChance) {
+      target._blindTimer = Math.max(target._blindTimer || 0, 2000);
+    }
+    if (target && this.sleepChance && Math.random() < this.sleepChance) {
+      target._sleepTimer = Math.max(target._sleepTimer || 0, 2500);
+      target._sleeping = true;
     }
 
     // Lightning bolt: chain to nearby enemies
@@ -997,10 +1048,37 @@ var BulletPatterns = {
         if (fm.sleepChance !== undefined   && props.sleepChance === undefined)   props.sleepChance   = fm.sleepChance;
         if (fm.tornadoChance !== undefined && props.tornadoChance === undefined) props.tornadoChance = fm.tornadoChance;
         if (fm.healOnHit !== undefined    && props.healOnHit === undefined)     props.healOnHit     = fm.healOnHit;
-        if (fm.critRate !== undefined && props.factionCritBonus === undefined)  props.factionCritBonus = fm.critRate;
+        if (fm.freezeChance !== undefined && props.freezeChance === undefined) props.freezeChance = fm.freezeChance;
+        if (fm.bounceCount !== undefined && props.bounceCount === undefined) props.bounceCount = fm.bounceCount;
+        if (fm.bounceRetention !== undefined && props.bounceRetention === undefined) props.bounceRetention = fm.bounceRetention;
+        if (fm.pierceCount !== undefined && props.pierceCount === undefined) props.pierceCount = fm.pierceCount;
+        if (fm.factionCritBonus !== undefined && props.factionCritBonus === undefined) props.factionCritBonus = fm.factionCritBonus;
+        if (fm.critRate !== undefined && props.factionCritBonus === undefined) props.factionCritBonus = fm.critRate;
         // Attach faction ID for on-hit effects
         props.factionId = window._pendingFactionId || null;
       }
+    }
+    // Inject per-weapon config status (slow/burn/poison/chain etc. from WEAPONS entry)
+    if (window._pendingWeaponCfg && props.category === 'playerBullet') {
+      var wc = window._pendingWeaponCfg;
+      if (wc.slowAmount !== undefined && props.slowAmount === undefined) props.slowAmount = wc.slowAmount;
+      if (wc.slowDuration !== undefined && props.slowDuration === undefined) props.slowDuration = wc.slowDuration;
+      if (wc.burnDamage !== undefined && props.burnDamage === undefined) props.burnDamage = wc.burnDamage;
+      if (wc.burnDuration !== undefined && props.burnDuration === undefined) props.burnDuration = wc.burnDuration;
+      if (wc.poisonDamage !== undefined && props.poisonDamage === undefined) props.poisonDamage = wc.poisonDamage;
+      if (wc.poisonDuration !== undefined && props.poisonDuration === undefined) props.poisonDuration = wc.poisonDuration;
+      if (wc.executeThreshold !== undefined && props.executeThreshold === undefined) props.executeThreshold = wc.executeThreshold;
+      if (wc.lifestealOnHit !== undefined && props.lifesteal === undefined) props.lifesteal = wc.lifestealOnHit;
+      if (wc.lifestealPercent !== undefined && props.lifesteal === undefined) props.lifesteal = wc.lifestealPercent;
+      if (wc.chainCount !== undefined && props.chainCount === undefined) props.chainCount = wc.chainCount;
+      if (wc.chainRange !== undefined && props.chainRange === undefined) props.chainRange = wc.chainRange;
+      if (wc.shatterDamage !== undefined && props.shatterDamage === undefined) props.shatterDamage = wc.shatterDamage;
+      if (wc.shatterRadius !== undefined && props.shatterRadius === undefined) props.shatterRadius = wc.shatterRadius;
+      if (wc.explosionRadius !== undefined && props.explosionRadius === undefined) props.explosionRadius = wc.explosionRadius;
+    }
+    if (props.category === 'playerBullet') {
+      if (window._pendingWeaponId && !props.weaponId) props.weaponId = window._pendingWeaponId;
+      if (window._pendingWeaponElement && !props.element) props.element = window._pendingWeaponElement;
     }
     var game = window.game;
     var b = game.getFromPool(game.bulletPool, function(existing) {
@@ -1608,7 +1686,8 @@ var BulletPatterns = {
       hitRadius: 1.5,
       lifetime: 1.5,
       chainCount: chainCount || 4,
-      chainRange: chainRange || 150
+      chainRange: chainRange || 150,
+      element: 'lightning'
     });
     return [bullet];
   },
@@ -1630,7 +1709,8 @@ var BulletPatterns = {
       hitRadius: 2.5,
       lifetime: 3,
       slowAmount: slowAmount || 0.4,
-      slowDuration: slowDuration || 2000
+      slowDuration: slowDuration || 2000,
+      element: 'ice'
     });
     return [bullet];
   },
@@ -1789,7 +1869,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  F5. plagueFlame — Penetrating burning flame
   // ----------------------------------------------------------
-  plagueFlame: function(x, y, angle, speed, damage, flameLength, pierceCount, burnDamage, color, trailColor) {
+  plagueFlame: function(x, y, angle, speed, damage, flameLength, pierceCount, burnDamage, poisonDamage, poisonDuration, color, trailColor) {
     var bullets = [];
     // Fire 3 flames in a tight spread for plague effect
     for (var i = -1; i <= 1; i++) {
@@ -1807,7 +1887,11 @@ var BulletPatterns = {
         hitRadius: 5,
         lifetime: (flameLength || 200) / speed + 0.3,
         pierceCount: pierceCount || 3,
-        burnDamage: burnDamage || 8
+        burnDamage: burnDamage || 8,
+        burnDuration: 3000,
+        poisonDamage: poisonDamage || 6,
+        poisonDuration: poisonDuration || 3500,
+        element: 'poison'
       });
       bullets.push(bullet);
     }
@@ -1833,7 +1917,10 @@ var BulletPatterns = {
       chainCount: chainCount || 4,
       chainRange: chainRange || 160,
       slowAmount: slowAmount || 0.5,
-      slowDuration: slowDuration || 2500
+      slowDuration: slowDuration || 2500,
+      freezeChance: 0.25,
+      freezeDuration: 1800,
+      element: 'ice'
     });
     return [bullet];
   },
@@ -1946,7 +2033,9 @@ var BulletPatterns = {
       burnDamage: isFire ? (burnDamage || 7) : 0,
       burnDuration: isFire ? (burnDuration || 2000) : 0,
       slowAmount: isFire ? 0 : (slowAmount || 0.4),
-      slowDuration: isFire ? 0 : (slowDuration || 2000)
+      slowDuration: isFire ? 0 : (slowDuration || 2000),
+      element: isFire ? 'fire' : 'ice',
+      freezeChance: isFire ? 0 : 0.15
     });
     return [bullet];
   },
@@ -2241,7 +2330,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  N8. venomGun — Large toxic bullet with poison DOT
   // ----------------------------------------------------------
-  venomGun: function(x, y, angle, speed, damage, pierceCount, burnDamage, burnDuration, color, trailColor) {
+  venomGun: function(x, y, angle, speed, damage, pierceCount, poisonDamage, poisonDuration, color, trailColor) {
     var bullet = this._create({
       x: x, y: y,
       vx: Math.cos(angle) * speed,
@@ -2255,8 +2344,9 @@ var BulletPatterns = {
       hitRadius: 6,
       lifetime: 1.5,
       pierceCount: pierceCount || 2,
-      burnDamage: burnDamage || 4,
-      burnDuration: burnDuration || 3000
+      poisonDamage: poisonDamage || 8,
+      poisonDuration: poisonDuration || 3500,
+      element: 'poison'
     });
     return [bullet];
   },
@@ -2358,7 +2448,10 @@ var BulletPatterns = {
         pierceCount: pierceCount || 3,
         spinSpeed: spinSpeed || 7,
         slowAmount: slowAmount || 0.45,
-        slowDuration: slowDuration || 2500
+        slowDuration: slowDuration || 2500,
+        freezeChance: 0.2,
+        freezeDuration: 1800,
+        element: 'ice'
       });
       bullets.push(bullet);
     }
@@ -2898,7 +2991,10 @@ var BulletPatterns = {
         lifetime: 5,
         explosionRadius: explosionRadius || 70,
         slowAmount: slowAmount || 0.5,
-        slowDuration: slowDuration || 2500
+        slowDuration: slowDuration || 2500,
+        freezeChance: 0.35,
+        freezeDuration: 2000,
+        element: 'ice'
       });
       bullets.push(bullet);
     }
@@ -2908,7 +3004,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  N24. acidSplash — Acid pool
   // ----------------------------------------------------------
-  acidSplash: function(x, y, angle, speed, damage, pierceCount, burnDamage, burnDuration, color, trailColor) {
+  acidSplash: function(x, y, angle, speed, damage, pierceCount, poisonDamage, poisonDuration, color, trailColor) {
     var bullet = this._create({
       x: x, y: y,
       vx: Math.cos(angle) * speed,
@@ -2922,8 +3018,9 @@ var BulletPatterns = {
       hitRadius: 6,
       lifetime: 2,
       pierceCount: pierceCount || 1,
-      burnDamage: burnDamage || 5,
-      burnDuration: burnDuration || 3000
+      poisonDamage: poisonDamage || 6,
+      poisonDuration: poisonDuration || 3500,
+      element: 'poison'
     });
     return [bullet];
   },
