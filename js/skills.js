@@ -1191,7 +1191,7 @@ class SkillManager {
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
     var wm = this.weaponManager;
-    var hasEmptySlot = wm && wm.weaponSlots ? wm.weaponSlots.some(function(s) { return !s; }) : true;
+    var hasEmptySlot = wm && wm._findEmptySlot ? wm._findEmptySlot() >= 0 : true;
     for (var wid in weapons) {
       if (!weapons.hasOwnProperty(wid)) continue;
       var w = weapons[wid];
@@ -1351,6 +1351,9 @@ class SkillManager {
 
     this.learnedSkills.set(skillId, prevCount + 1);
     if (window.UpgradeTrack) UpgradeTrack.increment('skills', skillId);
+    if (window.CodexProgressManager && prevCount === 0) {
+      window.CodexProgressManager.discoverSkill(skillId);
+    }
 
     switch (skill.type) {
       case 'passive':
@@ -1451,20 +1454,11 @@ class SkillManager {
       var wmSlots = this.weaponManager.weaponSlots;
 
       if (isNew) {
-        // New weapon: find first empty slot or replace slot 0
-        var slotIdx = -1;
-        for (var i = 0; i < wmSlots.length; i++) {
-          if (!wmSlots[i]) { slotIdx = i; break; }
-        }
-        if (slotIdx === -1) {
-          // All slots full — auto-replace slot 0
-          slotIdx = 0;
-          var replacedId = wmSlots[slotIdx] ? wmSlots[slotIdx].weaponId : null;
-          this.weaponManager.removeWeaponFromSlot(0);
-          this.weaponManager.addWeaponToSlot(weaponId, 0);
-          if (window.ui && replacedId) {
-            window.ui.showToast('⚠️ 武器槽已满! ' + (GAME_CONFIG.WEAPONS[replacedId]?.name || replacedId) + ' 已被替换', 2500, '#ff6644');
-          }
+        var slotIdx = this.weaponManager._findEmptySlot
+          ? this.weaponManager._findEmptySlot()
+          : -1;
+        if (slotIdx < 0) {
+          if (window.ui) window.ui.showToast('武器槽已满！请在背包中调整或购买武器槽+1', 2500, '#ff6644');
         } else {
           this.weaponManager.addWeaponToSlot(weaponId, slotIdx);
         }
@@ -1489,7 +1483,9 @@ class SkillManager {
       } else {
         window.ui.showToast(wCfg.icon + ' ' + wCfg.name + ' 升级至 ' + label, 2000, wCfg.bulletColor || '#ffdd00');
       }
+      if (window.ui._markWeaponBarDirty) window.ui._markWeaponBarDirty();
     }
+    if (window.CodexProgressManager && isNew) CodexProgressManager.discoverWeapon(weaponId);
 
     // Check for available fusions after weapon upgrade
     var availableFusions = this.checkFusions();
@@ -1916,14 +1912,12 @@ class SkillManager {
     }
     var pick = unowned[Math.floor(Math.random() * unowned.length)];
     this.weaponLevels.set(pick, 1);
-    // Try to equip to an empty slot
-    var emptySlot = -1;
-    if (this.weaponManager) {
-      for (var si = 0; si < this.weaponManager.weaponSlots.length; si++) {
-        if (!this.weaponManager.weaponSlots[si]) { emptySlot = si; break; }
-      }
-      if (emptySlot >= 0) {
-        this.weaponManager.addWeaponToSlot(pick, emptySlot);
+    var emptySlot = this.weaponManager._findEmptySlot
+      ? this.weaponManager._findEmptySlot() : -1;
+    if (emptySlot >= 0) {
+      this.weaponManager.addWeaponToSlot(pick, emptySlot);
+      if (this.weaponManager.weaponSlots[emptySlot]) {
+        this.weaponManager.weaponSlots[emptySlot].level = 1;
       }
     }
     if (window.ui) {

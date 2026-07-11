@@ -1196,27 +1196,41 @@ class UIManager {
   // ====================================================================
 
   /**
-   * Update weapon bar — 6-slot grid with cooldown overlays and passive row.
-   * @param {Array} weaponSlots - up to 6 items ({id, icon, level, cooldownPct}) or null for empty
-   * @param {string} activeWeaponId - currently selected weapon ID
-   * @param {Array} [passiveSlots] - optional array of passive weapon objects ({icon, level})
+   * 武器侧栏：静态显示已装备武器，不显示开火冷却动画
    */
+  _markWeaponBarDirty() {
+    this._weaponBarDirty = true;
+    this._weaponBarCache = null;
+  }
+
   updateWeaponBar(weaponSlots, activeWeaponId, passiveSlots) {
     if (!this.elWeaponBar) return;
 
-    var hasWeapons = weaponSlots && weaponSlots.length > 0;
-    this.elWeaponBar.style.display = hasWeapons ? 'flex' : 'none';
-    if (!hasWeapons) return;
+    var slotCount = weaponSlots ? weaponSlots.length : 0;
+    var hasAny = false;
+    for (var hi = 0; hi < slotCount; hi++) {
+      if (weaponSlots[hi] && weaponSlots[hi].id) { hasAny = true; break; }
+    }
+    this.elWeaponBar.style.display = hasAny ? 'flex' : 'none';
+    if (!hasAny) return;
+
+    var cacheKey = JSON.stringify({
+      slots: (weaponSlots || []).map(function(w) {
+        return w ? { id: w.id, icon: w.icon, level: w.level } : null;
+      }),
+      focus: (window.weaponManager) ? window.weaponManager.getFocusedSlot() : -1,
+      fusion: this._getFusionGlowSlots()
+    });
+    if (!this._weaponBarDirty && this._weaponBarCache === cacheKey) return;
+    this._weaponBarDirty = false;
+    this._weaponBarCache = cacheKey;
 
     var grid = document.getElementById('weapon-grid');
     if (!grid) return;
 
     var fusionGlowSlots = this._getFusionGlowSlots();
     var focusedSlot = (window.weaponManager) ? window.weaponManager.getFocusedSlot() : -1;
-    var slots = weaponSlots.slice(0, 8);
-    var slotCount = Math.max(slots.length, 6);
 
-    // Grow/shrink slot elements without full rebuild (prevents attack flash)
     while (grid.children.length < slotCount) {
       var emptySlot = document.createElement('div');
       emptySlot.className = 'hud-weapon-slot empty';
@@ -1236,19 +1250,21 @@ class UIManager {
         if (isNaN(idx) || !window.weaponManager) return;
         if (typeof window.weaponManager.toggleFocusedSlot === 'function') {
           window.weaponManager.toggleFocusedSlot(idx);
+          if (window.ui) window.ui._markWeaponBarDirty();
         }
       });
     }
 
     for (var i = 0; i < slotCount; i++) {
-      var w = (i < slots.length) ? slots[i] : null;
+      var w = weaponSlots[i];
       var slot = grid.children[i];
       slot.dataset.slotIdx = String(i);
 
       if (w && w.id) {
-        slot.className = 'hud-weapon-slot';
-        if (i === focusedSlot) slot.classList.add('active-weapon');
-        if (fusionGlowSlots.indexOf(i) !== -1) slot.classList.add('fusion-glow');
+        var wantClass = 'hud-weapon-slot' +
+          (i === focusedSlot ? ' active-weapon' : '') +
+          (fusionGlowSlots.indexOf(i) !== -1 ? ' fusion-glow' : '');
+        if (slot.className !== wantClass) slot.className = wantClass;
         slot.dataset.weaponId = w.id;
 
         var iconNode = slot.querySelector('.weapon-icon');
@@ -1258,22 +1274,10 @@ class UIManager {
           iconNode.className = 'weapon-icon';
           slot.appendChild(iconNode);
         }
-        if (iconNode.textContent !== (w.icon || '🔫')) {
-          iconNode.textContent = w.icon || '🔫';
-        }
+        if (iconNode.textContent !== (w.icon || '🔫')) iconNode.textContent = w.icon || '🔫';
 
         var cd = slot.querySelector('.weapon-cooldown-overlay');
-        if (w.cooldownPct > 0) {
-          if (!cd) {
-            cd = document.createElement('div');
-            cd.className = 'weapon-cooldown-overlay';
-            slot.appendChild(cd);
-          }
-          var cdH = Math.round(w.cooldownPct * 100);
-          if (cd.style.height !== cdH + '%') cd.style.height = cdH + '%';
-        } else if (cd) {
-          cd.remove();
-        }
+        if (cd) cd.remove();
 
         var badge = slot.querySelector('.weapon-level-badge');
         if (w.level > 0) {
@@ -1284,13 +1288,13 @@ class UIManager {
             slot.appendChild(badge);
           }
           if (badge.textContent !== lvlTxt) badge.textContent = lvlTxt;
-        } else if (badge) {
-          badge.remove();
-        }
+        } else if (badge) badge.remove();
       } else {
-        slot.className = 'hud-weapon-slot empty';
-        slot.removeAttribute('data-weapon-id');
-        slot.textContent = '－';
+        if (!slot.classList.contains('empty')) {
+          slot.className = 'hud-weapon-slot empty';
+          slot.removeAttribute('data-weapon-id');
+          slot.textContent = '－';
+        }
       }
     }
 
@@ -3248,31 +3252,47 @@ class UIManager {
     container.innerHTML = '';
 
     const cfg = GAME_CONFIG;
+    const codex = window.CodexProgressManager;
+    const fusionWeaponIds = {};
+    if (cfg.FUSION_RECIPES && cfg.FUSION_RECIPES.weapons) {
+      cfg.FUSION_RECIPES.weapons.forEach(function(r) {
+        if (r.result) fusionWeaponIds[r.result] = true;
+      });
+    }
+
+    function isKnown(type, id) {
+      if (!codex || typeof codex.isDiscovered !== 'function') return true;
+      return codex.isDiscovered(type, id);
+    }
 
     if (tab === 'weapons') {
-      // Render weapons
       for (const [id, w] of Object.entries(cfg.WEAPONS)) {
+        const known = isKnown('weapons', id);
         const card = document.createElement('div');
-        card.className = 'codex-card';
-        card.innerHTML = `
-          <div class="codex-card-icon">${w.icon || '🔫'}</div>
+        card.className = 'codex-card' + (known ? '' : ' codex-locked');
+        card.innerHTML = known
+          ? `<div class="codex-card-icon">${w.icon || '🔫'}</div>
           <div class="codex-card-name">${w.name || id}</div>
           <div class="codex-card-desc">${w.description || w.pattern || ''}</div>
-          ${w.fusionRecipe ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}
-        `;
+          ${fusionWeaponIds[id] ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}`
+          : `<div class="codex-card-icon">❓</div>
+          <div class="codex-card-name">???</div>
+          <div class="codex-card-desc">尚未发现</div>`;
         container.appendChild(card);
       }
     } else if (tab === 'skills') {
-      // Render skills
       for (const skill of cfg.SKILLS) {
+        if (skill.faction && skill.faction !== 'any' && skill.exclusive) continue;
+        const known = isKnown('skills', skill.id);
         const card = document.createElement('div');
-        card.className = 'codex-card';
-        card.innerHTML = `
-          <div class="codex-card-icon">${skill.icon || '✨'}</div>
+        card.className = 'codex-card' + (known ? '' : ' codex-locked');
+        card.innerHTML = known
+          ? `<div class="codex-card-icon">${skill.icon || '✨'}</div>
           <div class="codex-card-name">${skill.name || skill.id}</div>
-          <div class="codex-card-desc">${skill.description || ''}</div>
-          ${skill.fusionRecipe ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}
-        `;
+          <div class="codex-card-desc">${skill.description || ''}</div>`
+          : `<div class="codex-card-icon">❓</div>
+          <div class="codex-card-name">???</div>
+          <div class="codex-card-desc">尚未发现</div>`;
         container.appendChild(card);
       }
     } else if (tab === 'factions') {
@@ -3288,20 +3308,23 @@ class UIManager {
         container.appendChild(card);
       }
     } else if (tab === 'enemies') {
-      // 渲染敌人
       var enemyTypes = cfg.ENEMIES;
       if (enemyTypes) {
         for (var key in enemyTypes) {
           var e = enemyTypes[key];
+          var eKnown = isKnown('enemies', key);
           var card = document.createElement('div');
-          card.className = 'codex-card';
-          card.style.borderColor = (e.color || '#fff') + '44';
-          card.innerHTML =
-            '<div class="codex-card-icon" style="color:' + (e.color || '#fff') + '">●</div>' +
-            '<div class="codex-card-name" style="color:' + (e.color || '#fff') + '">' + (e.name || key) + '</div>' +
-            '<div class="codex-card-desc">' + (e.ai ? '行为: ' + e.ai : '') + '</div>' +
-            '<div class="codex-card-stats">HP:' + e.hp + ' 速度:' + e.speed + ' 伤害:' + e.damage + '</div>' +
-            '<div class="codex-card-stats">分数:' + e.score + ' 经验:' + e.xp + '</div>';
+          card.className = 'codex-card' + (eKnown ? '' : ' codex-locked');
+          if (eKnown) {
+            card.style.borderColor = (e.color || '#fff') + '44';
+            card.innerHTML =
+              '<div class="codex-card-icon" style="color:' + (e.color || '#fff') + '">●</div>' +
+              '<div class="codex-card-name" style="color:' + (e.color || '#fff') + '">' + (e.name || key) + '</div>' +
+              '<div class="codex-card-desc">' + (e.ai ? '行为: ' + e.ai : '') + '</div>' +
+              '<div class="codex-card-stats">HP:' + e.hp + ' 速度:' + e.speed + ' 伤害:' + e.damage + '</div>';
+          } else {
+            card.innerHTML = '<div class="codex-card-icon">❓</div><div class="codex-card-name">???</div><div class="codex-card-desc">尚未遭遇</div>';
+          }
           container.appendChild(card);
         }
       }
@@ -3311,27 +3334,19 @@ class UIManager {
       if (bossTypes) {
         for (var key in bossTypes) {
           var b = bossTypes[key];
+          var bKnown = isKnown('bosses', key);
           var card = document.createElement('div');
-          card.className = 'codex-card codex-card-boss';
-          card.style.borderColor = (b.color || '#ff4444') + '66';
-          var phaseHtml = '';
-          if (b.phases) {
-            phaseHtml = '<div class="codex-card-phases">';
-            for (var p = 0; p < b.phases.length; p++) {
-              var ph = b.phases[p];
-              phaseHtml += '<div class="codex-phase">' +
-                '<span class="codex-phase-hp">HP≤' + Math.round(ph.hpThreshold * 100) + '%</span> ' +
-                '<span class="codex-phase-name">' + (ph.name || '阶段' + (p + 1)) + '</span>' +
-                '</div>';
-            }
-            phaseHtml += '</div>';
+          card.className = 'codex-card codex-card-boss' + (bKnown ? '' : ' codex-locked');
+          if (bKnown) {
+            card.style.borderColor = (b.color || '#ff4444') + '66';
+            card.innerHTML =
+              '<div class="codex-card-icon" style="font-size:32px">' + (b.icon || '💀') + '</div>' +
+              '<div class="codex-card-name" style="color:' + (b.color || '#ff4444') + ';font-size:14px">' + (b.name || key) + '</div>' +
+              '<div class="codex-card-desc">' + (b.description || '') + '</div>' +
+              '<div class="codex-card-stats">HP:' + b.baseHp + ' 伤害:' + b.baseDamage + '</div>';
+          } else {
+            card.innerHTML = '<div class="codex-card-icon">❓</div><div class="codex-card-name">???</div><div class="codex-card-desc">尚未击败</div>';
           }
-          card.innerHTML =
-            '<div class="codex-card-icon" style="font-size:32px">' + (b.icon || '💀') + '</div>' +
-            '<div class="codex-card-name" style="color:' + (b.color || '#ff4444') + ';font-size:14px">' + (b.name || key) + '</div>' +
-            '<div class="codex-card-desc">' + (b.description || '') + '</div>' +
-            '<div class="codex-card-stats">HP:' + b.baseHp + ' 伤害:' + b.baseDamage + ' 分数:' + b.score + '</div>' +
-            phaseHtml;
           container.appendChild(card);
         }
       }
@@ -3355,10 +3370,9 @@ class UIManager {
       return;
     }
 
-    // Pause gameplay while backpack is open
-    if (window.game) window.game.pause();
+    this._backpackWasPaused = window.game && window.game.isPaused;
+    if (window.game && !this._backpackWasPaused) window.game.pause();
 
-    // Hide HUD elements
     document.getElementById('hud').style.display = 'none';
 
     this._backpackSelectedWeapon = null;
@@ -3366,14 +3380,11 @@ class UIManager {
     screen.style.display = 'flex';
   }
 
-  /**
-   * Close backpack and resume game.
-   */
   closeBackpack() {
     var screen = document.getElementById('backpack-screen');
     if (screen) screen.style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
-    if (window.game) window.game.resume();
+    if (window.game && !this._backpackWasPaused) window.game.resume();
     if (this._backpackEscHandler) {
       document.removeEventListener('keydown', this._backpackEscHandler);
       this._backpackEscHandler = null;
@@ -3536,7 +3547,7 @@ class UIManager {
 
     var subtitle = document.createElement('div');
     subtitle.style.cssText = 'font-size:11px;color:#888;margin-bottom:10px;';
-    subtitle.textContent = '点击物品 → 点击槽位进行装备/交换 | 按 I 关闭';
+    subtitle.textContent = '左栏装备槽：点武器选中 → 点槽位装备 | 点已装备槽卸下 | 道具点一下即用';
     screen.appendChild(subtitle);
 
     var self = this;
@@ -3775,7 +3786,8 @@ class UIManager {
       for (var ii = 0; ii < inRunItems.length; ii++) {
         (function(itemData, idx) {
           var iEl = document.createElement('div');
-          iEl.style.cssText = 'padding:6px 10px;border:1px solid #558;border-radius:6px;display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.04);font-size:12px;min-width:120px;';
+          iEl.style.cssText = 'padding:6px 10px;border:1px solid #558;border-radius:6px;display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.04);font-size:12px;min-width:120px;cursor:pointer;';
+          iEl.title = '点击使用';
           var topRow = document.createElement('div');
           topRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
           topRow.innerHTML = '<span>' + (itemData.icon || '📦') + '</span><span style="color:#ddd;">' + (itemData.name || '道具') + '</span>';
@@ -3790,17 +3802,12 @@ class UIManager {
             else if (fx.shield) hint.textContent = '护盾 +' + fx.shield;
             iEl.appendChild(hint);
           }
-          var useBtn = document.createElement('button');
-          useBtn.style.cssText = 'padding:4px 8px;font-size:10px;border:1px solid #44dd88;border-radius:4px;background:rgba(68,221,136,0.15);color:#44dd88;cursor:pointer;align-self:flex-start;';
-          useBtn.textContent = '使用';
-          useBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
+          iEl.addEventListener('click', function() {
             if (typeof window._useInRunItem === 'function') {
               window._useInRunItem(idx);
               self._renderBackpack();
             }
           });
-          iEl.appendChild(useBtn);
           itemRow.appendChild(iEl);
         })(inRunItems[ii], ii);
       }

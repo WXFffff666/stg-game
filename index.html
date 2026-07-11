@@ -569,7 +569,7 @@ canvas {
 
 /* 侧边工具栏 (桌面端右侧, 移动端底部) */
 .hud-toolbar {
-  position: absolute; z-index: 30;
+  position: absolute; z-index: 55;
   display: flex; gap: 4px; box-sizing: border-box;
   pointer-events: auto;
 }
@@ -1493,6 +1493,8 @@ canvas {
 .codex-card-icon { font-size: 24px; margin-bottom: 5px; }
 .codex-card-name { font-size: 12px; font-weight: bold; color: #fff; }
 .codex-card-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
+.codex-card.codex-locked { opacity: 0.55; border-color: #333 !important; }
+.codex-card.codex-locked:hover { transform: none; border-color: #444 !important; }
 .codex-card-fusion { font-size: 9px; color: #ffdd00; margin-top: 3px; }
 .codex-card-stats { font-size: 9px; color: #88aacc; margin-top: 3px; }
 .codex-card-boss { grid-column: span 2; }
@@ -2204,25 +2206,25 @@ canvas {
 </script>
 
 <!-- Scripts loaded in dependency order -->
-<script src="js/faction-effects.js?v=14"></script>
-<script src="js/faction-talents.js?v=14"></script>
-<script src="js/faction-weapon-mods.js?v=14"></script>
-<script src="js/config.js?v=14"></script>
-<script src="js/homing.js?v=9"></script>
-<script src="js/upgrade-track.js?v=9"></script>
-<script src="js/core.js?v=9"></script>
-<script src="js/storage.js?v=9"></script>
-<script src="js/audio.js?v=9"></script>
-<script src="js/codex.js?v=9"></script>
-<script src="js/particles.js?v=9"></script>
-<script src="js/player.js?v=9"></script>
-<script src="js/bullets.js?v=14"></script>
-<script src="js/weapons.js?v=14"></script>
-<script src="js/enemies.js?v=9"></script>
-<script src="js/items.js?v=9"></script>
-<script src="js/skills.js?v=14"></script>
-<script src="js/ui.js?v=14"></script>
-<script src="js/main.js?v=14"></script>
+<script src="js/codex.js?v=15"></script>
+<script src="js/faction-effects.js?v=15"></script>
+<script src="js/faction-talents.js?v=15"></script>
+<script src="js/faction-weapon-mods.js?v=15"></script>
+<script src="js/config.js?v=15"></script>
+<script src="js/homing.js?v=15"></script>
+<script src="js/upgrade-track.js?v=15"></script>
+<script src="js/core.js?v=15"></script>
+<script src="js/storage.js?v=15"></script>
+<script src="js/audio.js?v=15"></script>
+<script src="js/particles.js?v=15"></script>
+<script src="js/player.js?v=15"></script>
+<script src="js/bullets.js?v=15"></script>
+<script src="js/weapons.js?v=15"></script>
+<script src="js/enemies.js?v=15"></script>
+<script src="js/items.js?v=15"></script>
+<script src="js/skills.js?v=15"></script>
+<script src="js/ui.js?v=15"></script>
+<script src="js/main.js?v=16"></script>
 
 <!-- Service Worker: register once, update via user prompt -->
 <script>

@@ -107,6 +107,19 @@ class CodexProgressManager {
       }
     }
   }
+
+  static discoverSkill(skillId) {
+    const cfg = window.GAME_CONFIG;
+    let name = skillId;
+    if (cfg && cfg.SKILLS) {
+      for (var i = 0; i < cfg.SKILLS.length; i++) {
+        if (cfg.SKILLS[i].id === skillId) { name = cfg.SKILLS[i].name || skillId; break; }
+      }
+    }
+    if (this.discover('skills', skillId, name)) {
+      if (window.ui) window.ui.showToast('📖 图鉴解锁: ' + name, 3000);
+    }
+  }
 }
 
 window.CodexProgressManager = CodexProgressManager;

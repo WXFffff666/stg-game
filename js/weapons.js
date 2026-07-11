@@ -440,6 +440,8 @@ class WeaponManager {
    */
   addWeaponToSlot(weaponId, slotIndex) {
     if (slotIndex < 0 || slotIndex >= this.weaponSlots.length) return false;
+    var maxSlots = this.maxWeaponSlots || this.weaponSlots.length;
+    if (slotIndex >= maxSlots) return false;
 
     // null weaponId = just mark slot as unlocked (empty slot)
     if (weaponId === null) {
@@ -498,18 +500,22 @@ class WeaponManager {
    * @returns {Array<object|null>}
    */
   getSlots() {
-    return this.weaponSlots.map(function(slot, index) {
-      if (!slot) return null;
+    var limit = this.maxWeaponSlots || this.weaponSlots.length;
+    var out = [];
+    for (var index = 0; index < limit; index++) {
+      var slot = this.weaponSlots[index];
+      if (!slot) { out.push(null); continue; }
       var cfg = GAME_CONFIG.WEAPONS[slot.weaponId];
-      return {
+      out.push({
         index: index,
         weaponId: slot.weaponId,
         level: slot.level,
         name: cfg ? cfg.name : slot.weaponId,
         icon: cfg ? (cfg.icon || '🔫') : '🔫',
         description: cfg ? cfg.description : ''
-      };
-    });
+      });
+    }
+    return out;
   }
 
   // B6: Quick-switch — set/clear focused weapon slot
@@ -560,6 +566,7 @@ class WeaponManager {
     var hasOrbital = false;
 
     for (var i = 0; i < this.weaponSlots.length; i++) {
+      if (i >= (this.maxWeaponSlots || this.weaponSlots.length)) break;
       var slot = this.weaponSlots[i];
       if (!slot) continue;
 

@@ -503,8 +503,14 @@
 
     // Toolbar buttons + keyboard shortcuts
     function _canOpenGamePanel() {
-      return game && game.scene === cfg.SCENES.GAMEPLAY &&
-        !window._isLevelingUp && !window._isWaveShopOpen;
+      if (!game || game.scene !== cfg.SCENES.GAMEPLAY) return false;
+      if (window._isLevelingUp) return false;
+      // 局内商店打开时仍允许点工具栏（用于关背包/融合等）；仅波次弹窗模式阻塞
+      if (window._isWaveShopOpen && window._shopState && window._shopState.open) return false;
+      if (window._isWaveShopOpen && !(window._shopState && window._shopState.open)) {
+        window._isWaveShopOpen = false;
+      }
+      return true;
     }
     function _toolbarClick(fn) {
       return function(e) {
@@ -552,7 +558,11 @@
     // B6: Quick-switch weapon focus ('1'-'6' keys) + panel shortcuts
     document.addEventListener('keydown', (e) => {
       if (game && game.scene === cfg.SCENES.GAMEPLAY) {
-        if (window._isLevelingUp || window._isWaveShopOpen) return;
+        if (window._isLevelingUp) return;
+        if (window._isWaveShopOpen && window._shopState && window._shopState.open) return;
+        if (window._isWaveShopOpen && !(window._shopState && window._shopState.open)) {
+          window._isWaveShopOpen = false;
+        }
         // Backpack (I)
         if (e.key === 'i' || e.key === 'I') {
           e.preventDefault();
@@ -962,17 +972,26 @@
     return weapons;
   }
 
-  // Helper: Pick random weapons from pool (exclude already-equipped)
+  // Helper: Pick random weapons — new weapons need empty slot; owned ones can re-buy to upgrade
   function _pickRandomWeapons(count) {
     var pool = _getShopWeaponPool();
-    var equipped = {};
-    if (weaponManager && weaponManager.weaponSlots) {
-      for (var i = 0; i < weaponManager.weaponSlots.length; i++) {
-        var ws = weaponManager.weaponSlots[i];
-        if (ws) equipped[ws.weaponId] = true;
-      }
+    var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
+    var hasEmpty = weaponManager && weaponManager._findEmptySlot
+      ? weaponManager._findEmptySlot() >= 0 : true;
+    var available = pool.filter(function(w) {
+      if (w.fused) return false;
+      var curLvl = skillManager ? (skillManager.weaponLevels.get(w.id) || 0) : 0;
+      if (curLvl >= maxLvl) return false;
+      if (curLvl >= 1) return true;
+      return hasEmpty;
+    });
+    if (available.length === 0) {
+      available = pool.filter(function(w) {
+        if (w.fused) return false;
+        var curLvl = skillManager ? (skillManager.weaponLevels.get(w.id) || 0) : 0;
+        return curLvl < maxLvl;
+      });
     }
-    var available = pool.filter(function(w) { return !equipped[w.id]; });
     _shuffle(available);
     return available.slice(0, count);
   }
@@ -986,11 +1005,94 @@
     return pool.slice(0, count);
   }
 
-  // Helper: Pick random upgrade items
+  // Helper: Pick random upgrade items (stat upgrades + wave-shop weapon/skill upgrades)
   function _pickRandomUpgrades(count) {
     var pool = IN_RUN_SHOP_ITEMS.slice();
+    if (cfg.WAVE_SHOP_CONFIG && cfg.WAVE_SHOP_CONFIG.items) {
+      var waveUp = cfg.WAVE_SHOP_CONFIG.items.filter(function(i) { return i.category === 'upgrade'; });
+      pool = pool.concat(waveUp);
+    }
     _shuffle(pool);
     return pool.slice(0, count);
+  }
+
+  function _pickRandomLootItems(count) {
+    if (!cfg.WAVE_SHOP_CONFIG || !cfg.WAVE_SHOP_CONFIG.items) return [];
+    var pool = cfg.WAVE_SHOP_CONFIG.items.filter(function(i) { return i.category === 'loot'; });
+    _shuffle(pool);
+    return pool.slice(0, count);
+  }
+
+  function _shopUpgradeRandomWeapon() {
+    if (!skillManager || !weaponManager) return false;
+    var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
+    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var candidates = [];
+    skillManager.weaponLevels.forEach(function(lvl, wid) {
+      if (lvl >= 1 && lvl < maxLvl) candidates.push(wid);
+    });
+    if (candidates.length === 0) {
+      ui.showToast('没有可升级的武器！', '#ffaa00');
+      return false;
+    }
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    var curLvl = skillManager.weaponLevels.get(pick) || 1;
+    var newLvl = curLvl + 1;
+    skillManager.weaponLevels.set(pick, newLvl);
+    for (var i = 0; i < weaponManager.weaponSlots.length; i++) {
+      if (weaponManager.weaponSlots[i] && weaponManager.weaponSlots[i].weaponId === pick) {
+        weaponManager.weaponSlots[i].level = newLvl;
+        break;
+      }
+    }
+    var wCfg = GAME_CONFIG.WEAPONS[pick];
+    var label = upgradeCfg && upgradeCfg.descriptions ? upgradeCfg.descriptions[newLvl] : ('Lv' + newLvl);
+    ui.showToast('⬆️ ' + (wCfg ? wCfg.name : pick) + ' → ' + label, '#ffdd00');
+    if (window.ui) window.ui._markWeaponBarDirty();
+    return true;
+  }
+
+  function _shopUpgradeRandomSkill() {
+    if (!skillManager) return false;
+    var candidates = [];
+    skillManager.learnedSkills.forEach(function(stack, skillId) {
+      var skill = skillManager._findSkill(skillId);
+      if (skill && !skill.fused && !skill.ultimate) candidates.push(skillId);
+    });
+    if (candidates.length === 0) {
+      ui.showToast('没有可升级的技能/被动！', '#ffaa00');
+      return false;
+    }
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    skillManager.learnedSkills.set(pick, (skillManager.learnedSkills.get(pick) || 0) + 1);
+    var skill = skillManager._findSkill(pick);
+    if (skill && skill.type === 'passive') {
+      skillManager.player.applyStatModifiers(skill.effects);
+    }
+    ui.showToast('📖 ' + (skill ? skill.name : pick) + ' Lv.' + skillManager.learnedSkills.get(pick), '#ffaa44');
+    return true;
+  }
+
+  function _purchaseLootItem(item) {
+    var cfg = item.config;
+    if (!cfg || !cfg.id) return false;
+    switch (cfg.id) {
+      case 'weaponCrate':
+        if (skillManager && typeof skillManager._openWeaponCrate === 'function') {
+          skillManager._openWeaponCrate();
+        }
+        return true;
+      case 'skillDraw':
+        if (skillManager) {
+          skillManager._pendingLevelUps = (skillManager._pendingLevelUps || 0) + 1;
+          skillManager._showLevelUpChoices();
+          ui.showToast('🎴 获得技能选择！', '#ff44ff');
+        }
+        return true;
+      default:
+        ui.showToast('获得: ' + (cfg.name || cfg.id), '#ffdd00');
+        return true;
+    }
   }
 
   // Helper: Mystery item pool (rare loot, specials)
@@ -1042,10 +1144,17 @@
     var upgrades = _pickRandomUpgrades(1);
     for (var u = 0; u < upgrades.length; u++) {
       items.push({
-        id: 'upgrade_' + upgrades[u].id,
-        type: 'upgrade',
-        config: upgrades[u],
-        price: applyInflation(upgrades[u].cost || 50),
+        id: 'upgrade_' + upgrades[u].id, type: 'upgrade', config: upgrades[u],
+        price: applyInflation(upgrades[u].cost || upgrades[u].price || 50),
+        locked: false,
+        sold: false,
+      });
+    }
+    var loot = _pickRandomLootItems(1);
+    for (var l = 0; l < loot.length; l++) {
+      items.push({
+        id: 'loot_' + loot[l].id, type: 'loot', config: loot[l],
+        price: applyInflation(loot[l].price || 80),
         locked: false,
         sold: false,
       });
@@ -1115,20 +1224,21 @@
     var shopEl = document.getElementById('in-run-shop');
     if (shopEl) shopEl.style.display = 'none';
     state.open = false;
-    // Don't clear items — preserves lock state across open/close
+    state.waveShopMode = false;
+    window._isWaveShopOpen = false;
 
-    // Restore game
     if (game.timeScale !== undefined) game.timeScale = 1;
-    // Restore pause overlay if was paused before shop
     if (state.wasPaused) {
       var po = document.getElementById('pause-overlay');
       if (po) po.style.display = 'flex';
     } else {
       game.resume();
+      var po2 = document.getElementById('pause-overlay');
+      if (po2) po2.style.display = 'none';
     }
-    // Clear lock slots
     state.lockedIndices = [];
     state.lockSlots = [false, false, false, false, false, false];
+    state.items = [];
   };
 
   function _generateAndMergeShopItems(isWaveShop) {
@@ -1158,7 +1268,15 @@
       for (var wui = 0; wui < wUpgrade.length; wui++) {
         newItems.push({
           id: 'upgrade_' + wUpgrade[wui].id, type: 'upgrade', config: wUpgrade[wui],
-          price: applyInflation(wUpgrade[wui].cost || 45),
+          price: applyInflation(wUpgrade[wui].cost || wUpgrade[wui].price || 45),
+          locked: false, sold: false,
+        });
+      }
+      var wLoot = _pickRandomLootItems(1);
+      for (var wli = 0; wli < wLoot.length; wli++) {
+        newItems.push({
+          id: 'loot_' + wLoot[wli].id, type: 'loot', config: wLoot[wli],
+          price: applyInflation(wLoot[wli].price || 80),
           locked: false, sold: false,
         });
       }
@@ -1339,6 +1457,9 @@
       case 'upgrade':
         success = _purchaseUpgradeItem(item);
         break;
+      case 'loot':
+        success = _purchaseLootItem(item);
+        break;
       case 'mystery':
         success = _purchaseMysteryItem(item);
         break;
@@ -1363,45 +1484,57 @@
     var weaponId = item.config.id;
     if (!weaponId) return false;
 
-    // 重复购买 = 升级武器
     var sm = skillManager;
-    if (sm) {
-      var curLevel = sm.weaponLevels.get(weaponId) || 0;
-      if (curLevel >= 1) {
-        // 已有该武器 → 升级
-        var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
-        if (curLevel >= maxLvl) {
-          ui.showToast('武器已达最高等级！', '#ffaa00');
-          return false;
-        }
-        sm.weaponLevels.set(weaponId, curLevel + 1);
-        if (window.UpgradeTrack) UpgradeTrack.increment('weapons', weaponId);
-        // 同步槽位等级
-        if (weaponManager.weaponSlots) {
-          for (var si = 0; si < weaponManager.weaponSlots.length; si++) {
-            if (weaponManager.weaponSlots[si] && weaponManager.weaponSlots[si].weaponId === weaponId) {
-              weaponManager.weaponSlots[si].level = curLevel + 1;
-              break;
-            }
+    var curLevel = sm ? (sm.weaponLevels.get(weaponId) || 0) : 0;
+    var equipped = weaponManager.hasWeapon(weaponId);
+    var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
+
+    if (curLevel >= 1) {
+      if (curLevel >= maxLvl) {
+        ui.showToast('武器已达最高等级！', '#ffaa00');
+        return false;
+      }
+      sm.weaponLevels.set(weaponId, curLevel + 1);
+      if (window.UpgradeTrack) UpgradeTrack.increment('weapons', weaponId);
+      if (weaponManager.weaponSlots) {
+        for (var si = 0; si < weaponManager.weaponSlots.length; si++) {
+          if (weaponManager.weaponSlots[si] && weaponManager.weaponSlots[si].weaponId === weaponId) {
+            weaponManager.weaponSlots[si].level = curLevel + 1;
+            break;
           }
         }
-        var lvlLabel = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.descriptions)
-          ? GAME_CONFIG.WEAPON_UPGRADE.descriptions[curLevel + 1] : ('Lv' + (curLevel + 1));
-        ui.showToast('⬆️ ' + (item.config.name || weaponId) + ' → ' + lvlLabel, '#ffdd00');
-        return true;
       }
+      if (!equipped) {
+        var equipSlot = weaponManager._findEmptySlot ? weaponManager._findEmptySlot() : -1;
+        if (equipSlot >= 0) {
+          weaponManager.addWeaponToSlot(weaponId, equipSlot);
+          if (weaponManager.weaponSlots[equipSlot]) {
+            weaponManager.weaponSlots[equipSlot].level = curLevel + 1;
+          }
+        }
+      }
+      var lvlLabel = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.descriptions)
+        ? GAME_CONFIG.WEAPON_UPGRADE.descriptions[curLevel + 1] : ('Lv' + (curLevel + 1));
+      ui.showToast('⬆️ ' + (item.config.name || weaponId) + ' → ' + lvlLabel, '#ffdd00');
+      if (window.ui) window.ui._markWeaponBarDirty();
+      return true;
     }
 
-    // 首次获得：装到空槽位
     var slotIdx = weaponManager._findEmptySlot ? weaponManager._findEmptySlot() : -1;
     if (slotIdx < 0) {
-      ui.showToast('武器槽已满！', '#ff4444');
+      ui.showToast('武器槽已满！先卸载或购买「武器槽+1」', '#ff4444');
       return false;
     }
     weaponManager.addWeaponToSlot(weaponId, slotIdx);
-    if (sm) sm.weaponLevels.set(weaponId, 1);
+    if (sm) {
+      sm.weaponLevels.set(weaponId, 1);
+      if (weaponManager.weaponSlots[slotIdx]) {
+        weaponManager.weaponSlots[slotIdx].level = 1;
+      }
+    }
     ui.showToast('获得武器: ' + (item.config.name || weaponId), '#44ddff');
     if (window.CodexProgressManager) CodexProgressManager.discoverWeapon(weaponId);
+    if (window.ui) window.ui._markWeaponBarDirty();
     return true;
   }
 
@@ -1422,15 +1555,55 @@
 
   function _purchaseUpgradeItem(item) {
     if (!playerEntity) return false;
-    var cfg = item.config;
-    var upgradeId = cfg.id;
-    var level = (inRunUpgrades[upgradeId] || 0);
-    if (level >= (cfg.maxLevel || 10)) { ui.showToast('已满级！', '#ffaa00'); return false; }
-    inRunUpgrades[upgradeId] = level + 1;
-    if (cfg.effect) {
-      playerEntity.applyStatModifiers([cfg.effect(level + 1)]);
+    var itemCfg = item.config;
+    var upgradeId = itemCfg.id;
+
+    if (upgradeId === 'weaponUpgrade') return _shopUpgradeRandomWeapon();
+    if (upgradeId === 'skillUpgrade') return _shopUpgradeRandomSkill();
+
+    if (upgradeId === 'weaponSlot' || upgradeId === 'passiveSlot') {
+      var slotLevel = inRunUpgrades[upgradeId] || 0;
+      var slotItem = IN_RUN_SHOP_ITEMS.find(function(i) { return i.id === upgradeId; });
+      if (!slotItem || slotLevel >= slotItem.maxLevel) {
+        ui.showToast('已满级！', '#ffaa00');
+        return false;
+      }
+      if (upgradeId === 'weaponSlot') {
+        if (!skillManager) return false;
+        if (skillManager.weaponSlotsUnlocked >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
+          ui.showToast('武器槽已达上限!', '#ff4444');
+          return false;
+        }
+        skillManager.MAX_WEAPON_SLOTS = Math.min(skillManager.MAX_WEAPON_SLOTS + 1, cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8);
+        skillManager.weaponSlotsUnlocked++;
+        if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
+        inRunUpgrades[upgradeId] = slotLevel + 1;
+        ui.showToast('🔫 武器槽 +1 (共' + skillManager.weaponSlotsUnlocked + '/' + skillManager.MAX_WEAPON_SLOTS + '槽)', '#ffdd44');
+        if (window.ui) window.ui._markWeaponBarDirty();
+        return true;
+      }
+      if (upgradeId === 'passiveSlot') {
+        if (!skillManager) return false;
+        if (skillManager.passiveSlotsUnlocked >= skillManager.MAX_PASSIVE_SLOTS) {
+          ui.showToast('被动槽已达上限!', '#ff4444');
+          return false;
+        }
+        skillManager.MAX_PASSIVE_SLOTS++;
+        skillManager.passiveSlotsUnlocked++;
+        if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
+        inRunUpgrades[upgradeId] = slotLevel + 1;
+        ui.showToast('🛡️ 被动槽 +1 (共' + skillManager.passiveSlotsUnlocked + '/' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#44ddff');
+        return true;
+      }
     }
-    ui.showToast(cfg.name + ' Lv.' + (level + 1), '#ffdd00');
+
+    var level = (inRunUpgrades[upgradeId] || 0);
+    if (level >= (itemCfg.maxLevel || 10)) { ui.showToast('已满级！', '#ffaa00'); return false; }
+    inRunUpgrades[upgradeId] = level + 1;
+    if (itemCfg.effect) {
+      playerEntity.applyStatModifiers([itemCfg.effect(level + 1)]);
+    }
+    ui.showToast(itemCfg.name + ' Lv.' + (level + 1), '#ffdd00');
     return true;
   }
 
@@ -1560,8 +1733,12 @@
       div.className = 'shop-item' + (item.sold ? '' : '') + (item.locked ? '' : '');
       div.style.cssText = item.locked ? 'border-color:#44aaff;box-shadow:0 0 8px rgba(68,170,255,0.3);' : '';
 
-      var typeLabel = item.type === 'weapon' ? '🔫武器' : item.type === 'consumable' ? '💊消耗品' : item.type === 'upgrade' ? '⬆️强化' : '❓神秘';
+      var typeLabel = item.type === 'weapon' ? '🔫武器' : item.type === 'consumable' ? '💊消耗品' : item.type === 'upgrade' ? '⬆️强化' : item.type === 'loot' ? '📦宝箱' : '❓神秘';
       var name = cfg.name || (cfg.id || '?');
+      if (item.type === 'weapon' && skillManager) {
+        var ownedLvl = skillManager.weaponLevels.get(cfg.id) || 0;
+        if (ownedLvl >= 1) name += ' (升级Lv' + (ownedLvl + 1) + ')';
+      }
       var desc = cfg.description || cfg.desc || '';
       var icon = cfg.icon || '📦';
       var rarityClass = '';
@@ -1603,6 +1780,41 @@
 
       container.appendChild(div);
     }
+
+    _renderShopUpgradeSection(container);
+  }
+
+  function _renderShopUpgradeSection(container) {
+    if (!container) return;
+    var header = document.createElement('div');
+    header.style.cssText = 'width:100%;margin-top:16px;padding:8px 0 6px;border-top:1px solid rgba(255,221,0,0.25);font-size:14px;color:#ffdd88;font-weight:bold;';
+    header.textContent = '⬆️ 永久强化（可重复购买升级）';
+    container.appendChild(header);
+
+    IN_RUN_SHOP_ITEMS.forEach(function(shopItem) {
+      var level = inRunUpgrades[shopItem.id] || 0;
+      var cost = getInRunUpgradeCost(shopItem.id);
+      var isMax = level >= shopItem.maxLevel;
+      var canAfford = inRunGold >= cost;
+      var div = document.createElement('div');
+      div.className = 'shop-item';
+      div.innerHTML =
+        '<div class="shop-item-icon">' + shopItem.icon + '</div>' +
+        '<div class="shop-item-info"><div class="shop-item-name">' + shopItem.name + ' <span style="font-size:10px;color:#888;">⬆️强化</span></div>' +
+        '<div class="shop-item-level">等级: ' + level + '/' + shopItem.maxLevel + '</div>' +
+        '<div class="shop-item-desc">' + shopItem.desc + '</div></div>' +
+        '<button class="shop-item-btn shop-upgrade-btn" ' + (isMax || !canAfford ? 'disabled' : '') + ' style="min-width:80px;">' +
+        (isMax ? '已满级' : '💰 ' + cost) + '</button>';
+      if (!isMax && canAfford) {
+        div.querySelector('.shop-upgrade-btn').addEventListener('click', function() {
+          if (purchaseInRunUpgrade(shopItem.id)) {
+            if (window.audio) window.audio.playPickup();
+            _renderShopItems();
+          }
+        });
+      }
+      container.appendChild(div);
+    });
   }
 
   // Override existing shop functions to use new system
@@ -1614,7 +1826,6 @@
 
   function hideInRunShop() {
     window._closeInRunShop();
-    document.getElementById('pause-overlay').style.display = 'flex';
   }
 
   // Keep old renderInRunShopItems for backward compat (used by pause button click handler chain)
@@ -2257,6 +2468,13 @@
     waveShopLastWave = 0;
     waveShopCurrentItems = [];
     waveShopRefreshCount = 0;
+    window._isWaveShopOpen = false;
+    if (window._shopState) {
+      window._shopState.open = false;
+      window._shopState.items = [];
+      window._shopState.lockedIndices = [];
+      window._shopState.waveShopMode = false;
+    }
 
     // Clear all entities
     game.clearAllEntities();
@@ -2302,7 +2520,8 @@
       ? loadoutWeaponIds : ['normal'];
     weaponManager.setWeapon(loadoutWeapons[0]);
     for (var wi = 1; wi < loadoutWeapons.length; wi++) {
-      weaponManager.addWeaponToSlot(loadoutWeapons[wi]);
+      var emptyIdx = weaponManager._findEmptySlot();
+      if (emptyIdx >= 0) weaponManager.addWeaponToSlot(loadoutWeapons[wi], emptyIdx);
     }
     // Codex: discover initial weapons
     if (window.CodexProgressManager) {
@@ -3885,35 +4104,30 @@
     item.active = false;
     game.removeEntity(item);
 
-    // 触发道具拾取事件（供流派效果系统使用）
     if (window.eventBus) window.eventBus.emit('itemPickup', {item: item});
 
     if (window.audio) {
-      if (item.config.type === 'debuff') {
-        window.audio.playDamage();
-      } else {
-        window.audio.playPickup();
-      }
+      if (item.config.type === 'debuff') window.audio.playDamage();
+      else window.audio.playPickup();
     }
 
-    // Apply effect via buff manager
-    buffManager.applyBuff(item.config.effect, item.config);
+    var player = playerEntity || (game && game.player);
+    if (item._applyEffect && player) {
+      item._applyEffect(player);
+    } else if (buffManager && item.config && item.config.effect) {
+      buffManager.applyBuff(item.config.effect, item.config);
+    }
 
-    // Show toast
     if (item.config.dropText) {
       const color = item.config.type === 'debuff' ? '#ff4444' : '#ffdd00';
       ui.showToast(item.config.dropText, 1200, color);
     }
 
-    // Heal particles for health items
-    if (item.config.effect === 'heal') {
+    if (item.config.effect === 'heal' && window.ParticleSystem) {
       window.ParticleSystem.healEffect(playerEntity.x, playerEntity.y);
     }
 
-    // On-pickup skill trigger
-    if (playerEntity.onPickup) playerEntity.onPickup();
-
-    // Tutorial: advance on first pickup
+    if (playerEntity && playerEntity.onPickup) playerEntity.onPickup();
     onTutorialItemPickup();
   }
 
