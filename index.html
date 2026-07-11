@@ -929,9 +929,15 @@ canvas {
     grid-column: span 2;
   }
 
-  /* Two-column layout for meta shop */
+  /* Meta shop: single column on narrow phones */
   .meta-shop-items {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: 1fr !important;
+  }
+  .meta-shop-tab {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
+    font-size: 12px;
+    padding: 10px 8px;
   }
 
   /* Two-column layout for settlement stats */
@@ -1096,7 +1102,7 @@ canvas {
   #game-over .final-score { font-size: 64px; }
   .stat-row { padding: 10px 18px; font-size: 14px; }
 
-  /* Two-column layouts for shop */
+  /* Meta shop: 2 columns on tablet/desktop */
   .meta-shop-items {
     grid-template-columns: repeat(2, 1fr) !important;
   }
@@ -1495,6 +1501,12 @@ canvas {
 .codex-card-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
 .codex-card.codex-locked { opacity: 0.55; border-color: #333 !important; }
 .codex-card.codex-locked:hover { transform: none; border-color: #444 !important; }
+.codex-card-badge {
+  font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px;
+  display: inline-block;
+}
+.codex-card-badge.discovered { color: #66ffaa; background: rgba(68,255,170,0.12); }
+.codex-card-badge.undiscovered { color: #ffaa66; background: rgba(255,170,102,0.12); }
 .codex-card-fusion { font-size: 9px; color: #ffdd00; margin-top: 3px; }
 .codex-card-stats { font-size: 9px; color: #88aacc; margin-top: 3px; }
 .codex-card-boss { grid-column: span 2; }
@@ -1542,30 +1554,62 @@ canvas {
 .setting-select option { background: #1a1a3a; color: #fff; }
 
 /* Meta Shop Styles */
+.meta-shop-layout {
+  justify-content: flex-start;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+.meta-shop-panel {
+  width: min(1100px, 100%);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.meta-shop-header {
+  text-align: center;
+  flex-shrink: 0;
+}
 .meta-shop-balance {
-  font-size: 20px; color: #ffdd00; margin: 12px 0 8px;
+  font-size: 20px; color: #ffdd00; margin: 12px 0 4px;
   text-shadow: 0 0 12px rgba(255,221,0,0.5);
 }
 .meta-shop-tabs {
-  display: flex; gap: 10px; margin: 10px 0 16px;
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  flex-shrink: 0;
 }
 .meta-shop-tab {
-  padding: 8px 20px; border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+  padding: 10px 18px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px;
   background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; transition: all 0.2s;
-  font-size: 13px;
+  font-size: 13px; min-height: 44px;
 }
 .meta-shop-tab:hover { border-color: #ffdd00; }
 .meta-shop-tab.active { border-color: #ffdd00; background: rgba(255,221,0,0.2); color: #ffdd00; }
 .meta-shop-items {
-  display: grid; grid-template-columns: 1fr; gap: 10px;
-  width: 100%; max-width: 360px; max-height: 50vh; overflow-y: auto;
-  padding: 0 6px; margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  padding: 4px 4px 12px;
+  margin-bottom: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.meta-shop-back {
+  flex-shrink: 0;
+  width: min(280px, 100%);
+  margin: 0 auto 8px;
 }
 .meta-shop-card {
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px; border: 2px solid rgba(255,255,255,0.12);
+  padding: 14px 16px; border: 2px solid rgba(255,255,255,0.12);
   border-radius: 10px; background: rgba(255,255,255,0.04);
-  transition: all 0.25s;
+  transition: all 0.25s; min-height: 88px;
 }
 .meta-shop-card:hover {
   border-color: rgba(255,221,0,0.35); background: rgba(255,255,255,0.08);
@@ -1595,6 +1639,9 @@ canvas {
 .meta-shop-buy.owned-btn {
   border-color: #44dd44; color: #44dd44; background: rgba(68,221,68,0.1);
   cursor: default;
+}
+@media (min-width: 1100px) {
+  .meta-shop-items { grid-template-columns: repeat(3, 1fr) !important; }
 }
 
 /* Loading Screen */
@@ -2070,18 +2117,22 @@ canvas {
   </div>
 
   <!-- Meta Shop (商店) -->
-  <div class="menu-screen" id="meta-shop-screen" style="display:none">
-    <h1 style="font-size:28px">🛒 商店</h1>
-    <div class="subtitle">SHOP</div>
-    <div class="meta-shop-balance">⭐ 星币: <span id="meta-shop-coins">0</span></div>
-    <div class="meta-shop-tabs">
-      <button class="meta-shop-tab active" data-category="consumable">消耗品</button>
-      <button class="meta-shop-tab" data-category="permanent">永久道具</button>
-      <button class="meta-shop-tab" data-category="weapons">武器</button>
-      <button class="meta-shop-tab" data-category="upgrades">强化</button>
+  <div class="menu-screen meta-shop-layout" id="meta-shop-screen" style="display:none">
+    <div class="meta-shop-panel">
+      <header class="meta-shop-header">
+        <h1 style="font-size:28px;margin:0">🛒 商店</h1>
+        <div class="subtitle" style="margin-bottom:0">SHOP</div>
+        <div class="meta-shop-balance">⭐ 星币: <span id="meta-shop-coins">0</span></div>
+      </header>
+      <div class="meta-shop-tabs">
+        <button class="meta-shop-tab active" data-category="consumable">消耗品</button>
+        <button class="meta-shop-tab" data-category="permanent">永久道具</button>
+        <button class="meta-shop-tab" data-category="weapons">武器</button>
+        <button class="meta-shop-tab" data-category="upgrades">强化</button>
+      </div>
+      <div class="meta-shop-items" id="meta-shop-items"></div>
+      <button class="menu-btn meta-shop-back" id="btn-back-from-shop">返回</button>
     </div>
-    <div class="meta-shop-items" id="meta-shop-items"></div>
-    <button class="menu-btn" id="btn-back-from-shop">返回</button>
   </div>
 
   <!-- Settings (设置) -->
@@ -2219,12 +2270,12 @@ canvas {
 <script src="js/particles.js?v=15"></script>
 <script src="js/player.js?v=15"></script>
 <script src="js/bullets.js?v=15"></script>
-<script src="js/weapons.js?v=15"></script>
+<script src="js/weapons.js?v=17"></script>
 <script src="js/enemies.js?v=15"></script>
 <script src="js/items.js?v=15"></script>
-<script src="js/skills.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/main.js?v=16"></script>
+<script src="js/skills.js?v=17"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/main.js?v=17"></script>
 
 <!-- Service Worker: register once, update via user prompt -->
 <script>

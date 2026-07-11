@@ -1128,12 +1128,29 @@ class SkillManager {
   /**
    * Show level-up skill selection (pauses game, fires callback).
    */
+  _finishLevelUpFlow() {
+    this._pendingLevelUps = Math.max(0, (this._pendingLevelUps || 1) - 1);
+    if (this._pendingLevelUps > 0) {
+      this._isChoosing = false;
+      this._showLevelUpChoices();
+      return;
+    }
+    this._isChoosing = false;
+    window._isLevelingUp = false;
+    if (window.game) window.game.resume();
+  }
+
   _showLevelUpChoices() {
-    if (this._isChoosing) return; // Prevent re-entry during choice
+    if (this._isChoosing) return;
+    var choices = this.getSkillChoices(3);
+    if (!choices || choices.length === 0) {
+      this._finishLevelUpFlow();
+      return;
+    }
     this._isChoosing = true;
     window._isLevelingUp = true;
     if (this.onLevelUp) {
-      this.onLevelUp(this.getSkillChoices(3));
+      this.onLevelUp(choices);
     }
   }
 
@@ -1614,7 +1631,10 @@ class SkillManager {
    */
   _assignSlot(slotType) {
     if (slotType === 'weapon') {
-      if (this.weaponSlotsUnlocked >= this.MAX_WEAPON_SLOTS) return;
+      if (this.weaponSlotsUnlocked >= this.MAX_WEAPON_SLOTS) {
+        this._finishLevelUpFlow();
+        return;
+      }
       this.weaponSlotsUnlocked++;
       if (this.weaponManager) {
         this.weaponManager.maxWeaponSlots = this.weaponSlotsUnlocked;
@@ -1623,7 +1643,10 @@ class SkillManager {
         window.ui.showToast('🔫 新武器槽已解锁 (' + this.weaponSlotsUnlocked + '/' + this.MAX_WEAPON_SLOTS + ')', 2000, '#ffdd44');
       }
     } else if (slotType === 'passive') {
-      if (this.passiveSlotsUnlocked >= this.MAX_PASSIVE_SLOTS) return;
+      if (this.passiveSlotsUnlocked >= this.MAX_PASSIVE_SLOTS) {
+        this._finishLevelUpFlow();
+        return;
+      }
       this.passiveSlotsUnlocked++;
       if (this.weaponManager) this.weaponManager.maxPassiveSlots = this.passiveSlotsUnlocked;
       if (window.ui) {

@@ -597,9 +597,11 @@ class WeaponManager {
       // Each slot has its own independent fire timer
       slot.fireTimer += dtMs;
 
-      while (slot.fireTimer >= effectiveFireRate) {
+      var shotsThisFrame = 0;
+      while (slot.fireTimer >= effectiveFireRate && shotsThisFrame < 3) {
         slot.fireTimer -= effectiveFireRate;
         this._fireWeapon(slot.weaponId, cfg, stats);
+        shotsThisFrame++;
       }
     }
 
@@ -1212,6 +1214,7 @@ class WeaponManager {
     var cfg = GAME_CONFIG.WEAPONS[weaponId];
     if (!cfg) return;
 
+    this._cleanupOrbitals();
     var count = cfg.orbitCount || 4;
     this.orbitals = [];
 
@@ -1252,9 +1255,11 @@ class WeaponManager {
       }
       if (droneFireRate < 50) droneFireRate = 50;
 
-      while (drone.fireTimer >= droneFireRate) {
+      var droneShots = 0;
+      while (drone.fireTimer >= droneFireRate && droneShots < 2) {
         drone.fireTimer -= droneFireRate;
         drone._shoot(stats);
+        droneShots++;
       }
     }
   }

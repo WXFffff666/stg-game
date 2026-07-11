@@ -73,6 +73,8 @@ class UIManager {
     this.elMetaShopCoins = gid('meta-shop-coins');
     this.elMetaShopItems = gid('meta-shop-items');
     this._metaShopCategory = 'consumable';
+    this._buffBarDirty = true;
+    this._buffBarCache = '';
 
     // Screens
     this.elMenuScreen = gid('menu-screen');
@@ -1412,8 +1414,11 @@ class UIManager {
     this.updateTime(game.gameTime / 1000);
     this.updateCombo(game.combo);
 
-    // Gold (read from DOM since main.js manages inRunGold)
-    // main.js already updates gold-text, no need to duplicate
+    // Gold
+    var goldEl = document.getElementById('gold-text');
+    if (goldEl && typeof window._getInRunGold === 'function') {
+      goldEl.textContent = window._getInRunGold();
+    }
 
     // Boss HP bar
     var boss = null;
@@ -1659,10 +1664,11 @@ class UIManager {
   updateBuffBar() {
     if (!this.elBuffBar) return;
     var buffMgr = (typeof buffManager !== 'undefined') ? buffManager : null;
-    if (!buffMgr) return;
-
-    var bar = this.elBuffBar;
-    bar.innerHTML = '';
+    if (!buffMgr) {
+      this.elBuffBar.innerHTML = '';
+      this._buffBarCache = '';
+      return;
+    }
 
     var items = [];
     buffMgr.activeBuffs.forEach(function (buff, type) {
@@ -1676,26 +1682,44 @@ class UIManager {
       items.push({ type: type, icon: icon, pct: pct, isDebuff: isDebuff });
     });
 
+    var cacheKey = JSON.stringify(items);
+    if (!this._buffBarDirty && this._buffBarCache === cacheKey) return;
+    this._buffBarDirty = false;
+    this._buffBarCache = cacheKey;
+
+    var bar = this.elBuffBar;
+    while (bar.children.length > items.length) {
+      bar.removeChild(bar.lastChild);
+    }
+    while (bar.children.length < items.length) {
+      var shell = document.createElement('div');
+      shell.className = 'buff-icon';
+      var shellCanvas = document.createElement('canvas');
+      shellCanvas.width = 32;
+      shellCanvas.height = 32;
+      shell.appendChild(shellCanvas);
+      var shellSpan = document.createElement('span');
+      shellSpan.style.cssText = 'position:relative;z-index:1';
+      shell.appendChild(shellSpan);
+      bar.appendChild(shell);
+    }
+
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
-      var div = document.createElement('div');
+      var div = bar.children[i];
       div.className = 'buff-icon' + (item.isDebuff ? ' debuff' : '');
       div.title = item.type + ' (' + Math.ceil(item.pct * 100) + '%)';
 
-      // Canvas countdown ring
-      var canvas = document.createElement('canvas');
-      canvas.width = 32;
-      canvas.height = 32;
+      var canvas = div.querySelector('canvas');
       var cctx = canvas.getContext('2d');
+      cctx.clearRect(0, 0, 32, 32);
 
-      // Ring background
       cctx.beginPath();
       cctx.arc(16, 16, 13, 0, Math.PI * 2);
       cctx.strokeStyle = item.isDebuff ? 'rgba(255,68,68,0.25)' : 'rgba(68,255,68,0.25)';
       cctx.lineWidth = 2;
       cctx.stroke();
 
-      // Ring fill
       if (item.pct > 0) {
         cctx.beginPath();
         cctx.arc(16, 16, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.pct);
@@ -1704,15 +1728,8 @@ class UIManager {
         cctx.stroke();
       }
 
-      div.appendChild(canvas);
-
-      // Emoji label
-      var span = document.createElement('span');
-      span.style.cssText = 'position:relative;z-index:1';
-      span.textContent = item.icon;
-      div.appendChild(span);
-
-      bar.appendChild(div);
+      var span = div.querySelector('span');
+      if (span) span.textContent = item.icon;
     }
   }
 
@@ -2539,14 +2556,8 @@ class UIManager {
     if (!this.elPauseOverlay) return;
     if (game && game.isPaused) {
       this.elPauseOverlay.style.display = 'flex';
-      this._stopHUDLoop(); // Stop updates while paused
     } else {
       this.elPauseOverlay.style.display = 'none';
-      // Restart HUD loop if HUD is visible and in gameplay
-      if (this.elHud && this.elHud.style.display !== 'none' &&
-          game && game.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
-        this._startHUDLoop();
-      }
     }
   }
 
@@ -3260,51 +3271,49 @@ class UIManager {
       });
     }
 
-    function isKnown(type, id) {
-      if (!codex || typeof codex.isDiscovered !== 'function') return true;
-      return codex.isDiscovered(type, id);
+    function discoveryBadge(type, id) {
+      var discovered = !codex || typeof codex.isDiscovered !== 'function' || codex.isDiscovered(type, id);
+      return discovered
+        ? '<div class="codex-card-badge discovered">已发现</div>'
+        : '<div class="codex-card-badge undiscovered">未遭遇</div>';
     }
 
     if (tab === 'weapons') {
       for (const [id, w] of Object.entries(cfg.WEAPONS)) {
-        const known = isKnown('weapons', id);
+        if (w.fused) continue;
         const card = document.createElement('div');
-        card.className = 'codex-card' + (known ? '' : ' codex-locked');
-        card.innerHTML = known
-          ? `<div class="codex-card-icon">${w.icon || '🔫'}</div>
+        card.className = 'codex-card';
+        card.innerHTML =
+          discoveryBadge('weapons', id) +
+          `<div class="codex-card-icon">${w.icon || '🔫'}</div>
           <div class="codex-card-name">${w.name || id}</div>
           <div class="codex-card-desc">${w.description || w.pattern || ''}</div>
-          ${fusionWeaponIds[id] ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}`
-          : `<div class="codex-card-icon">❓</div>
-          <div class="codex-card-name">???</div>
-          <div class="codex-card-desc">尚未发现</div>`;
+          ${fusionWeaponIds[id] ? '<div class="codex-card-fusion">🔮 可融合</div>' : ''}`;
         container.appendChild(card);
       }
     } else if (tab === 'skills') {
       for (const skill of cfg.SKILLS) {
-        if (skill.faction && skill.faction !== 'any' && skill.exclusive) continue;
-        const known = isKnown('skills', skill.id);
+        if (skill.fused) continue;
         const card = document.createElement('div');
-        card.className = 'codex-card' + (known ? '' : ' codex-locked');
-        card.innerHTML = known
-          ? `<div class="codex-card-icon">${skill.icon || '✨'}</div>
+        card.className = 'codex-card';
+        const typeLabel = skill.type === 'passive' ? '被动' : skill.type === 'active' ? '主动' : '技能';
+        card.innerHTML =
+          discoveryBadge('skills', skill.id) +
+          `<div class="codex-card-icon">${skill.icon || '✨'}</div>
           <div class="codex-card-name">${skill.name || skill.id}</div>
-          <div class="codex-card-desc">${skill.description || ''}</div>`
-          : `<div class="codex-card-icon">❓</div>
-          <div class="codex-card-name">???</div>
-          <div class="codex-card-desc">尚未发现</div>`;
+          <div class="codex-card-desc">${skill.description || ''}</div>
+          <div class="codex-card-stats">${typeLabel}${skill.faction && skill.faction !== 'any' ? ' · ' + skill.faction : ''}</div>`;
         container.appendChild(card);
       }
     } else if (tab === 'factions') {
-      // 渲染流派
       for (const [id, f] of Object.entries(cfg.FACTIONS)) {
         const card = document.createElement('div');
         card.className = 'codex-card';
-        card.innerHTML = `
-          <div class="codex-card-icon">${f.icon || '🎯'}</div>
+        card.innerHTML =
+          discoveryBadge('factions', id) +
+          `<div class="codex-card-icon">${f.icon || '🎯'}</div>
           <div class="codex-card-name" style="color:${f.color}">${f.name || id}</div>
-          <div class="codex-card-desc">${f.description || ''}</div>
-        `;
+          <div class="codex-card-desc">${f.description || ''}</div>`;
         container.appendChild(card);
       }
     } else if (tab === 'enemies') {
@@ -3312,41 +3321,32 @@ class UIManager {
       if (enemyTypes) {
         for (var key in enemyTypes) {
           var e = enemyTypes[key];
-          var eKnown = isKnown('enemies', key);
           var card = document.createElement('div');
-          card.className = 'codex-card' + (eKnown ? '' : ' codex-locked');
-          if (eKnown) {
-            card.style.borderColor = (e.color || '#fff') + '44';
-            card.innerHTML =
-              '<div class="codex-card-icon" style="color:' + (e.color || '#fff') + '">●</div>' +
-              '<div class="codex-card-name" style="color:' + (e.color || '#fff') + '">' + (e.name || key) + '</div>' +
-              '<div class="codex-card-desc">' + (e.ai ? '行为: ' + e.ai : '') + '</div>' +
-              '<div class="codex-card-stats">HP:' + e.hp + ' 速度:' + e.speed + ' 伤害:' + e.damage + '</div>';
-          } else {
-            card.innerHTML = '<div class="codex-card-icon">❓</div><div class="codex-card-name">???</div><div class="codex-card-desc">尚未遭遇</div>';
-          }
+          card.className = 'codex-card';
+          card.style.borderColor = (e.color || '#fff') + '44';
+          card.innerHTML =
+            discoveryBadge('enemies', key) +
+            '<div class="codex-card-icon" style="color:' + (e.color || '#fff') + '">●</div>' +
+            '<div class="codex-card-name" style="color:' + (e.color || '#fff') + '">' + (e.name || key) + '</div>' +
+            '<div class="codex-card-desc">' + (e.ai ? '行为: ' + e.ai : '') + '</div>' +
+            '<div class="codex-card-stats">HP:' + e.hp + ' 速度:' + e.speed + ' 伤害:' + e.damage + '</div>';
           container.appendChild(card);
         }
       }
     } else if (tab === 'bosses') {
-      // 渲染Boss
       var bossTypes = cfg.BOSSES;
       if (bossTypes) {
         for (var key in bossTypes) {
           var b = bossTypes[key];
-          var bKnown = isKnown('bosses', key);
           var card = document.createElement('div');
-          card.className = 'codex-card codex-card-boss' + (bKnown ? '' : ' codex-locked');
-          if (bKnown) {
-            card.style.borderColor = (b.color || '#ff4444') + '66';
-            card.innerHTML =
-              '<div class="codex-card-icon" style="font-size:32px">' + (b.icon || '💀') + '</div>' +
-              '<div class="codex-card-name" style="color:' + (b.color || '#ff4444') + ';font-size:14px">' + (b.name || key) + '</div>' +
-              '<div class="codex-card-desc">' + (b.description || '') + '</div>' +
-              '<div class="codex-card-stats">HP:' + b.baseHp + ' 伤害:' + b.baseDamage + '</div>';
-          } else {
-            card.innerHTML = '<div class="codex-card-icon">❓</div><div class="codex-card-name">???</div><div class="codex-card-desc">尚未击败</div>';
-          }
+          card.className = 'codex-card codex-card-boss';
+          card.style.borderColor = (b.color || '#ff4444') + '66';
+          card.innerHTML =
+            discoveryBadge('bosses', key) +
+            '<div class="codex-card-icon" style="font-size:32px">' + (b.icon || '💀') + '</div>' +
+            '<div class="codex-card-name" style="color:' + (b.color || '#ff4444') + ';font-size:14px">' + (b.name || key) + '</div>' +
+            '<div class="codex-card-desc">' + (b.description || '') + '</div>' +
+            '<div class="codex-card-stats">HP:' + b.baseHp + ' 伤害:' + b.baseDamage + '</div>';
           container.appendChild(card);
         }
       }

@@ -775,6 +775,7 @@
 
   // ============ IN-RUN SHOP SYSTEM (Comprehensive A1-A8) ============
   let inRunGold = 0;
+  window._getInRunGold = function() { return inRunGold; };
   // In-run items inventory (consumables bought from wave shop, used from backpack)
   window._inRunItems = [];
 
@@ -2601,12 +2602,22 @@
         }, 1000);
       }
 
+      if (choices.length === 0) {
+        skillManager._finishLevelUpFlow();
+        return;
+      }
+
       ui.showLevelUp(choices, function(selectedItem) {
         clearAutoSelect();
-        // Handle fusion cards (they have _choiceType === 'fusion')
         if (selectedItem._choiceType === 'fusion') {
-          // Fusion cards are handled by the separate addFusionCards callback
-          // This should not be reached, but handle gracefully
+          if (skillManager._pendingLevelUps > 0) {
+            skillManager._finishLevelUpFlow();
+          } else {
+            skillManager._isChoosing = false;
+            window._isLevelingUp = false;
+            if (window.game) window.game.resume();
+          }
+          ui.hideLevelUp();
           return;
         }
 
@@ -3347,11 +3358,8 @@
       }
     }
 
-    // Update HUD
-    updateHUD();
-
-		    // Check pause state — don't show pause overlay during level-up or wave shop
-		    const pauseOverlay = document.getElementById('pause-overlay');
+    // Pause overlay (HP/score/boss handled by ui.updateHUD in core loop)
+    const pauseOverlay = document.getElementById('pause-overlay');
 		    if (game.isPaused && game.scene === cfg.SCENES.GAMEPLAY && !window._isLevelingUp && !window._isWaveShopOpen) {
 		      pauseOverlay.style.display = 'flex';
 		      // G3: Show seed in pause menu
