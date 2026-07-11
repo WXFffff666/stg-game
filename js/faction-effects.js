@@ -633,7 +633,11 @@
 
   HANDLERS.storm = {
     onBulletHit: function(ctx) {
+      var p = ctx.player;
+      var now = Date.now();
+      if (p._lastTornadoSpawn && now - p._lastTornadoSpawn < 400) return;
       if (Math.random() >= stat(ctx.player, 'tornadoChance', 0.08)) return;
+      p._lastTornadoSpawn = now;
       var g = ctx.game, ex = ctx.enemy.x, ey = ctx.enemy.y;
       g.addEntity({
         x: ex, y: ey, size: 30, _age: 0, lifetime: 2, active: true, category: 'particle', drawLayer: 3,

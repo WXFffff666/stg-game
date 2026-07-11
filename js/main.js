@@ -3450,8 +3450,12 @@
   }
 
   function handleEnemyKilled(enemy, isCrit, damage, preDamageHp, killingBullet) {
-    // Ice shard / frozen shatter: AoE on kill per weapon description
-    if (killingBullet && killingBullet.shatterDamage) {
+    if (handleEnemyKilled._depth > 12) return;
+    handleEnemyKilled._depth = (handleEnemyKilled._depth || 0) + 1;
+    try {
+    // Ice shard shatter: AoE on kill (no recursive shatter chain)
+    if (killingBullet && killingBullet.shatterDamage && !enemy._shatterProcessed) {
+      enemy._shatterProcessed = true;
       var shDmg = killingBullet.shatterDamage;
       var shRad = killingBullet.shatterRadius || 80;
       for (var _si = 0; _si < game.enemies.length; _si++) {
@@ -3459,8 +3463,9 @@
         if (!_se.active || _se === enemy) continue;
         var _sdx = _se.x - enemy.x, _sdy = _se.y - enemy.y;
         if (_sdx * _sdx + _sdy * _sdy < shRad * shRad) {
+          var _preHp = _se.hp;
           var _salive = _se.takeDamage(shDmg);
-          if (!_salive) handleEnemyKilled(_se, false, shDmg, _se.hp + shDmg, null);
+          if (!_salive) handleEnemyKilled(_se, false, shDmg, _preHp, null);
         }
       }
       if (window.ParticleSystem && window.ParticleSystem.shatterEffect) {
@@ -3738,6 +3743,9 @@
 
     // Check for boss trigger
     checkBossSpawn();
+    } finally {
+      handleEnemyKilled._depth = Math.max(0, (handleEnemyKilled._depth || 1) - 1);
+    }
   }
 
   // Expose for DOT kill handling in enemies.js

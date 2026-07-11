@@ -1132,57 +1132,61 @@ class UIManager {
     var hasSkills = (activeSkills && activeSkills.length > 0) || (passiveSkills && passiveSkills.length > 0);
     this.elSkillBar.style.display = hasSkills ? 'flex' : 'none';
 
-    // Active skills (top row)
-    if (this.elActiveSkillRow) {
-      this.elActiveSkillRow.innerHTML = '';
-      if (activeSkills) {
-        for (var i = 0; i < activeSkills.length; i++) {
-          var sk = activeSkills[i];
-          var slot = document.createElement('div');
-          slot.className = 'hud-skill-slot';
-          slot.textContent = sk.icon || '✨';
+    this._syncSkillRow(this.elActiveSkillRow, activeSkills || [], false);
+    this._syncSkillRow(this.elPassiveSkillRow, passiveSkills || [], true);
+  }
 
-          // Cooldown overlay
-          if (sk.cooldownPct > 0) {
-            var cd = document.createElement('div');
-            cd.className = 'skill-cooldown-overlay';
-            cd.style.height = (sk.cooldownPct * 100) + '%';
-            slot.appendChild(cd);
-          }
-
-          // Level badge
-          if (sk.level > 1) {
-            var badge = document.createElement('div');
-            badge.className = 'skill-level-badge';
-            badge.textContent = sk.level;
-            slot.appendChild(badge);
-          }
-
-          this.elActiveSkillRow.appendChild(slot);
-        }
-      }
+  /** Incremental skill slot update — no innerHTML wipe per frame */
+  _syncSkillRow(rowEl, skills, isPassive) {
+    if (!rowEl) return;
+    while (rowEl.children.length < skills.length) {
+      var ns = document.createElement('div');
+      ns.className = 'hud-skill-slot';
+      rowEl.appendChild(ns);
     }
+    while (rowEl.children.length > skills.length) {
+      rowEl.removeChild(rowEl.lastChild);
+    }
+    for (var i = 0; i < skills.length; i++) {
+      var sk = skills[i];
+      var slot = rowEl.children[i];
+      slot.className = 'hud-skill-slot';
+      if (isPassive) slot.style.opacity = '0.85';
 
-    // Passive skills (bottom row)
-    if (this.elPassiveSkillRow) {
-      this.elPassiveSkillRow.innerHTML = '';
-      if (passiveSkills) {
-        for (var j = 0; j < passiveSkills.length; j++) {
-          var ps = passiveSkills[j];
-          var pSlot = document.createElement('div');
-          pSlot.className = 'hud-skill-slot';
-          pSlot.style.opacity = '0.8';
-          pSlot.textContent = ps.icon || '✨';
+      var icon = slot.querySelector('.skill-icon');
+      if (!icon) {
+        slot.textContent = '';
+        icon = document.createElement('span');
+        icon.className = 'skill-icon';
+        slot.appendChild(icon);
+      }
+      var ic = sk.icon || '✨';
+      if (icon.textContent !== ic) icon.textContent = ic;
 
-          if (ps.level > 1) {
-            var pBadge = document.createElement('div');
-            pBadge.className = 'skill-level-badge';
-            pBadge.textContent = ps.level;
-            pSlot.appendChild(pBadge);
-          }
-
-          this.elPassiveSkillRow.appendChild(pSlot);
+      var cd = slot.querySelector('.skill-cooldown-overlay');
+      if (!isPassive && sk.cooldownPct > 0) {
+        if (!cd) {
+          cd = document.createElement('div');
+          cd.className = 'skill-cooldown-overlay';
+          slot.appendChild(cd);
         }
+        var h = Math.round(sk.cooldownPct * 100);
+        if (cd.style.height !== h + '%') cd.style.height = h + '%';
+      } else if (cd) {
+        cd.remove();
+      }
+
+      var badge = slot.querySelector('.skill-level-badge');
+      if (sk.level > 1) {
+        var bt = String(sk.level);
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.className = 'skill-level-badge';
+          slot.appendChild(badge);
+        }
+        if (badge.textContent !== bt) badge.textContent = bt;
+      } else if (badge) {
+        badge.remove();
       }
     }
   }
@@ -1204,105 +1208,132 @@ class UIManager {
     this.elWeaponBar.style.display = hasWeapons ? 'flex' : 'none';
     if (!hasWeapons) return;
 
-    // === Grid: dynamic weapon slots (supports B2 expansion) ===
     var grid = document.getElementById('weapon-grid');
-    if (!grid) {
-      this.elWeaponBar.innerHTML = '';
-      grid = document.createElement('div');
-      grid.className = 'hud-weapon-grid';
-      grid.id = 'weapon-grid';
-      this.elWeaponBar.appendChild(grid);
-    }
-    grid.innerHTML = '';
+    if (!grid) return;
 
-    // B8: Check fusion recipes for glow effect
     var fusionGlowSlots = this._getFusionGlowSlots();
-    // B6: Get focused slot
     var focusedSlot = (window.weaponManager) ? window.weaponManager.getFocusedSlot() : -1;
-
-    // Support up to 8 slots (dynamic from B2 expansion)
     var slots = weaponSlots.slice(0, 8);
     var slotCount = Math.max(slots.length, 6);
-    // Adjust grid columns based on slot count
-    grid.style.gridTemplateColumns = 'repeat(' + slotCount + ', 40px)';
+
+    // Grow/shrink slot elements without full rebuild (prevents attack flash)
+    while (grid.children.length < slotCount) {
+      var emptySlot = document.createElement('div');
+      emptySlot.className = 'hud-weapon-slot empty';
+      emptySlot.textContent = '－';
+      grid.appendChild(emptySlot);
+    }
+    while (grid.children.length > slotCount) {
+      grid.removeChild(grid.lastChild);
+    }
+
+    if (!this._weaponSlotClickBound) {
+      this._weaponSlotClickBound = true;
+      grid.addEventListener('click', function(e) {
+        var el = e.target.closest('.hud-weapon-slot');
+        if (!el || el.classList.contains('empty')) return;
+        var idx = parseInt(el.dataset.slotIdx, 10);
+        if (isNaN(idx) || !window.weaponManager) return;
+        if (typeof window.weaponManager.toggleFocusedSlot === 'function') {
+          window.weaponManager.toggleFocusedSlot(idx);
+        }
+      });
+    }
 
     for (var i = 0; i < slotCount; i++) {
       var w = (i < slots.length) ? slots[i] : null;
-      var slot = document.createElement('div');
-      slot.className = 'hud-weapon-slot';
+      var slot = grid.children[i];
+      slot.dataset.slotIdx = String(i);
 
       if (w && w.id) {
+        slot.className = 'hud-weapon-slot';
+        if (i === focusedSlot) slot.classList.add('active-weapon');
+        if (fusionGlowSlots.indexOf(i) !== -1) slot.classList.add('fusion-glow');
         slot.dataset.weaponId = w.id;
-        // B6: Highlight focused weapon
-        if (i === focusedSlot) {
-          slot.classList.add('active-weapon');
-        }
-        // B8: Fusion glow
-        if (fusionGlowSlots.indexOf(i) !== -1) {
-          slot.classList.add('fusion-glow');
-        }
-        slot.textContent = w.icon || '🔫';
 
-        // Cooldown overlay (bottom-up fill)
+        var iconNode = slot.querySelector('.weapon-icon');
+        if (!iconNode) {
+          slot.textContent = '';
+          iconNode = document.createElement('span');
+          iconNode.className = 'weapon-icon';
+          slot.appendChild(iconNode);
+        }
+        if (iconNode.textContent !== (w.icon || '🔫')) {
+          iconNode.textContent = w.icon || '🔫';
+        }
+
+        var cd = slot.querySelector('.weapon-cooldown-overlay');
         if (w.cooldownPct > 0) {
-          var cd = document.createElement('div');
-          cd.className = 'weapon-cooldown-overlay';
-          cd.style.height = (w.cooldownPct * 100) + '%';
-          slot.appendChild(cd);
+          if (!cd) {
+            cd = document.createElement('div');
+            cd.className = 'weapon-cooldown-overlay';
+            slot.appendChild(cd);
+          }
+          var cdH = Math.round(w.cooldownPct * 100);
+          if (cd.style.height !== cdH + '%') cd.style.height = cdH + '%';
+        } else if (cd) {
+          cd.remove();
         }
 
-        // Level badge
+        var badge = slot.querySelector('.weapon-level-badge');
         if (w.level > 0) {
-          var badge = document.createElement('div');
-          badge.className = 'weapon-level-badge';
-          badge.textContent = 'Lv' + w.level;
-          slot.appendChild(badge);
+          var lvlTxt = 'Lv' + w.level;
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'weapon-level-badge';
+            slot.appendChild(badge);
+          }
+          if (badge.textContent !== lvlTxt) badge.textContent = lvlTxt;
+        } else if (badge) {
+          badge.remove();
         }
-
-        // Click-to-focus slot (B6: quick-switch)
-        (function(slotIdx) {
-          slot.addEventListener('click', function() {
-            if (window.weaponManager && typeof window.weaponManager.toggleFocusedSlot === 'function') {
-              window.weaponManager.toggleFocusedSlot(slotIdx);
-            }
-          });
-        })(i);
       } else {
-        // Empty slot
-        slot.classList.add('empty');
+        slot.className = 'hud-weapon-slot empty';
+        slot.removeAttribute('data-weapon-id');
         slot.textContent = '－';
       }
-
-      grid.appendChild(slot);
     }
 
-    // === Passive row (orbital drones, etc.) ===
     var passiveRow = document.getElementById('weapon-passive-row');
-    if (!passiveRow) {
-      passiveRow = document.createElement('div');
-      passiveRow.className = 'hud-weapon-passive-row';
-      passiveRow.id = 'weapon-passive-row';
-      this.elWeaponBar.appendChild(passiveRow);
-    }
-    passiveRow.innerHTML = '';
+    if (!passiveRow) return;
 
     if (passiveSlots && passiveSlots.length > 0) {
       passiveRow.style.display = 'flex';
+      while (passiveRow.children.length < passiveSlots.length) {
+        var pNew = document.createElement('div');
+        pNew.className = 'hud-weapon-slot passive';
+        passiveRow.appendChild(pNew);
+      }
+      while (passiveRow.children.length > passiveSlots.length) {
+        passiveRow.removeChild(passiveRow.lastChild);
+      }
       for (var j = 0; j < passiveSlots.length; j++) {
         var ps = passiveSlots[j];
-        var pSlot = document.createElement('div');
-        pSlot.className = 'hud-weapon-slot passive';
-        pSlot.textContent = ps.icon || '🛸';
-        if (ps.level > 0) {
-          var pBadge = document.createElement('div');
-          pBadge.className = 'weapon-level-badge';
-          pBadge.textContent = 'Lv' + ps.level;
-          pSlot.appendChild(pBadge);
+        var pSlot = passiveRow.children[j];
+        var pIcon = pSlot.querySelector('.weapon-icon');
+        if (!pIcon) {
+          pSlot.textContent = '';
+          pIcon = document.createElement('span');
+          pIcon.className = 'weapon-icon';
+          pSlot.appendChild(pIcon);
         }
-        passiveRow.appendChild(pSlot);
+        pIcon.textContent = ps.icon || '🛸';
+        var pBadge = pSlot.querySelector('.weapon-level-badge');
+        if (ps.level > 0) {
+          var pTxt = 'Lv' + ps.level;
+          if (!pBadge) {
+            pBadge = document.createElement('div');
+            pBadge.className = 'weapon-level-badge';
+            pSlot.appendChild(pBadge);
+          }
+          if (pBadge.textContent !== pTxt) pBadge.textContent = pTxt;
+        } else if (pBadge) {
+          pBadge.remove();
+        }
       }
     } else {
       passiveRow.style.display = 'none';
+      passiveRow.innerHTML = '';
     }
   }
 
@@ -3559,107 +3590,100 @@ class UIManager {
       screen.appendChild(statPanel);
     }
 
-    // === Weapon Slots Row ===
+    // === Weapon + Inventory layout ===
+    var layoutRow = document.createElement('div');
+    layoutRow.style.cssText = 'display:flex;gap:14px;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;';
+    screen.appendChild(layoutRow);
+
+    var equipCol = document.createElement('div');
+    equipCol.style.cssText = 'flex:0 0 auto;min-width:72px;';
+    layoutRow.appendChild(equipCol);
+
     var slotLabel = document.createElement('div');
-    slotLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
-    slotLabel.textContent = '🔫 武器槽位';
-    screen.appendChild(slotLabel);
+    slotLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;text-align:center;';
+    slotLabel.textContent = '🔫 装备栏';
+    equipCol.appendChild(slotLabel);
 
     var slotsRow = document.createElement('div');
-    slotsRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;';
-    screen.appendChild(slotsRow);
+    slotsRow.id = 'bp-weapon-slots';
+    slotsRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center;';
+    equipCol.appendChild(slotsRow);
 
-    var maxWSlots = (wm && wm.maxWeaponSlots) || (sm && sm.MAX_WEAPON_SLOTS) || 6;
-    if (wm && wm.weaponSlots) {
-      for (var i = 0; i < Math.min(maxWSlots, wm.weaponSlots.length); i++) {
-        var slot = wm.weaponSlots[i];
-        var slotEl = document.createElement('div');
-        slotEl.style.cssText = 'width:48px;height:48px;border:2px solid ' + (slot ? '#44ddff' : '#444') +
-          ';border-radius:8px;display:flex;align-items:center;justify-content:center;' +
-          'background:' + (slot ? 'rgba(68,221,255,0.1)' : 'rgba(255,255,255,0.03)') +
-          ';cursor:pointer;font-size:18px;position:relative;transition:border-color 0.2s;';
-        slotEl.title = '槽位 ' + (i + 1);
+    var invCol = document.createElement('div');
+    invCol.style.cssText = 'flex:1;min-width:200px;';
+    layoutRow.appendChild(invCol);
 
-        if (slot) {
-          var wCfg = cfg.WEAPONS ? cfg.WEAPONS[slot.weaponId] : null;
-          slotEl.textContent = wCfg ? (wCfg.icon || '🔫') : '🔫';
+    var selectionHint = document.createElement('div');
+    selectionHint.id = 'bp-selection-hint';
+    selectionHint.style.cssText = 'font-size:11px;color:#888;margin-bottom:6px;';
+    selectionHint.textContent = '点击仓库武器 → 再点左侧槽位装备';
+    invCol.appendChild(selectionHint);
 
-          var lvlBadge = document.createElement('span');
-          lvlBadge.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#44ffaa;text-shadow:0 0 2px #000;';
-          lvlBadge.textContent = 'Lv' + (slot.level || 1);
-          slotEl.appendChild(lvlBadge);
-
-          // Click filled slot: select for swapping or unequip
-          (function(slotIdx) {
-            slotEl.addEventListener('click', function() {
-              if (self._backpackSelectedWeapon) {
-                self._backpackEquipToSlot(slotIdx);
-              } else {
-                self._backpackUnequipWeapon(slotIdx);
-              }
-            });
-          })(i);
-        } else {
-          slotEl.textContent = '－';
-          slotEl.style.opacity = '0.4';
-          (function(slotIdx) {
-            slotEl.addEventListener('click', function() {
-              self._backpackEquipToSlot(slotIdx);
-            });
-          })(i);
-        }
-
-        slotsRow.appendChild(slotEl);
-      }
-    }
-
-    // === Inventory: All owned weapons ===
     var invLabel = document.createElement('div');
     invLabel.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:6px;';
     invLabel.textContent = '📦 武器仓库';
-    screen.appendChild(invLabel);
+    invCol.appendChild(invLabel);
 
     var invGrid = document.createElement('div');
-    invGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;max-height:35vh;overflow-y:auto;padding:4px;';
-    screen.appendChild(invGrid);
+    invGrid.id = 'bp-inv-grid';
+    invGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px;max-height:32vh;overflow-y:auto;padding:4px;';
+    invCol.appendChild(invGrid);
 
+    // === Inventory: owned weapons (sorted by level) ===
     if (sm && sm.weaponLevels) {
+      var invWeapons = [];
       sm.weaponLevels.forEach(function(lvl, wid) {
         var wCfg = cfg.WEAPONS ? cfg.WEAPONS[wid] : null;
         if (!wCfg || wCfg.fused) return;
-
-        var itemEl = document.createElement('div');
-        var isSelected = self._backpackSelectedWeapon === wid;
-        itemEl.style.cssText = 'padding:8px;border:2px solid ' + (isSelected ? '#ffdd00' : '#334') +
-          ';border-radius:8px;cursor:pointer;text-align:center;transition:border-color 0.15s;' +
-          'background:' + (isSelected ? 'rgba(255,221,0,0.12)' : 'rgba(255,255,255,0.04)') + ';';
-        itemEl.title = wCfg.name + ' Lv' + lvl;
-
-        var iconEl = document.createElement('div');
-        iconEl.style.cssText = 'font-size:24px;';
-        iconEl.textContent = wCfg.icon || '🔫';
-        itemEl.appendChild(iconEl);
-
-        var nameEl = document.createElement('div');
-        nameEl.style.cssText = 'font-size:10px;color:#fff;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-        nameEl.textContent = wCfg.name;
-        itemEl.appendChild(nameEl);
-
-        var lvlEl = document.createElement('div');
-        lvlEl.style.cssText = 'font-size:9px;color:#44ffaa;';
-        lvlEl.textContent = 'Lv' + lvl;
-        itemEl.appendChild(lvlEl);
-
-        (function(wId) {
-          itemEl.addEventListener('click', function() {
-            self._backpackSelectedWeapon = (self._backpackSelectedWeapon === wId) ? null : wId;
-            self._renderBackpack();
-          });
-        })(wid);
-
-        invGrid.appendChild(itemEl);
+        var inSlot = false;
+        if (wm && wm.weaponSlots) {
+          for (var _wi = 0; _wi < wm.weaponSlots.length; _wi++) {
+            if (wm.weaponSlots[_wi] && wm.weaponSlots[_wi].weaponId === wid) { inSlot = true; break; }
+          }
+        }
+        invWeapons.push({ id: wid, lvl: lvl, cfg: wCfg, equipped: inSlot });
       });
+      invWeapons.sort(function(a, b) { return b.lvl - a.lvl; });
+
+      for (var _inv = 0; _inv < invWeapons.length; _inv++) {
+        (function(entry) {
+          var wid = entry.id;
+          var wCfg = entry.cfg;
+          var lvl = entry.lvl;
+          var itemEl = document.createElement('div');
+          itemEl.dataset.weaponId = wid;
+          var isSelected = self._backpackSelectedWeapon === wid;
+          itemEl.style.cssText = 'padding:6px;border:2px solid ' + (isSelected ? '#ffdd00' : (entry.equipped ? '#44ddff' : '#334')) +
+            ';border-radius:8px;cursor:pointer;text-align:center;transition:border-color 0.12s,background 0.12s;' +
+            'background:' + (isSelected ? 'rgba(255,221,0,0.12)' : 'rgba(255,255,255,0.04)') + ';';
+          itemEl.title = wCfg.name + ' Lv' + lvl + (entry.equipped ? ' (已装备)' : '');
+
+          var iconEl = document.createElement('div');
+          iconEl.style.cssText = 'font-size:22px;';
+          iconEl.textContent = wCfg.icon || '🔫';
+          itemEl.appendChild(iconEl);
+
+          var nameEl = document.createElement('div');
+          nameEl.style.cssText = 'font-size:9px;color:#fff;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+          nameEl.textContent = wCfg.name;
+          itemEl.appendChild(nameEl);
+
+          var lvlEl = document.createElement('div');
+          lvlEl.style.cssText = 'font-size:9px;color:#44ffaa;';
+          lvlEl.textContent = 'Lv' + lvl + (entry.equipped ? ' ✓' : '');
+          itemEl.appendChild(lvlEl);
+
+          itemEl.addEventListener('click', function() {
+            self._backpackSelectedWeapon = (self._backpackSelectedWeapon === wid) ? null : wid;
+            self._backpackUpdateInventorySelection();
+          });
+
+          invGrid.appendChild(itemEl);
+        })(invWeapons[_inv]);
+      }
     }
+
+    this._backpackRefreshWeaponSlots();
 
     // === Passive Skill Slots Row ===
     var passiveLabel = document.createElement('div');
@@ -3860,12 +3884,79 @@ class UIManager {
     document.addEventListener('keydown', this._backpackEscHandler);
   }
 
+  _backpackUpdateInventorySelection() {
+    var grid = document.getElementById('bp-inv-grid');
+    if (!grid) return;
+    var cfg = window.GAME_CONFIG;
+    var sel = this._backpackSelectedWeapon;
+    for (var i = 0; i < grid.children.length; i++) {
+      var el = grid.children[i];
+      var wid = el.dataset.weaponId;
+      var isSelected = sel === wid;
+      var equipped = el.title && el.title.indexOf('已装备') >= 0;
+      el.style.borderColor = isSelected ? '#ffdd00' : (equipped ? '#44ddff' : '#334');
+      el.style.background = isSelected ? 'rgba(255,221,0,0.12)' : 'rgba(255,255,255,0.04)';
+    }
+    var hint = document.getElementById('bp-selection-hint');
+    if (hint) {
+      if (sel && cfg && cfg.WEAPONS && cfg.WEAPONS[sel]) {
+        hint.textContent = '已选: ' + cfg.WEAPONS[sel].name + ' — 点击左侧槽位装备';
+        hint.style.color = '#ffdd00';
+      } else {
+        hint.textContent = '点击仓库武器 → 再点左侧槽位装备';
+        hint.style.color = '#888';
+      }
+    }
+  }
+
+  _backpackRefreshWeaponSlots() {
+    var slotsRow = document.getElementById('bp-weapon-slots');
+    var wm = window.weaponManager;
+    var sm = window.skillManager;
+    var cfg = window.GAME_CONFIG;
+    if (!slotsRow || !wm) return;
+    slotsRow.innerHTML = '';
+    var maxWSlots = wm.maxWeaponSlots || (sm && sm.MAX_WEAPON_SLOTS) || 6;
+    var self = this;
+    for (var i = 0; i < Math.min(maxWSlots, wm.weaponSlots.length); i++) {
+      var slot = wm.weaponSlots[i];
+      var slotEl = document.createElement('div');
+      slotEl.style.cssText = 'width:52px;height:52px;border:2px solid ' + (slot ? '#44ddff' : '#444') +
+        ';border-radius:8px;display:flex;align-items:center;justify-content:center;' +
+        'background:' + (slot ? 'rgba(68,221,255,0.12)' : 'rgba(255,255,255,0.03)') +
+        ';cursor:pointer;font-size:20px;position:relative;';
+      slotEl.title = '槽位 ' + (i + 1);
+      if (slot) {
+        var wCfg = cfg.WEAPONS ? cfg.WEAPONS[slot.weaponId] : null;
+        slotEl.textContent = wCfg ? (wCfg.icon || '🔫') : '🔫';
+        var lvlBadge = document.createElement('span');
+        lvlBadge.style.cssText = 'position:absolute;bottom:0;right:2px;font-size:8px;color:#44ffaa;text-shadow:0 0 2px #000;';
+        lvlBadge.textContent = 'Lv' + (slot.level || 1);
+        slotEl.appendChild(lvlBadge);
+        (function(slotIdx) {
+          slotEl.addEventListener('click', function() {
+            if (self._backpackSelectedWeapon) self._backpackEquipToSlot(slotIdx);
+            else self._backpackUnequipWeapon(slotIdx);
+          });
+        })(i);
+      } else {
+        slotEl.textContent = '－';
+        slotEl.style.opacity = '0.4';
+        (function(slotIdx) {
+          slotEl.addEventListener('click', function() { self._backpackEquipToSlot(slotIdx); });
+        })(i);
+      }
+      slotsRow.appendChild(slotEl);
+    }
+  }
+
   _backpackUnequipWeapon(slotIndex) {
     var wm = window.weaponManager;
     if (!wm || !wm.weaponSlots[slotIndex]) return;
     wm.removeWeaponFromSlot(slotIndex);
     this.showToast('🗑️ 卸载武器 (槽位 ' + (slotIndex + 1) + ')', 1500, '#ffaa44');
-    this._renderBackpack();
+    this._backpackRefreshWeaponSlots();
+    this._backpackUpdateInventorySelection();
   }
 
   _backpackEquipToSlot(slotIndex) {
@@ -3890,7 +3981,8 @@ class UIManager {
         wm.weaponSlots[slotIndex] = oldSlot;
         this._backpackSelectedWeapon = null;
         this.showToast('🔄 交换武器到槽位 ' + (slotIndex + 1), 1500, '#ffdd00');
-        this._renderBackpack();
+        this._backpackRefreshWeaponSlots();
+        this._backpackUpdateInventorySelection();
         return;
       }
     }
@@ -3904,7 +3996,8 @@ class UIManager {
     this._backpackSelectedWeapon = null;
     var wCfg = GAME_CONFIG.WEAPONS ? GAME_CONFIG.WEAPONS[weaponId] : null;
     this.showToast('✅ ' + (wCfg ? wCfg.name : weaponId) + ' 装备到槽位 ' + (slotIndex + 1), 1500, '#44ff44');
-    this._renderBackpack();
+    this._backpackRefreshWeaponSlots();
+    this._backpackUpdateInventorySelection();
   }
 }
 

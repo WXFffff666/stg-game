@@ -305,6 +305,23 @@
   }
 })();
 
+// Repair corrupted weapon stats from old bug (chainDamage stacked on GAME_CONFIG each fire)
+(function repairWeaponConfigDrift() {
+  var W = GAME_CONFIG && GAME_CONFIG.WEAPONS;
+  if (!W) return;
+  var caps = { chainDamage: 2.5, pierceCount: 15, bounceCount: 8 };
+  for (var id in W) {
+    if (!W.hasOwnProperty(id)) continue;
+    var w = W[id];
+    if (w.chainDamage !== undefined && w.chainDamage > caps.chainDamage) {
+      w.chainDamage = Math.min(w.chainDamage, caps.chainDamage);
+      if (w.chainCount >= 4) w.chainDamage = 0.5;
+    }
+    if (w.pierceCount > caps.pierceCount) w.pierceCount = caps.pierceCount;
+    if (w.bounceCount > caps.bounceCount) w.bounceCount = caps.bounceCount;
+  }
+})();
+
 class WeaponManager {
   /**
    * @param {object} player - the Player entity this weapon manager is attached to
@@ -619,6 +636,10 @@ class WeaponManager {
     }
     if (!stats) stats = this._getStats();
 
+    // Fire-time copy — never mutate GAME_CONFIG.WEAPONS (chainDamage was stacking → freeze)
+    var baseCfg = cfg;
+    cfg = Object.assign({}, baseCfg);
+
     var x = this.player ? this.player.x : 0;
     var y = this.player ? this.player.y : 0;
 
@@ -641,7 +662,7 @@ class WeaponManager {
     if (factionMods) {
       if (factionMods.chainCount !== undefined)    cfg.chainCount    = Math.max(cfg.chainCount    || 0, factionMods.chainCount);
       if (factionMods.chainRange !== undefined)    cfg.chainRange    = Math.max(cfg.chainRange    || 0, factionMods.chainRange);
-      if (factionMods.chainDamage !== undefined)   cfg.chainDamage   = (cfg.chainDamage || 0.5) + (factionMods.chainDamage || 0);
+      if (factionMods.chainDamage !== undefined)   cfg.chainDamage   = (baseCfg.chainDamage || 0.5) + (factionMods.chainDamage || 0);
       if (factionMods.slowAmount !== undefined)    cfg.slowAmount    = Math.max(cfg.slowAmount    || 0, factionMods.slowAmount);
       if (factionMods.slowDuration !== undefined)  cfg.slowDuration  = Math.max(cfg.slowDuration  || 0, factionMods.slowDuration);
       if (factionMods.freezeChance !== undefined)  cfg.freezeChance  = Math.max(cfg.freezeChance  || 0, factionMods.freezeChance);
