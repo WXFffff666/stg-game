@@ -3,6 +3,7 @@
  */
 import { applyBalancePatch } from './balance';
 import { applyContentExtension } from './content-ext';
+import { applyMassContentExtension } from './mass-content-ext';
 import { applyPerfExtension } from './perf-ext';
 
 interface GameLike {
@@ -20,6 +21,7 @@ interface WeaponManagerLike {
 export function bootstrapEngine(): void {
   applyBalancePatch();
   applyContentExtension();
+  applyMassContentExtension();
   applyPerfExtension();
   patchVisibilityReset();
   patchWeaponMissileCap();

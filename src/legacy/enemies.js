@@ -66,7 +66,11 @@ class Enemy {
     this.hitRadius = template.hitRadius || template.size;
 
     // Boss
-    this.isBoss = template.type === 'boss' || template.type.startsWith('boss_');
+    this.isBoss = template.type === 'boss' || (template.type && String(template.type).startsWith('boss_'));
+    this.isMidBoss = !!template.isMidBoss;
+    this.isFinalBoss = !!template.isFinalBoss;
+    this.burstFire = !!template.burstFire;
+    this._burstShotsLeft = 0;
     this.bossPhase = -1;
     this.phaseThresholds = template.phases ? JSON.parse(JSON.stringify(template.phases)) : [];
 
@@ -527,7 +531,16 @@ class Enemy {
 
     // --- Firing ---
     this.fireTimer += dt * 1000;
-    if (this.fireTimer >= this.fireRate && this.fireRate > 0) {
+    var effectiveFireRate = this.fireRate;
+    if (this.burstFire && this.fireRate > 0) {
+      if (this._burstShotsLeft > 0) {
+        effectiveFireRate = Math.max(90, this.fireRate * 0.22);
+        this._burstShotsLeft--;
+      } else if (Math.random() < 0.018 * dt * 60) {
+        this._burstShotsLeft = 3 + Math.floor(Math.random() * 5);
+      }
+    }
+    if (this.fireTimer >= effectiveFireRate && this.fireRate > 0) {
       this.fireTimer = 0;
       this._fire(game);
     }
@@ -4371,7 +4384,11 @@ class WaveSpawner {
     this.waveEnemiesSpawned = 0;
     this.waveEnemiesTotal = 0;
     this.waveBossSpawned = false;
+    this.waveMidBossSpawned = false;
     this.waveBossTypes = ['boss', 'boss_guardian', 'boss_summoner', 'boss_dragon', 'boss_phantom'];
+    if (GAME_CONFIG.WAVE_BOSS_ROTATION && GAME_CONFIG.WAVE_BOSS_ROTATION.length) {
+      this.waveBossTypes = GAME_CONFIG.WAVE_BOSS_ROTATION.slice();
+    }
 
     // Entry warning system: red arrow 0.5s before spawn
     this._spawnWarnings = [];
@@ -4445,6 +4462,15 @@ class WaveSpawner {
       if (this.timer >= this.spawnInterval && this.waveEnemiesSpawned < this.waveEnemiesTotal) {
         this.timer = 0;
 
+        // Mid-boss wave: spawn one mid-boss at ~40% wave progress
+        var midWaves = GAME_CONFIG.MID_BOSS_WAVES;
+        if (!this.waveMidBossSpawned && midWaves && midWaves.indexOf(this.waveNumber) >= 0) {
+          if (this.waveEnemiesSpawned >= Math.floor(this.waveEnemiesTotal * 0.35)) {
+            this._spawnMidBoss(game, difficulty);
+            this.waveMidBossSpawned = true;
+          }
+        }
+
         // Elite wave: spawn elite-focused groups
         if (this.waveNumber % 5 === 0) {
           this._spawnEliteWaveGroup(game, difficulty, spawnRules);
@@ -4471,6 +4497,7 @@ class WaveSpawner {
     this.wavePauseTimer = 0;
     this.waveEnemiesSpawned = 0;
     this.waveBossSpawned = false;
+    this.waveMidBossSpawned = false;
 
     // Calculate total enemies for this wave
     // Base: 10 + waveNumber * 2, scaled by difficulty
@@ -4493,14 +4520,23 @@ class WaveSpawner {
 
     // Adjust spawn interval: faster spawns in later waves
     const waveSpeedFactor = 1 + (this.waveNumber - 1) * 0.04;
+    var endlessAccel = 1;
+    if (window.game && window.game.__endlessMode && this.waveNumber > 30 && GAME_CONFIG.ENDLESS_MODE) {
+      endlessAccel = Math.pow(GAME_CONFIG.ENDLESS_MODE.postWave30SpawnAccel || 1.02, this.waveNumber - 30);
+    }
     this.spawnInterval = Math.max(
       GAME_CONFIG.WAVES.spawnRules.minInterval * 1.5,
-      GAME_CONFIG.WAVES.spawnRules.baseInterval / (1 + difficulty * cfg.DIFFICULTY_SPAWN_RATE) / waveSpeedFactor
+      GAME_CONFIG.WAVES.spawnRules.baseInterval / (1 + difficulty * cfg.DIFFICULTY_SPAWN_RATE) / waveSpeedFactor / endlessAccel
     );
 
     // Wave notification
     if (game.addMessage) {
-      if (this.waveNumber % 10 === 0) {
+      var midWaves = GAME_CONFIG.MID_BOSS_WAVES;
+      if (midWaves && midWaves.indexOf(this.waveNumber) >= 0 && this.waveNumber % 10 !== 0) {
+        game.addMessage(`💀 中Boss波 ${this.waveNumber} — 强敌来袭！`, '#ff8844');
+      } else if (GAME_CONFIG.FINAL_BOSS_WAVES && GAME_CONFIG.FINAL_BOSS_WAVES[this.waveNumber]) {
+        game.addMessage(`☄️ 最终Boss波 ${this.waveNumber} ☄️`, '#ff00ff');
+      } else if (this.waveNumber % 10 === 0) {
         game.addMessage(`⚠️ BOSS WAVE ${this.waveNumber} ⚠`, '#ff4444');
       } else if (this.waveNumber % 5 === 0) {
         game.addMessage(`⚡ Elite Wave ${this.waveNumber} ⚡`, '#ffaa00');
@@ -4779,15 +4815,25 @@ class WaveSpawner {
     if (this._bossWarningTimer < 2000) return;
     this._bossWarningShown = false;
 
-    // Cycle through boss types based on which wave number boss
-    const bossIdx = (Math.floor(this.waveNumber / 10) - 1) % this.waveBossTypes.length;
-    const bossType = this.waveBossTypes[bossIdx];
+    // Final boss waves override rotation
+    var bossType;
+    var finalMap = GAME_CONFIG.FINAL_BOSS_WAVES;
+    if (finalMap && finalMap[this.waveNumber]) {
+      bossType = finalMap[this.waveNumber];
+    } else {
+      const rotation = (GAME_CONFIG.WAVE_BOSS_ROTATION && GAME_CONFIG.WAVE_BOSS_ROTATION.length)
+        ? GAME_CONFIG.WAVE_BOSS_ROTATION
+        : this.waveBossTypes;
+      const bossIdx = (Math.floor(this.waveNumber / 10) - 1) % rotation.length;
+      bossType = rotation[bossIdx];
+    }
     const template = GAME_CONFIG.ENEMIES[bossType];
     if (!template) return;
 
     // Scale boss HP by wave number: HP = base × (1 + wave × 0.06)²
     const scaledTemplate = Object.assign({}, template);
     var bossHpScale = Math.pow(1 + this.waveNumber * 0.06, 2);
+    if (template.isFinalBoss) bossHpScale *= 1.35;
     // Boss难度递增：第一个Boss简单，后续逐渐变强
     if (window.game && window.game.bossHpMultiplier) bossHpScale *= window.game.bossHpMultiplier;
     scaledTemplate.hp = Math.floor(template.hp * bossHpScale);
@@ -4806,8 +4852,41 @@ class WaveSpawner {
     game.addEntity(enemy);
 
     if (game.addMessage) {
-      game.addMessage(`👹 ${template.name} 出现了！`, '#ff4444');
+      if (template.isFinalBoss) {
+        game.addMessage(`☄️ 最终Boss「${template.name}」降临！`, '#ff00ff');
+        if (game.addShake) game.addShake(12);
+      } else {
+        game.addMessage(`👹 ${template.name} 出现了！`, '#ff4444');
+      }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SPAWN MID-BOSS
+  // ---------------------------------------------------------------------------
+  _spawnMidBoss(game, difficulty) {
+    var pool = GAME_CONFIG.MID_BOSS_WAVES || [];
+    var idx = pool.indexOf(this.waveNumber);
+    if (idx < 0) idx = Math.floor(Math.random() * 12);
+    var midId = 'ext_mid_' + (idx % 12);
+    var template = GAME_CONFIG.ENEMIES[midId];
+    if (!template) return;
+
+    var scaled = Object.assign({}, template);
+    var hpScale = Math.pow(1 + this.waveNumber * 0.05, 1.8);
+    if (window.game && window.game.hpMultiplier) hpScale *= window.game.hpMultiplier;
+    scaled.hp = Math.floor(template.hp * hpScale);
+
+    var enemy = new Enemy({
+      x: GAME_CONFIG.BALANCE.CANVAS_WIDTH * (0.25 + Math.random() * 0.5),
+      y: -60,
+    }, scaled, difficulty);
+    game.addEntity(enemy);
+
+    if (game.addMessage) {
+      game.addMessage(`💀 中Boss「${template.name}」出现！`, '#ff8844');
+    }
+    if (game.addShake) game.addShake(4);
   }
 
   // ---------------------------------------------------------------------------

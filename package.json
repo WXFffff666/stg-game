@@ -1,13 +1,13 @@
 {
   "name": "stg-game",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "verify": "node tools/verify-migration.mjs"
+    "verify": "node tools/verify-migration.mjs && node tools/verify-content-ext.mjs"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

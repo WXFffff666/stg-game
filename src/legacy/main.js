@@ -3164,9 +3164,14 @@
     // G4: Endless mode post-wave30 difficulty scaling
     if (isEndlessMode() && waveSpawner && waveSpawner.waveNumber > 30) {
       var wavesBeyond30 = waveSpawner.waveNumber - 30;
-      var endlessScale = Math.pow(cfg.ENDLESS_MODE.postWave30DiffScale, wavesBeyond30);
+      var endlessScale = Math.pow(cfg.ENDLESS_MODE.postWave30DiffScale || 1.085, wavesBeyond30);
       game.hpMultiplier = (game.hpMultiplier || 1) * endlessScale;
       game.difficulty = Math.floor(game.difficulty * endlessScale);
+      if (waveSpawner.waveNumber > 50) {
+        var wavesBeyond50 = waveSpawner.waveNumber - 50;
+        var hp50 = Math.pow(cfg.ENDLESS_MODE.postWave50HpScale || 1.05, wavesBeyond50);
+        game.hpMultiplier = (game.hpMultiplier || 1) * hp50;
+      }
     }
 
     // G4: Endless mode — process enemy modifiers (regen/volatile)
