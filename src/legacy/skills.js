@@ -1206,13 +1206,15 @@ class SkillManager {
     // Build pool of weapons (exclude fused weapons — they're created via fusion)
     var weapons = GAME_CONFIG.WEAPONS;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
-    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var maxLvl = (typeof window.getWeaponMaxLevel === 'function')
+      ? window.getWeaponMaxLevel()
+      : (upgradeCfg ? upgradeCfg.maxLevel : 5);
     var wm = this.weaponManager;
     var hasEmptySlot = wm && wm._findEmptySlot ? wm._findEmptySlot() >= 0 : true;
     for (var wid in weapons) {
       if (!weapons.hasOwnProperty(wid)) continue;
       var w = weapons[wid];
-      if (w.fused) continue; // Fused weapons don't appear in normal choices
+      if (w.fused && !(typeof window.isUnlimitedUpgradeMode === 'function' && window.isUnlimitedUpgradeMode())) continue;
       var curLvl = this.weaponLevels.get(wid) || 0;
       if (curLvl >= maxLvl) continue; // Already max level, skip
       // If weapon is not yet owned, only offer it when a slot is available
@@ -1455,7 +1457,9 @@ class SkillManager {
     if (!wCfg) return;
 
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
-    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var maxLvl = (typeof window.getWeaponMaxLevel === 'function')
+      ? window.getWeaponMaxLevel()
+      : (upgradeCfg ? upgradeCfg.maxLevel : 5);
     var curLvl = this.weaponLevels.get(weaponId) || 0;
     var isNew = curLvl === 0;
 
@@ -1535,7 +1539,9 @@ class SkillManager {
    */
   _autoUpgradeRandomWeapon() {
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
-    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var maxLvl = (typeof window.getWeaponMaxLevel === 'function')
+      ? window.getWeaponMaxLevel()
+      : (upgradeCfg ? upgradeCfg.maxLevel : 5);
 
     // Collect all owned weapons below max level that are NOT fused and currently equipped
     var candidates = [];
@@ -1631,26 +1637,36 @@ class SkillManager {
    */
   _assignSlot(slotType) {
     if (slotType === 'weapon') {
-      if (this.weaponSlotsUnlocked >= this.MAX_WEAPON_SLOTS) {
+      var wCap = (typeof window.getWeaponSlotCap === 'function') ? window.getWeaponSlotCap() : this.MAX_WEAPON_SLOTS;
+      if (this.weaponSlotsUnlocked >= wCap) {
         this._finishLevelUpFlow();
         return;
       }
+      if (typeof window.tryExpandWeaponSlots === 'function') {
+        window.tryExpandWeaponSlots(this.weaponSlotsUnlocked + 1);
+      }
       this.weaponSlotsUnlocked++;
+      this.MAX_WEAPON_SLOTS = Math.max(this.MAX_WEAPON_SLOTS, this.weaponSlotsUnlocked);
       if (this.weaponManager) {
         this.weaponManager.maxWeaponSlots = this.weaponSlotsUnlocked;
       }
       if (window.ui) {
-        window.ui.showToast('🔫 新武器槽已解锁 (' + this.weaponSlotsUnlocked + '/' + this.MAX_WEAPON_SLOTS + ')', 2000, '#ffdd44');
+        window.ui.showToast('🔫 新武器槽已解锁 (' + this.weaponSlotsUnlocked + '槽)', 2000, '#ffdd44');
       }
     } else if (slotType === 'passive') {
-      if (this.passiveSlotsUnlocked >= this.MAX_PASSIVE_SLOTS) {
+      var pCap = (typeof window.getPassiveSlotCap === 'function') ? window.getPassiveSlotCap() : this.MAX_PASSIVE_SLOTS;
+      if (this.passiveSlotsUnlocked >= pCap) {
         this._finishLevelUpFlow();
         return;
       }
+      if (typeof window.tryExpandPassiveSlots === 'function') {
+        window.tryExpandPassiveSlots(this.passiveSlotsUnlocked + 1);
+      }
       this.passiveSlotsUnlocked++;
+      this.MAX_PASSIVE_SLOTS = Math.max(this.MAX_PASSIVE_SLOTS, this.passiveSlotsUnlocked);
       if (this.weaponManager) this.weaponManager.maxPassiveSlots = this.passiveSlotsUnlocked;
       if (window.ui) {
-        window.ui.showToast('🛡️ 新被动槽已解锁 (' + this.passiveSlotsUnlocked + '/' + this.MAX_PASSIVE_SLOTS + ')', 2000, '#44ddff');
+        window.ui.showToast('🛡️ 新被动槽已解锁 (' + this.passiveSlotsUnlocked + '槽)', 2000, '#44ddff');
       }
     }
 
@@ -1683,13 +1699,25 @@ class SkillManager {
    * @param {string} weaponId
    * @returns {number} damage multiplier (1.0 at base)
    */
+  /**
+   * Extrapolate weapon upgrade multiplier beyond configured array (endless high levels).
+   */
+  _scaleWeaponMult(arr, lvl) {
+    if (!arr || arr.length === 0) return 1.0;
+    var idx = Math.max(0, lvl);
+    if (idx < arr.length) return arr[idx];
+    var last = arr[arr.length - 1];
+    var prev = arr[Math.max(0, arr.length - 2)] || last;
+    var ratio = prev !== 0 ? last / prev : 1.08;
+    return last * Math.pow(ratio, idx - arr.length + 1);
+  }
+
   getWeaponDamageMult(weaponId) {
     var lvl = this.weaponLevels.get(weaponId) || 0;
     if (lvl <= 0) return 1.0;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     if (!upgradeCfg || !upgradeCfg.damageMult) return 1.0;
-    var idx = Math.min(lvl, upgradeCfg.damageMult.length - 1);
-    return upgradeCfg.damageMult[idx];
+    return this._scaleWeaponMult(upgradeCfg.damageMult, lvl);
   }
 
   /**
@@ -1703,8 +1731,7 @@ class SkillManager {
     if (lvl <= 0) return 1.0;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     if (!upgradeCfg || !upgradeCfg.fireRateMult) return 1.0;
-    var idx = Math.min(lvl, upgradeCfg.fireRateMult.length - 1);
-    return upgradeCfg.fireRateMult[idx];
+    return this._scaleWeaponMult(upgradeCfg.fireRateMult, lvl);
   }
 
   /**
@@ -1718,8 +1745,7 @@ class SkillManager {
     if (lvl <= 0) return 1.0;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
     if (!upgradeCfg || !upgradeCfg.specialMult) return 1.0;
-    var idx = Math.min(lvl, upgradeCfg.specialMult.length - 1);
-    return upgradeCfg.specialMult[idx];
+    return this._scaleWeaponMult(upgradeCfg.specialMult, lvl);
   }
 
   // ====================================================================
@@ -1737,16 +1763,17 @@ class SkillManager {
     var recipes = GAME_CONFIG.FUSION_RECIPES;
     if (!recipes) return [];
     var requiredLevel = recipes.requiredLevel || 5;
+    var tier2Level = recipes.tier2RequiredLevel || requiredLevel;
     var available = [];
 
-    // Check weapon fusions (require fusion core)
     var hasFusionCore = this.fusionCoreCount > 0;
     for (var i = 0; i < recipes.weapons.length; i++) {
       var recipe = recipes.weapons[i];
       if (this.fusedWeapons.has(recipe.id)) continue;
+      var reqLvl = recipe.tier === 2 ? tier2Level : requiredLevel;
       var lvlA = this.weaponLevels.get(recipe.ingredientA) || 0;
       var lvlB = this.weaponLevels.get(recipe.ingredientB) || 0;
-      if (lvlA >= requiredLevel && lvlB >= requiredLevel && hasFusionCore) {
+      if (lvlA >= reqLvl && lvlB >= reqLvl && hasFusionCore) {
         available.push({ type: 'weapon', recipe: recipe });
       }
     }
@@ -1788,7 +1815,10 @@ class SkillManager {
 
     // Add the fused weapon at max level
     var fusedWeaponId = recipe.result;
-    this.weaponLevels.set(fusedWeaponId, GAME_CONFIG.WEAPON_UPGRADE.maxLevel || 5);
+    var fusedLevel = (typeof window.getWeaponMaxLevel === 'function')
+      ? window.getWeaponMaxLevel()
+      : (GAME_CONFIG.WEAPON_UPGRADE.maxLevel || 5);
+    this.weaponLevels.set(fusedWeaponId, fusedLevel);
 
     // Remove ingredient weapons from their slots and place the fused weapon
     if (this.weaponManager) {

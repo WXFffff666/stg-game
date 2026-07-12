@@ -122,6 +122,12 @@ const GAME_CONFIG = {
     PASSIVE_SLOT_COST: [0, 0, 0, 0, 0, 0, 0, 250, 500],
     MAX_WEAPON_SLOT_TOTAL: 8,
     MAX_PASSIVE_SLOT_TOTAL: 8,
+
+    // 飘字性能预算（不降低画质，只限制同屏数量）
+    MAX_DAMAGE_NUMBERS: 48,
+    MAX_DAMAGE_NUMBERS_MOBILE: 30,
+    DAMAGE_NUMBER_CELL_MS: 65,
+    DAMAGE_NUMBER_MAX_LIFE: 750,
   },
 
   // ============ SCENES ============

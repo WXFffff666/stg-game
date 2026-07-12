@@ -148,6 +148,11 @@ class Particle {
 
 // ============ Damage Number System ============
 var _damageNumberPool = [];
+var _activeDamageNumberCount = 0;
+
+function _countActiveDamageNumbers() {
+  return _activeDamageNumberCount;
+}
 
 function _createDamageNumber() {
   return {
@@ -157,7 +162,7 @@ function _createDamageNumber() {
     life: 0,
     maxLife: 0,
     active: false,
-    category: 'particle',
+    category: 'damageNumber',
     drawLayer: 7,
     _vx: 0,
     _vy: 0,
@@ -170,9 +175,12 @@ function _createDamageNumber() {
       this.y = y;
       this.value = String(value);
       this.color = color || '#ffffff';
-      this.life = isCrit ? 1000 : 800;
+      var maxLifeCfg = (typeof GAME_CONFIG !== 'undefined' && GAME_CONFIG.BALANCE)
+        ? GAME_CONFIG.BALANCE.DAMAGE_NUMBER_MAX_LIFE : 750;
+      this.life = isCrit ? Math.min(1000, maxLifeCfg + 200) : maxLifeCfg;
       this.maxLife = this.life;
       this.active = true;
+      _activeDamageNumberCount++;
       this._vx = vx || ((Math.random() - 0.5) * 40);
       this._vy = -(40 + Math.random() * 60);
       this._isCrit = !!isCrit;
@@ -190,6 +198,7 @@ function _createDamageNumber() {
       this._scale = baseScale - t * 0.4;
       if (this.life <= 0) {
         this.active = false;
+        _activeDamageNumberCount = Math.max(0, _activeDamageNumberCount - 1);
         _damageNumberPool.push(this);
         if (window.game) window.game.removeEntity(this);
       }
@@ -595,6 +604,8 @@ var ParticleSystem = {
    * @param {string} [color] - text color (default: red for damage)
    */
   damageNumber: function(x, y, value, color, isCrit, isReact) {
+    var g = window.game;
+    if (!g) return;
     var dn;
     if (_damageNumberPool.length > 0) {
       dn = _damageNumberPool.pop();
@@ -602,12 +613,13 @@ var ParticleSystem = {
       dn = _createDamageNumber();
     }
     color = color || '#ff4444';
-    // Add slight random x offset so overlapping numbers don't stack exactly
     var offX = (Math.random() - 0.5) * 30;
     var offY = (Math.random() - 0.5) * 10;
     dn.init(x + offX, y + offY, value, color, undefined, isCrit, isReact);
-    window.game.addEntity(dn);
+    g.addEntity(dn);
   },
+
+  _countActiveDamageNumbers: _countActiveDamageNumbers,
 
   // ================================================================
   //  SCREEN FLASH: Full-screen color overlay

@@ -117,12 +117,99 @@
   }
 
   // ============ G4: Endless Mode ============
-  // endless mode flag set externally via button
-  game.__endlessMode = false;
+  // 默认开启无尽模式（每日/挑战会临时关闭）
+  game.__endlessMode = true;
+  var ENDLESS_UPGRADE_CAP = 999;
 
   function isEndlessMode() {
     return game.__endlessMode === true;
   }
+
+  function isDailyRun() {
+    if (game._seed === undefined || game._seed === null) return false;
+    return game._seed === getDailySeed();
+  }
+
+  function isUnlimitedUpgradeMode() {
+    return isEndlessMode() && !selectedChallenge && !isDailyRun();
+  }
+
+  function getEffectiveMaxLevel(configMax) {
+    if (isUnlimitedUpgradeMode()) return ENDLESS_UPGRADE_CAP;
+    return configMax;
+  }
+
+  function getWeaponMaxLevel() {
+    var base = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 8;
+    return getEffectiveMaxLevel(base);
+  }
+
+  function getInRunItemMaxLevel(item) {
+    return getEffectiveMaxLevel(item.maxLevel || 10);
+  }
+
+  function getWeaponSlotCap() {
+    if (isUnlimitedUpgradeMode()) return 999;
+    return cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8;
+  }
+
+  function getPassiveSlotCap() {
+    if (isUnlimitedUpgradeMode()) return 999;
+    return cfg.BALANCE.MAX_PASSIVE_SLOT_TOTAL || 8;
+  }
+
+  function tryExpandWeaponSlots(minNeeded) {
+    if (!weaponManager || !skillManager) return;
+    var cap = getWeaponSlotCap();
+    var target = Math.min(Math.max(minNeeded || 0, skillManager.weaponSlotsUnlocked + 1), cap);
+    while (weaponManager.weaponSlots.length < target) {
+      weaponManager.weaponSlots.push(null);
+    }
+    if (skillManager.MAX_WEAPON_SLOTS < target) {
+      skillManager.MAX_WEAPON_SLOTS = target;
+    }
+    weaponManager.maxWeaponSlots = Math.max(weaponManager.maxWeaponSlots || 0, skillManager.weaponSlotsUnlocked);
+  }
+
+  function tryExpandPassiveSlots(minNeeded) {
+    if (!weaponManager || !skillManager) return;
+    var cap = getPassiveSlotCap();
+    var target = Math.min(Math.max(minNeeded || 0, skillManager.passiveSlotsUnlocked + 1), cap);
+    while (weaponManager.passiveSlots.length < target) {
+      weaponManager.passiveSlots.push(null);
+    }
+    if (skillManager.MAX_PASSIVE_SLOTS < target) {
+      skillManager.MAX_PASSIVE_SLOTS = target;
+    }
+    weaponManager.maxPassiveSlots = Math.max(weaponManager.maxPassiveSlots || 0, skillManager.passiveSlotsUnlocked);
+  }
+
+  window.getWeaponSlotCap = getWeaponSlotCap;
+  window.getPassiveSlotCap = getPassiveSlotCap;
+  window.tryExpandWeaponSlots = tryExpandWeaponSlots;
+  window.tryExpandPassiveSlots = tryExpandPassiveSlots;
+
+  function formatShopLevelText(level, configMax) {
+    if (isUnlimitedUpgradeMode()) return '等级: ' + level + ' / ∞';
+    return '等级: ' + level + '/' + configMax;
+  }
+
+  function syncEndlessButtonUI() {
+    var btn = document.getElementById('btn-endless');
+    if (!btn) return;
+    if (game.__endlessMode) {
+      btn.style.borderColor = '#ff8844';
+      btn.style.color = '#ff8844';
+      btn.textContent = '🔁 无尽模式 ON';
+    } else {
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.textContent = '🔁 无尽模式';
+    }
+  }
+
+  window.getWeaponMaxLevel = getWeaponMaxLevel;
+  window.isUnlimitedUpgradeMode = isUnlimitedUpgradeMode;
 
   function _applyEndlessEnemyModifiers(enemy) {
     if (!isEndlessMode()) return;
@@ -145,6 +232,8 @@
 
   function setChallenge(challengeObj) {
     selectedChallenge = challengeObj;
+    game.__endlessMode = false;
+    syncEndlessButtonUI();
   }
 
   function clearChallenge() {
@@ -436,6 +525,7 @@
         game._seed = getDailySeed();
         _resetSeedRandom(game._seed);
         game.__endlessMode = false;
+        syncEndlessButtonUI();
         clearChallenge();
         game.setScene(cfg.SCENES.CHARACTER_SELECT);
         document.getElementById('menu-screen').style.display = 'none';
@@ -452,18 +542,14 @@
     if (btnEndless) {
       btnEndless.addEventListener('click', function() {
         game.__endlessMode = !game.__endlessMode;
+        syncEndlessButtonUI();
         if (game.__endlessMode) {
-          btnEndless.style.borderColor = '#ff8844';
-          btnEndless.style.color = '#ff8844';
-          btnEndless.textContent = '🔁 无尽模式 ON';
-          ui.showToast('🔁 无尽模式已开启! (30波后难度持续增长)', 2000, '#ff8844');
+          ui.showToast('🔁 无尽模式已开启! 商店强化/武器/技能可无限升级', 2200, '#ff8844');
         } else {
-          btnEndless.style.borderColor = '';
-          btnEndless.style.color = '';
-          btnEndless.textContent = '🔁 无尽模式';
-          ui.showToast('无尽模式已关闭', 1200, '#aaa');
+          ui.showToast('无尽模式已关闭（商店恢复等级上限）', 1500, '#aaa');
         }
       });
+      syncEndlessButtonUI();
     }
 
     // G5: Challenge mode button
@@ -716,7 +802,8 @@
     IN_RUN_SHOP_ITEMS.forEach(item => {
       const level = inRunUpgrades[item.id] || 0;
       const cost = getInRunUpgradeCost(item.id);
-      const isMaxLevel = level >= item.maxLevel;
+      const itemMax = getInRunItemMaxLevel(item);
+      const isMaxLevel = level >= itemMax;
       const canAfford = inRunGold >= cost;
 
       const div = document.createElement('div');
@@ -725,7 +812,7 @@
         <div class="shop-item-icon">${item.icon}</div>
         <div class="shop-item-info">
           <div class="shop-item-name">${item.name}</div>
-          <div class="shop-item-level">等级: ${level}/${item.maxLevel}</div>
+          <div class="shop-item-level">${formatShopLevelText(level, item.maxLevel)}</div>
           <div class="shop-item-desc">${item.desc}</div>
         </div>
         <button class="shop-item-btn ${isMaxLevel ? 'max-level' : ''}" 
@@ -976,11 +1063,11 @@
   // Helper: Pick random weapons — new weapons need empty slot; owned ones can re-buy to upgrade
   function _pickRandomWeapons(count) {
     var pool = _getShopWeaponPool();
-    var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
+    var maxLvl = getWeaponMaxLevel();
     var hasEmpty = weaponManager && weaponManager._findEmptySlot
       ? weaponManager._findEmptySlot() >= 0 : true;
     var available = pool.filter(function(w) {
-      if (w.fused) return false;
+      if (w.fused && !(typeof window.isUnlimitedUpgradeMode === 'function' && window.isUnlimitedUpgradeMode())) return false;
       var curLvl = skillManager ? (skillManager.weaponLevels.get(w.id) || 0) : 0;
       if (curLvl >= maxLvl) return false;
       if (curLvl >= 1) return true;
@@ -988,7 +1075,7 @@
     });
     if (available.length === 0) {
       available = pool.filter(function(w) {
-        if (w.fused) return false;
+        if (w.fused && !(typeof window.isUnlimitedUpgradeMode === 'function' && window.isUnlimitedUpgradeMode())) return false;
         var curLvl = skillManager ? (skillManager.weaponLevels.get(w.id) || 0) : 0;
         return curLvl < maxLvl;
       });
@@ -1027,7 +1114,7 @@
   function _shopUpgradeRandomWeapon() {
     if (!skillManager || !weaponManager) return false;
     var upgradeCfg = GAME_CONFIG.WEAPON_UPGRADE;
-    var maxLvl = upgradeCfg ? upgradeCfg.maxLevel : 5;
+    var maxLvl = upgradeCfg ? getWeaponMaxLevel() : 5;
     var candidates = [];
     skillManager.weaponLevels.forEach(function(lvl, wid) {
       if (lvl >= 1 && lvl < maxLvl) candidates.push(wid);
@@ -1488,7 +1575,7 @@
     var sm = skillManager;
     var curLevel = sm ? (sm.weaponLevels.get(weaponId) || 0) : 0;
     var equipped = weaponManager.hasWeapon(weaponId);
-    var maxLvl = (GAME_CONFIG.WEAPON_UPGRADE && GAME_CONFIG.WEAPON_UPGRADE.maxLevel) || 5;
+    var maxLvl = getWeaponMaxLevel();
 
     if (curLevel >= 1) {
       if (curLevel >= maxLvl) {
@@ -1565,17 +1652,18 @@
     if (upgradeId === 'weaponSlot' || upgradeId === 'passiveSlot') {
       var slotLevel = inRunUpgrades[upgradeId] || 0;
       var slotItem = IN_RUN_SHOP_ITEMS.find(function(i) { return i.id === upgradeId; });
-      if (!slotItem || slotLevel >= slotItem.maxLevel) {
+      if (!slotItem || slotLevel >= getInRunItemMaxLevel(slotItem)) {
         ui.showToast('已满级！', '#ffaa00');
         return false;
       }
       if (upgradeId === 'weaponSlot') {
         if (!skillManager) return false;
-        if (skillManager.weaponSlotsUnlocked >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
+        if (skillManager.weaponSlotsUnlocked >= getWeaponSlotCap()) {
           ui.showToast('武器槽已达上限!', '#ff4444');
           return false;
         }
-        skillManager.MAX_WEAPON_SLOTS = Math.min(skillManager.MAX_WEAPON_SLOTS + 1, cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8);
+        tryExpandWeaponSlots(skillManager.weaponSlotsUnlocked + 1);
+        skillManager.MAX_WEAPON_SLOTS = Math.max(skillManager.MAX_WEAPON_SLOTS, skillManager.weaponSlotsUnlocked + 1);
         skillManager.weaponSlotsUnlocked++;
         if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
         inRunUpgrades[upgradeId] = slotLevel + 1;
@@ -1585,11 +1673,12 @@
       }
       if (upgradeId === 'passiveSlot') {
         if (!skillManager) return false;
-        if (skillManager.passiveSlotsUnlocked >= skillManager.MAX_PASSIVE_SLOTS) {
+        if (skillManager.passiveSlotsUnlocked >= getPassiveSlotCap()) {
           ui.showToast('被动槽已达上限!', '#ff4444');
           return false;
         }
-        skillManager.MAX_PASSIVE_SLOTS++;
+        tryExpandPassiveSlots(skillManager.passiveSlotsUnlocked + 1);
+        skillManager.MAX_PASSIVE_SLOTS = Math.max(skillManager.MAX_PASSIVE_SLOTS, skillManager.passiveSlotsUnlocked + 1);
         skillManager.passiveSlotsUnlocked++;
         if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
         inRunUpgrades[upgradeId] = slotLevel + 1;
@@ -1599,7 +1688,7 @@
     }
 
     var level = (inRunUpgrades[upgradeId] || 0);
-    if (level >= (itemCfg.maxLevel || 10)) { ui.showToast('已满级！', '#ffaa00'); return false; }
+    if (level >= getEffectiveMaxLevel(itemCfg.maxLevel || 10)) { ui.showToast('已满级！', '#ffaa00'); return false; }
     inRunUpgrades[upgradeId] = level + 1;
     if (itemCfg.effect) {
       playerEntity.applyStatModifiers([itemCfg.effect(level + 1)]);
@@ -1789,20 +1878,23 @@
     if (!container) return;
     var header = document.createElement('div');
     header.style.cssText = 'width:100%;margin-top:16px;padding:8px 0 6px;border-top:1px solid rgba(255,221,0,0.25);font-size:14px;color:#ffdd88;font-weight:bold;';
-    header.textContent = '⬆️ 永久强化（可重复购买升级）';
+    header.textContent = isUnlimitedUpgradeMode()
+      ? '⬆️ 永久强化（无尽模式 · 无等级上限）'
+      : '⬆️ 永久强化（可重复购买升级）';
     container.appendChild(header);
 
     IN_RUN_SHOP_ITEMS.forEach(function(shopItem) {
       var level = inRunUpgrades[shopItem.id] || 0;
       var cost = getInRunUpgradeCost(shopItem.id);
-      var isMax = level >= shopItem.maxLevel;
+      var itemMax = getInRunItemMaxLevel(shopItem);
+      var isMax = level >= itemMax;
       var canAfford = inRunGold >= cost;
       var div = document.createElement('div');
       div.className = 'shop-item';
       div.innerHTML =
         '<div class="shop-item-icon">' + shopItem.icon + '</div>' +
         '<div class="shop-item-info"><div class="shop-item-name">' + shopItem.name + ' <span style="font-size:10px;color:#888;">⬆️强化</span></div>' +
-        '<div class="shop-item-level">等级: ' + level + '/' + shopItem.maxLevel + '</div>' +
+        '<div class="shop-item-level">' + formatShopLevelText(level, shopItem.maxLevel) + '</div>' +
         '<div class="shop-item-desc">' + shopItem.desc + '</div></div>' +
         '<button class="shop-item-btn shop-upgrade-btn" ' + (isMax || !canAfford ? 'disabled' : '') + ' style="min-width:80px;">' +
         (isMax ? '已满级' : '💰 ' + cost) + '</button>';
@@ -1845,14 +1937,15 @@
     IN_RUN_SHOP_ITEMS.forEach(function(item) {
       var level = inRunUpgrades[item.id] || 0;
       var cost = getInRunUpgradeCost(item.id);
-      var isMax = level >= item.maxLevel;
+      var itemMax = getInRunItemMaxLevel(item);
+      var isMax = level >= itemMax;
       var canAfford = inRunGold >= cost;
       var div = document.createElement('div');
       div.className = 'shop-item';
       div.innerHTML =
         '<div class="shop-item-icon">' + item.icon + '</div>' +
         '<div class="shop-item-info"><div class="shop-item-name">' + item.name + '</div>' +
-        '<div class="shop-item-level">等级: ' + level + '/' + item.maxLevel + '</div>' +
+        '<div class="shop-item-level">' + formatShopLevelText(level, item.maxLevel) + '</div>' +
         '<div class="shop-item-desc">' + item.desc + '</div></div>' +
         '<button class="shop-item-btn ' + (isMax ? 'max-level' : '') + '" ' + (isMax || !canAfford ? 'disabled' : '') + '>' +
         (isMax ? '已满级' : '💰 ' + cost) + '</button>';
@@ -1886,19 +1979,20 @@
     var item = IN_RUN_SHOP_ITEMS.find(function(i) { return i.id === itemId; });
     if (!item) return false;
     var level = inRunUpgrades[itemId] || 0;
-    if (level >= item.maxLevel) return false;
+    if (level >= getInRunItemMaxLevel(item)) return false;
     var cost = getInRunUpgradeCost(itemId);
 
     // B2/B3: Special handling for slot expansion purchases
     if (itemId === 'weaponSlot') {
       if (!skillManager) return false;
-      var totalWSlots = cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8;
+      var totalWSlots = getWeaponSlotCap();
       var curWMax = skillManager.MAX_WEAPON_SLOTS || 6;
-      if (curWMax >= totalWSlots) { ui.showToast('武器槽已达上限!', 1500, '#ff4444'); return false; }
+      if (skillManager.weaponSlotsUnlocked >= totalWSlots) { ui.showToast('武器槽已达上限!', 1500, '#ff4444'); return false; }
       var wSlotCost = (cfg.BALANCE.WEAPON_SLOT_COST && cfg.BALANCE.WEAPON_SLOT_COST[curWMax]) || 300;
       if (inRunGold < wSlotCost) { ui.showToast('金币不足! (需要 ' + wSlotCost + '💰)', 1500, '#ff4444'); return false; }
       inRunGold -= wSlotCost;
-      skillManager.MAX_WEAPON_SLOTS = curWMax + 1;
+      tryExpandWeaponSlots(skillManager.weaponSlotsUnlocked + 1);
+      skillManager.MAX_WEAPON_SLOTS = Math.max(curWMax + 1, skillManager.weaponSlotsUnlocked + 1);
       skillManager.weaponSlotsUnlocked++;
       if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
       inRunUpgrades[itemId] = level + 1;
@@ -1907,13 +2001,14 @@
     }
     if (itemId === 'passiveSlot') {
       if (!skillManager) return false;
-      var totalPSlots = cfg.BALANCE.MAX_PASSIVE_SLOT_TOTAL || 8;
+      var totalPSlots = getPassiveSlotCap();
       var curPMax = skillManager.MAX_PASSIVE_SLOTS || 6;
-      if (curPMax >= totalPSlots) { ui.showToast('被动槽已达上限!', 1500, '#ff4444'); return false; }
+      if (skillManager.passiveSlotsUnlocked >= totalPSlots) { ui.showToast('被动槽已达上限!', 1500, '#ff4444'); return false; }
       var pSlotCost = (cfg.BALANCE.PASSIVE_SLOT_COST && cfg.BALANCE.PASSIVE_SLOT_COST[curPMax]) || 250;
       if (inRunGold < pSlotCost) { ui.showToast('金币不足! (需要 ' + pSlotCost + '💰)', 1500, '#ff4444'); return false; }
       inRunGold -= pSlotCost;
-      skillManager.MAX_PASSIVE_SLOTS = curPMax + 1;
+      tryExpandPassiveSlots(skillManager.passiveSlotsUnlocked + 1);
+      skillManager.MAX_PASSIVE_SLOTS = Math.max(curPMax + 1, skillManager.passiveSlotsUnlocked + 1);
       skillManager.passiveSlotsUnlocked++;
       if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
       inRunUpgrades[itemId] = level + 1;
@@ -2035,22 +2130,25 @@
       // Slot expansions: direct apply
       case 'weaponSlot':
         if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
-        if (skillManager.weaponSlotsUnlocked >= (cfg.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8)) {
+        if (skillManager.weaponSlotsUnlocked >= getWeaponSlotCap()) {
           ui.showToast('武器槽已达上限!', '#ff4444'); break;
         }
-        skillManager.MAX_WEAPON_SLOTS++;
+        tryExpandWeaponSlots(skillManager.weaponSlotsUnlocked + 1);
+        skillManager.MAX_WEAPON_SLOTS = Math.max(skillManager.MAX_WEAPON_SLOTS + 1, skillManager.weaponSlotsUnlocked + 1);
         skillManager.weaponSlotsUnlocked++;
         if (weaponManager) weaponManager.maxWeaponSlots = skillManager.weaponSlotsUnlocked;
-        ui.showToast('🔫 武器槽+1 (共' + skillManager.weaponSlotsUnlocked + '/' + skillManager.MAX_WEAPON_SLOTS + '槽)', '#ffdd44');
+        ui.showToast('🔫 武器槽+1 (共' + skillManager.weaponSlotsUnlocked + '槽)', '#ffdd44');
         break;
       case 'passiveSlot':
         if (!skillManager) { ui.showToast('系统未就绪', '#ff4444'); break; }
-        if (skillManager.passiveSlotsUnlocked >= skillManager.MAX_PASSIVE_SLOTS) {
+        if (skillManager.passiveSlotsUnlocked >= getPassiveSlotCap()) {
           ui.showToast('被动槽已达上限!', '#ff4444'); break;
         }
+        tryExpandPassiveSlots(skillManager.passiveSlotsUnlocked + 1);
+        skillManager.MAX_PASSIVE_SLOTS = Math.max(skillManager.MAX_PASSIVE_SLOTS + 1, skillManager.passiveSlotsUnlocked + 1);
         skillManager.passiveSlotsUnlocked++;
         if (weaponManager) weaponManager.maxPassiveSlots = skillManager.passiveSlotsUnlocked;
-        ui.showToast('🛡️ 被动槽+1 (共' + skillManager.passiveSlotsUnlocked + '/' + skillManager.MAX_PASSIVE_SLOTS + '槽)', '#dd88ff');
+        ui.showToast('🛡️ 被动槽+1 (共' + skillManager.passiveSlotsUnlocked + '槽)', '#dd88ff');
         break;
       // Weapon crate: direct open
       case 'weaponCrate':

@@ -10,7 +10,9 @@ export interface SeasonReward {
   consumableId?: string;
 }
 
-const SEASON_ID = '2026-s1';
+/** 每个赛季持续 30 天，到期自动轮换并重置进度 */
+const SEASON_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+const SEASON_EPOCH_MS = Date.UTC(2026, 0, 1);
 const STORAGE_KEY = 'stg_season_pass_v1';
 
 const REWARDS: SeasonReward[] = [
@@ -39,17 +41,50 @@ interface SeasonState {
   claimed: number[];
 }
 
+export interface SeasonMeta {
+  id: string;
+  startMs: number;
+  endMs: number;
+  label: string;
+}
+
+export function getActiveSeasonMeta(now = Date.now()): SeasonMeta {
+  const index = Math.max(0, Math.floor((now - SEASON_EPOCH_MS) / SEASON_DURATION_MS));
+  const startMs = SEASON_EPOCH_MS + index * SEASON_DURATION_MS;
+  const endMs = startMs + SEASON_DURATION_MS;
+  const seasonNum = (index % 12) + 1;
+  const year = 2026 + Math.floor(index / 12);
+  return {
+    id: `${year}-s${seasonNum}`,
+    startMs,
+    endMs,
+    label: `${year} 第${seasonNum}赛季`,
+  };
+}
+
+function formatSeasonCountdown(endMs: number, now = Date.now()): string {
+  const left = endMs - now;
+  if (left <= 0) return '新赛季即将开始，进度将自动刷新';
+  const days = Math.floor(left / 86400000);
+  const hours = Math.floor((left % 86400000) / 3600000);
+  const mins = Math.floor((left % 3600000) / 60000);
+  if (days > 0) return `赛季剩余 ${days} 天 ${hours} 小时 · 结束后自动刷新`;
+  if (hours > 0) return `赛季剩余 ${hours} 小时 ${mins} 分 · 结束后自动刷新`;
+  return `赛季剩余 ${mins} 分钟 · 结束后自动刷新`;
+}
+
 function loadState(): SeasonState {
+  const meta = getActiveSeasonMeta();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw) as SeasonState;
-      if (s.seasonId === SEASON_ID) return s;
+      if (s.seasonId === meta.id) return s;
     }
   } catch {
     /* ignore */
   }
-  return { seasonId: SEASON_ID, xp: 0, claimed: [] };
+  return { seasonId: meta.id, xp: 0, claimed: [] };
 }
 
 function saveState(s: SeasonState): void {
@@ -76,6 +111,10 @@ function nextLevelXp(xp: number): number {
 }
 
 export const SeasonPassManager = {
+  getSeasonMeta(): SeasonMeta {
+    return getActiveSeasonMeta();
+  },
+
   getState(): SeasonState {
     return loadState();
   },
@@ -120,7 +159,8 @@ export const SeasonPassManager = {
       try {
         const key = 'stg_cosmetics';
         const list = JSON.parse(localStorage.getItem(key) || '[]') as string[];
-        list.push(`season_${SEASON_ID}_${level}`);
+        const meta = getActiveSeasonMeta();
+        list.push(`season_${meta.id}_${level}`);
         localStorage.setItem(key, JSON.stringify(list));
       } catch {
         /* ignore */
@@ -137,14 +177,19 @@ export const SeasonPassManager = {
     const xpEl = document.getElementById('season-pass-xp');
     const lvEl = document.getElementById('season-pass-level');
     const bar = document.getElementById('season-pass-bar-fill');
+    const timerEl = document.getElementById('season-pass-timer');
+    const titleEl = document.getElementById('season-pass-title');
     if (!list) return;
 
+    const meta = getActiveSeasonMeta();
     const s = loadState();
     const lv = currentLevel(s.xp);
     const next = nextLevelXp(s.xp);
     const prev = REWARDS.filter((r) => r.level <= lv).pop()?.xp ?? 0;
     const pct = next > prev ? ((s.xp - prev) / (next - prev)) * 100 : 100;
 
+    if (titleEl) titleEl.textContent = `🎫 ${meta.label}`;
+    if (timerEl) timerEl.textContent = formatSeasonCountdown(meta.endMs);
     if (xpEl) xpEl.textContent = String(s.xp);
     if (lvEl) lvEl.textContent = String(lv);
     if (bar) bar.style.width = `${Math.min(100, pct)}%`;
@@ -193,10 +238,16 @@ export const SeasonPassManager = {
       const menu = document.getElementById('menu-screen');
       if (menu) menu.style.display = 'flex';
     });
+
+    // 每分钟刷新倒计时显示（若界面打开）
+    window.setInterval(() => {
+      if (screen?.style.display === 'flex') this.renderScreen();
+    }, 60_000);
   },
 };
 
 export function initSeasonPass(): void {
+  loadState();
   SeasonPassManager.initUI();
   (window as StgWindow).SeasonPassManager = SeasonPassManager;
 }

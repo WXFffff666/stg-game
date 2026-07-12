@@ -291,6 +291,15 @@ class Game {
         (this.playerBullets.length + this.enemyBullets.length) >= limits.bullets) return;
     if (cat === 'particle' && this.particles.length >= limits.particles) return;
     if (cat === 'item' && this.items.length >= limits.items) return;
+    if (cat === 'damageNumber') {
+      var dnMax = this.isMobile ? 30 : 48;
+      if (typeof GAME_CONFIG !== 'undefined' && GAME_CONFIG.BALANCE) {
+        dnMax = this.isMobile
+          ? (GAME_CONFIG.BALANCE.MAX_DAMAGE_NUMBERS_MOBILE || 30)
+          : (GAME_CONFIG.BALANCE.MAX_DAMAGE_NUMBERS || 48);
+      }
+      if (_countActiveDamageNumbers && _countActiveDamageNumbers() >= dnMax) return;
+    }
 
     // Cap total entities to prevent memory explosion
     if (this.entities.length >= 800) {
@@ -330,6 +339,7 @@ class Game {
       case 'enemyBullet': this.enemyBullets.push(entity); break;
       case 'item': this.items.push(entity); break;
       case 'particle': this.particles.push(entity); break;
+      case 'damageNumber': break;
       case 'obstacle': this.obstacles.push(entity); break;
     }
   }
@@ -793,8 +803,13 @@ class Game {
         this.entities.pop();
         continue;
       }
-      if (entity.drawLayer === 7 && entity.update) {
+      if ((entity.drawLayer === 7 || entity.category === 'damageNumber') && entity.update) {
         entity.update(dt);
+        if (!entity.active) {
+          this._uncategorizeEntity(entity);
+          this.entities[i] = this.entities[this.entities.length - 1];
+          this.entities.pop();
+        }
       }
     }
     if (this._purgeCounter === undefined) this._purgeCounter = 0;

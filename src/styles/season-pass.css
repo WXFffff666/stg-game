@@ -24,6 +24,14 @@
   padding: 2px 10px;
   margin-bottom: 8px;
 }
+
+.season-pass-timer {
+  font-size: 12px;
+  color: #aaccff;
+  margin: 6px 0 10px;
+  text-align: center;
+}
+
 .season-pass-progress {
   width: min(400px, 90vw);
   margin-bottom: 16px;

@@ -2,6 +2,8 @@
  * 引擎启动补丁：武器限流、可见性时间戳、自动画质
  */
 import { applyBalancePatch } from './balance';
+import { applyContentExtension } from './content-ext';
+import { applyPerfExtension } from './perf-ext';
 
 interface GameLike {
   lastTime: number;
@@ -17,6 +19,8 @@ interface WeaponManagerLike {
 
 export function bootstrapEngine(): void {
   applyBalancePatch();
+  applyContentExtension();
+  applyPerfExtension();
   patchVisibilityReset();
   patchWeaponMissileCap();
   patchAutoQuality();

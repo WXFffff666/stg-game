@@ -389,9 +389,19 @@ class WeaponManager {
    * @returns {number} -1 if all slots full
    */
   _findEmptySlot() {
-    var limit = this.maxWeaponSlots || this.weaponSlots.length;
+    var cap = (typeof window.getWeaponSlotCap === 'function')
+      ? window.getWeaponSlotCap()
+      : (GAME_CONFIG.BALANCE.MAX_WEAPON_SLOT_TOTAL || 8);
+    var limit = Math.min(this.maxWeaponSlots || this.weaponSlots.length, cap);
+    if (typeof window.tryExpandWeaponSlots === 'function' && limit > this.weaponSlots.length) {
+      window.tryExpandWeaponSlots(limit);
+    }
     for (var i = 0; i < Math.min(limit, this.weaponSlots.length); i++) {
       if (!this.weaponSlots[i]) return i;
+    }
+    if (this.weaponSlots.length < cap && typeof window.tryExpandWeaponSlots === 'function') {
+      window.tryExpandWeaponSlots(this.weaponSlots.length + 1);
+      return this.weaponSlots.length - 1;
     }
     return -1;
   }

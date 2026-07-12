@@ -17,16 +17,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,json}'],
         navigateFallback: 'index.html',
-        // Only cache same-origin assets; avoid intercepting CF analytics / extensions
-        runtimeCaching: [
-          {
-            urlPattern: ({ request, url }) =>
-              url.origin === self.location.origin &&
-              (request.destination === 'script' || request.destination === 'style'),
-            handler: 'NetworkFirst',
-            options: { cacheName: 'stg-assets', networkTimeoutSeconds: 3 },
-          },
-        ],
+        // 仅预缓存同源资源，不拦截第三方脚本（避免 CF Insights / 插件导致 SW 报错）
       },
     }),
   ],
