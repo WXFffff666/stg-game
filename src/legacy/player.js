@@ -1608,10 +1608,11 @@ class Player {
     // SkillManager reference (set via linkSkillManager)
     this._skillManager = null;
 
-    // 触摸跟随模式（子弹始终直线向前，不自动瞄准）
+    // --- 触摸/拖动跟随模式（按住即跟手，子弹直线向前） ---
     this._touchActive = false;
     this._touchX = 0;
     this._touchY = 0;
+    this._pointerFollowOffsetY = 35;
 
     // Lifesteal per-second cap tracking (C8)
     this._lifestealThisSecond = 0;
@@ -1626,21 +1627,24 @@ class Player {
     var prevX = this.x;
     var prevY = this.y;
 
-    // --- 触摸跟随模式 ---
+    // --- 按住拖动：飞机跟手；未按住：平滑跟随指针 ---
     if (this._touchActive && this._touchX !== undefined) {
       this.x = this._touchX;
-      this.y = this._touchY - 50; // 手指上方50px，避免遮挡
+      this.y = this._touchY - this._pointerFollowOffsetY;
       // 边界检查
       var r = this.hitboxRadius;
       this.x = Math.max(r, Math.min(game.width - r, this.x));
       this.y = Math.max(r, Math.min(game.height - r, this.y));
     } else {
-      // --- Smooth pointer follow（桌面端） ---
-      var lerp = (window.game && window.game.isMobile) ? 0.38 : 0.28;
+      var b = GAME_CONFIG.BALANCE;
+      var lerp = (window.game && window.game.isMobile)
+        ? (b.PLAYER_POINTER_LERP_MOBILE || 0.72)
+        : (b.PLAYER_POINTER_LERP || 0.62);
       var speedRatio = this.speed / GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED;
+      var follow = Math.min(1, lerp * speedRatio);
 
-      this.x += (game.mouseX - this.x) * lerp * speedRatio;
-      this.y += (game.mouseY - this.y) * lerp * speedRatio;
+      this.x += (game.mouseX - this.x) * follow;
+      this.y += (game.mouseY - this.y) * follow;
 
       // Clamp inside canvas bounds (hitbox radius keeps ship fully visible)
       var r = this.hitboxRadius;

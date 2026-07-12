@@ -17,6 +17,9 @@ const GAME_CONFIG = {
     PLAYER_BASE_HP: 150,
   PLAYER_BASE_LIFESTEAL: 0.05,  // Base 5% lifesteal for sustain
     PLAYER_BASE_SPEED: 280,
+    PLAYER_POINTER_LERP: 0.62,
+    PLAYER_POINTER_LERP_MOBILE: 0.72,
+    PLAYER_BULLET_SPEED_DEFAULT: 520,
     PLAYER_INVINCIBLE_MS: 2000,
     PLAYER_SHIELD_INVINCIBLE_MS: 300,
     PLAYER_HITBOX_RADIUS: 8,
@@ -3093,9 +3096,9 @@ const GAME_CONFIG = {
     },
     fastSmall: {
       type: 'fastSmall', name: '快速兵',
-      hp: 10, speed: 220, damage: 12, score: 60, xp: 10,
+      hp: 10, speed: 165, damage: 12, score: 60, xp: 10,
       size: 8, color: '#ffaa44',
-      ai: 'straight', fireRate: 3000, bulletSpeed: 250, bulletDamage: 8, bulletColor: '#ffaa44',
+      ai: 'straight', fireRate: 3000, bulletSpeed: 320, bulletDamage: 8, bulletColor: '#ffaa44',
       dropRate: 0.1,
     },
     medium: {

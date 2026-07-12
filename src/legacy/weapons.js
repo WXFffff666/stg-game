@@ -322,6 +322,18 @@
   }
 })();
 
+/** Normalize weapon bullet speed + stat bonuses (small stat values = +% not absolute px/s). */
+function resolvePlayerBulletSpeed(weaponSpeed, stats) {
+  var b = GAME_CONFIG.BALANCE;
+  var base = weaponSpeed || b.PLAYER_BULLET_SPEED_DEFAULT || 520;
+  var mod = stats && stats.bulletSpeed;
+  if (!mod) return base;
+  if (mod >= 80) return mod;
+  if (mod < 2) return base * (1 + mod);
+  return base * mod;
+}
+window.resolvePlayerBulletSpeed = resolvePlayerBulletSpeed;
+
 class WeaponManager {
   /**
    * @param {object} player - the Player entity this weapon manager is attached to
@@ -686,7 +698,7 @@ class WeaponManager {
     if (skillMgr) {
       dmg *= skillMgr.getWeaponDamageMult(weaponId);
     }
-    var spd = (cfg.bulletSpeed || 400) * (stats.bulletSpeed || 1);
+    var spd = resolvePlayerBulletSpeed(cfg.bulletSpeed, stats);
     var size = (cfg.bulletSize || 3) * (stats.bulletSize || 1);
     // Faction-specific bullet color: weapon color tinted by faction color
     var factionColor = (this.player && this.player.factionColor) ? this.player.factionColor : null;
@@ -1468,7 +1480,7 @@ OrbitalDrone.prototype = {
     if (skillMgr) {
       dmg *= skillMgr.getWeaponDamageMult(weaponId);
     }
-    var spd = (this.cfg.bulletSpeed || 500) * (stats.bulletSpeed || 1);
+    var spd = resolvePlayerBulletSpeed(this.cfg.bulletSpeed || 500, stats);
     var color = this.cfg.bulletColor || '#88ddff';
     var trail = this.cfg.trailColor || color;
 

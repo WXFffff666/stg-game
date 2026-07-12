@@ -5926,7 +5926,9 @@ class SkillManager {
 
     // Use player stats if available
     if (player.stats) {
-      if (player.stats.bulletSpeed) speed = player.stats.bulletSpeed;
+      speed = window.resolvePlayerBulletSpeed
+        ? window.resolvePlayerBulletSpeed(550, player.stats)
+        : 550;
       if (player.stats.attack) damage = player.stats.attack * 1.5;
       if (player.stats.bulletSize) size = Math.max(2, player.stats.bulletSize);
     }
@@ -5985,7 +5987,9 @@ window._smBulletStorm = {
     var damage = 6;
     var size = 2.5;
     if (player.stats) {
-      if (player.stats.bulletSpeed) speed = player.stats.bulletSpeed;
+      speed = window.resolvePlayerBulletSpeed
+        ? window.resolvePlayerBulletSpeed(500, player.stats)
+        : 500;
       if (player.stats.attack) damage = player.stats.attack * 1.2;
       if (player.stats.bulletSize) size = Math.max(2, player.stats.bulletSize);
     }
@@ -6014,7 +6018,9 @@ window._smCloneSpawnBullet = function(x, y, angle) {
   var damage = 5;
   var size = 2;
   if (player.stats) {
-    if (player.stats.bulletSpeed) speed = player.stats.bulletSpeed * 0.8;
+    speed = window.resolvePlayerBulletSpeed
+      ? window.resolvePlayerBulletSpeed(450, player.stats) * 0.8
+      : 360;
     if (player.stats.attack) damage = player.stats.attack * 0.8;
     if (player.stats.bulletSize) size = Math.max(2, player.stats.bulletSize * 0.7);
   }

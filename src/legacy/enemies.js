@@ -10,6 +10,19 @@
 // ENEMY CLASS
 // =============================================================================
 class Enemy {
+  /** Enemy bullets should outrun the shooter so planes never "overtake" their shots. */
+  static _resolveBulletSpeed(template, diff, cfg) {
+    if (!template.bulletSpeed || template.fireRate === 0) return 0;
+    const scaled = template.bulletSpeed * (1 + diff * (cfg.DIFFICULTY_BULLET_SPEED || 0.02));
+    const moveSpd = Math.max(
+      template.speed || 0,
+      template.chargeSpeed || 0,
+      (template.speed || 0) * (template.berserkSpeedBoost || 1)
+    );
+    const floor = Math.max(180, moveSpd * 1.35);
+    return Math.max(scaled, floor);
+  }
+
   /**
    * @param {object} opts - Override properties from template
    * @param {object} template - Enemy template from GAME_CONFIG.ENEMIES
@@ -50,7 +63,7 @@ class Enemy {
     this.fireTimer = Math.random() * template.fireRate;
     this.fireRate = template.fireRate;
     this.bulletConfig = {
-      speed: template.bulletSpeed * (1 + diff * cfg.DIFFICULTY_BULLET_SPEED),
+      speed: Enemy._resolveBulletSpeed(template, diff, cfg),
       damage: template.bulletDamage || cfg.ENEMY_BULLET_DAMAGE,
       color: template.bulletColor || template.color,
       count: template.bulletCount || 1,

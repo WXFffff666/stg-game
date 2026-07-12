@@ -1024,8 +1024,8 @@ class Game {
     const pos = this.canvasToGame(clientX, clientY);
     this.mouseX = pos.x;
     this.mouseY = pos.y;
-    // 触摸跟随：更新玩家触摸坐标
-    if (e.touches && this.player) {
+    // 按住拖动时更新跟手坐标（触摸 + 鼠标统一）
+    if (this.player && (this.isPointerDown || e.touches)) {
       this.player._touchX = pos.x;
       this.player._touchY = pos.y;
     }
@@ -1040,8 +1040,8 @@ class Game {
     const pos = this.canvasToGame(clientX, clientY);
     this.mouseX = pos.x;
     this.mouseY = pos.y;
-    // 触摸跟随：激活触摸模式
-    if (e.touches && this.player) {
+    // 触摸/鼠标按下：进入跟手模式
+    if (this.player) {
       this.player._touchActive = true;
       this.player._touchX = pos.x;
       this.player._touchY = pos.y;
@@ -1051,8 +1051,7 @@ class Game {
   _onPointerUp(e) {
     e.preventDefault();
     this.isPointerDown = false;
-    // 触摸跟随：停用触摸模式
-    if (e.changedTouches && this.player) {
+    if (this.player) {
       this.player._touchActive = false;
     }
   }

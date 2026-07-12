@@ -41,8 +41,11 @@ export function applyBalancePatch(): void {
   b.POOL_ENEMIES_MOBILE = 22;
 
   b.PLAYER_SHIELD_INVINCIBLE_MS = 300;
+  b.PLAYER_POINTER_LERP = 0.62;
+  b.PLAYER_POINTER_LERP_MOBILE = 0.72;
+  b.PLAYER_BULLET_SPEED_DEFAULT = 520;
 
-  cfg.VERSION = '2.1.5';
+  cfg.VERSION = '2.1.6';
 
 
 
