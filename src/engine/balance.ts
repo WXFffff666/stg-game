@@ -14,7 +14,10 @@ export function applyBalancePatch(): void {
   b.FUSION_DAMAGE_MULTIPLIER = 0.88;
   b.MAX_DIFFICULTY = 120;
   b.BOSS_FIRST_HP_SCALE = 0.75;
-  cfg.VERSION = '2.1.0';
+  b.MAX_PLAYER_BULLETS_PER_FRAME = 14;
+  b.POOL_BULLETS = 280;
+  b.POOL_BULLETS_MOBILE = 160;
+  cfg.VERSION = '2.1.2';
 
   if (cfg.ENDLESS_MODE) {
     Object.assign(cfg.ENDLESS_MODE, {

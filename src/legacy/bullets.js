@@ -73,7 +73,7 @@ class Bullet {
 
     // Trail timing
     this._trailTimer     = 0;
-    this._trailInterval  = 0.05;
+    this._trailInterval  = 0.09;
 
     // Age
     this._age = 0;
@@ -216,9 +216,9 @@ class Bullet {
     var trailInterval = this._trailInterval;
     if (this.homingStrength > 0) {
       var gq = window.game && window.game.effectsQuality;
-      if (window.game && window.game.lowPerfMode) trailInterval = 0.12;
-      else if (gq === 'low') trailInterval = 0.1;
-      else if (gq === 'high') trailInterval = 0.04;
+      if (window.game && window.game.lowPerfMode) trailInterval = 0.18;
+      else if (gq === 'low') trailInterval = 0.14;
+      else if (gq === 'high') trailInterval = 0.07;
     }
     if (this._trailTimer >= trailInterval) {
       this._trailTimer -= trailInterval;
@@ -1083,14 +1083,14 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  2. spread — N bullets in an arc
   // ----------------------------------------------------------
-  spread: function(x, y, count, spreadAngle, speed, damage, color, trailColor) {
+  spread: function(x, y, count, spreadAngleDeg, speed, damage, color, trailColor, baseAngle) {
     var bullets = [];
-
     if (count <= 0) return bullets;
 
-    // Distribute evenly across the spread arc, centered on angle 0 (rightward)
-    var startAngle = -spreadAngle / 2;
-    var step = count > 1 ? spreadAngle / (count - 1) : 0;
+    var base = (typeof baseAngle === 'number') ? baseAngle : -Math.PI / 2;
+    var spreadRad = (spreadAngleDeg || 25) * (Math.PI / 180);
+    var startAngle = base - spreadRad / 2;
+    var step = count > 1 ? spreadRad / (count - 1) : 0;
 
     for (var i = 0; i < count; i++) {
       var angle = startAngle + step * i;
@@ -1767,11 +1767,13 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   //  F2. smartSpread — Homing fan bullets
   // ----------------------------------------------------------
-  smartSpread: function(x, y, count, spreadAngle, speed, damage, color, trailColor, homingStrength, homingRange) {
+  smartSpread: function(x, y, count, spreadAngleDeg, speed, damage, color, trailColor, homingStrength, homingRange, baseAngle) {
     var bullets = [];
     if (count <= 0) return bullets;
-    var startAngle = -spreadAngle / 2;
-    var step = count > 1 ? spreadAngle / (count - 1) : 0;
+    var base = (typeof baseAngle === 'number') ? baseAngle : -Math.PI / 2;
+    var spreadRad = (spreadAngleDeg || 30) * (Math.PI / 180);
+    var startAngle = base - spreadRad / 2;
+    var step = count > 1 ? spreadRad / (count - 1) : 0;
 
     for (var i = 0; i < count; i++) {
       var angle = startAngle + step * i;

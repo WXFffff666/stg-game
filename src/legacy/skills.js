@@ -1380,9 +1380,10 @@ class SkillManager {
         this.player.applyStatModifiers(skill.effects);
         break;
       case 'active':
-        // Register cooldown tracking; fires automatically when ready
+        // 战技自动释放：首次学习后短暂预热再进入自动循环
         if (prevCount === 0) {
-          this.activeCooldowns.set(skillId, 0);
+          var warmCd = skill.cooldown ? Math.min(skill.cooldown * 0.15, 800) : 600;
+          this.activeCooldowns.set(skillId, warmCd);
         }
         break;
       case 'conditional':

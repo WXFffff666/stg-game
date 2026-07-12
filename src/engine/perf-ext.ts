@@ -1,10 +1,10 @@
 /**
- * 性能补丁：飘字预算、多武器开火错峰、移动端检测
+ * 性能补丁：飘字预算、子弹回收、移动端检测
  */
 export function applyPerfExtension(): void {
   patchDamageNumberBudget();
-  patchWeaponFireStagger();
   patchMobileDetect();
+  patchBulletRecycle();
 }
 
 function patchMobileDetect(): void {
@@ -65,30 +65,24 @@ function patchDamageNumberBudget(): void {
   }, 100);
 }
 
-function patchWeaponFireStagger(): void {
+function patchBulletRecycle(): void {
   const tryPatch = (): void => {
-    const wm = (window as StgWindow).weaponManager as WeaponMgr | undefined;
-    if (!wm || !wm.update || wm._staggerPatched) return;
-    const orig = wm.update.bind(wm);
-    wm.update = function (dt: number, px: number, py: number, stats: unknown) {
-      const slots = wm.weaponSlots || [];
-      const activeCount = slots.filter((s) => s && s.weaponId).length;
-      if (activeCount <= 10) return orig(dt, px, py, stats);
-      const phase = ((window as StgWindow).game?._weaponStaggerFrame ?? 0) % 2;
-      (window as StgWindow).game!._weaponStaggerFrame = phase + 1;
-      const saved: Array<{ weaponId: string } | null | undefined> = [];
-      for (let i = 0; i < slots.length; i++) {
-        if (i % 2 !== phase && slots[i]) {
-          saved[i] = slots[i];
-          slots[i] = null;
+    const g = (window as StgWindow).game as GameLike | undefined;
+    if (!g || !g.addEntity || g._bulletRecyclePatched) return;
+    const orig = g.addEntity.bind(g);
+    g.addEntity = function (entity: { category?: string; active?: boolean }) {
+      if (entity.category === 'playerBullet') {
+        const lim = g.ENTITY_LIMITS?.bullets ?? 400;
+        while (g.playerBullets.length >= lim && g.playerBullets.length > 0) {
+          const old = g.playerBullets[0];
+          if (!old) break;
+          old.active = false;
+          g.removeEntity(old);
         }
       }
-      orig(dt, px, py, stats);
-      for (let j = 0; j < saved.length; j++) {
-        if (saved[j]) slots[j] = saved[j]!;
-      }
+      orig(entity);
     };
-    wm._staggerPatched = true;
+    g._bulletRecyclePatched = true;
   };
   let n = 0;
   const id = window.setInterval(() => {
@@ -97,14 +91,16 @@ function patchWeaponFireStagger(): void {
   }, 100);
 }
 
-interface WeaponMgr {
-  update?: (dt: number, px: number, py: number, stats: unknown) => void;
-  weaponSlots?: Array<{ weaponId: string } | null>;
-  _staggerPatched?: boolean;
+interface GameLike {
+  addEntity: (entity: { category?: string; active?: boolean }) => void;
+  removeEntity: (entity: { active?: boolean }) => void;
+  playerBullets: Array<{ active?: boolean }>;
+  ENTITY_LIMITS?: { bullets?: number };
+  _bulletRecyclePatched?: boolean;
 }
 
 interface StgWindow extends Window {
-  game?: { isMobile?: boolean; _mobileDetectDone?: boolean; _weaponStaggerFrame?: number };
+  game?: { isMobile?: boolean; _mobileDetectDone?: boolean };
   GAME_CONFIG?: { BALANCE?: Record<string, unknown> };
   ParticleSystem?: {
     damageNumber: (x: number, y: number, value: number | string, color?: string, isCrit?: boolean, isReact?: boolean) => void;
@@ -112,7 +108,6 @@ interface StgWindow extends Window {
     _dmgCellTimes?: Record<string, number>;
     _countActiveDamageNumbers?: () => number;
   };
-  weaponManager?: WeaponMgr;
 }
 
 declare const window: StgWindow;

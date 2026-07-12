@@ -669,19 +669,14 @@
           e.preventDefault();
           if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
         }
-        // B6: Quick-switch weapon focus with number keys — only when running
+        // B6: 数字键查看武器信息（不再切换聚焦）
         if (e.key >= '1' && e.key <= '6' && !game.isPaused) {
           var slotIdx = parseInt(e.key) - 1;
           if (weaponManager && weaponManager.weaponSlots[slotIdx]) {
-            weaponManager.toggleFocusedSlot(slotIdx);
-            if (window.ui) {
-              var slot = weaponManager.weaponSlots[slotIdx];
-              var wCfg = GAME_CONFIG.WEAPONS[slot.weaponId];
-              if (weaponManager.focusedSlot === slotIdx) {
-                window.ui.showToast('⚡ 聚焦: ' + (wCfg ? wCfg.name : slot.weaponId) + ' (+30%射速)', 1200, '#ffdd00');
-              } else {
-                window.ui.showToast('🔓 取消聚焦', 800, '#aaa');
-              }
+            var slot = weaponManager.weaponSlots[slotIdx];
+            var wCfg = GAME_CONFIG.WEAPONS[slot.weaponId];
+            if (wCfg && window.ui) {
+              window.ui.showToast((wCfg.icon || '🔫') + ' ' + wCfg.name + ' — ' + (wCfg.description || ''), 2000, '#ffdd00');
             }
           }
         }
@@ -3213,7 +3208,12 @@
     // Wave shop is now triggered by enemies.js _completeWave -> _showWaveShopPopup (A4)
 
     // Update weapon
-    if (weaponManager) weaponManager.update(dt);
+    if (weaponManager) {
+      if (typeof weaponManager.resetFrameBulletBudget === 'function') {
+        weaponManager.resetFrameBulletBudget();
+      }
+      weaponManager.update(dt);
+    }
 
     // Update skill manager
     if (skillManager) skillManager.update(dt);

@@ -1600,7 +1600,7 @@ class Player {
 
     // Engine trail timer
     this._engineTrailTimer = 0;
-    this._engineTrailInterval = 0.04; // seconds between trail particles
+    this._engineTrailInterval = 0.14; // seconds between trail particles
 
     // Visual time accumulator for ship animations
     this._visualTime = 0;
@@ -1655,9 +1655,7 @@ class Player {
       this._autoShootTarget = nearest;
     } else {
       // --- Smooth pointer follow（桌面端） ---
-      // lerp factor ~0.15 gives responsive but not-teleport movement.
-      // Scale by speed ratio so faster factions feel snappier.
-      var lerp = 0.15;
+      var lerp = (window.game && window.game.isMobile) ? 0.38 : 0.28;
       var speedRatio = this.speed / GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED;
 
       this.x += (game.mouseX - this.x) * lerp * speedRatio;
@@ -1676,7 +1674,7 @@ class Player {
     var dx = this.x - prevX;
     var dy = this.y - prevY;
     var moved = Math.sqrt(dx * dx + dy * dy);
-    if (moved > 1) {
+    if (moved > 3) {
       this._engineTrailTimer += dt;
       while (this._engineTrailTimer >= this._engineTrailInterval) {
         this._engineTrailTimer -= this._engineTrailInterval;
@@ -1811,14 +1809,15 @@ class Player {
   // ====================================================================
 
   draw(ctx) {
-    // Invincibility flicker — skip every other 100 ms block (but still draw shield)
-    var invFlicker = this.invincibleTimer > 0 && (Math.floor(this.invincibleTimer / 100) & 1) === 0;
-    // Invincibility pulse scale
-    var invPulse = this.invincibleTimer > 0 ? 1 + Math.sin(this._visualTime * 12) * 0.08 : 1;
+    // 受击无敌：半透明闪烁，不再整架消失
+    var invAlpha = 1;
+    if (this.invincibleTimer > 0) {
+      invAlpha = 0.75 + Math.sin(this._visualTime * 10) * 0.12;
+    }
 
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(invPulse, invPulse);
+    ctx.globalAlpha = invAlpha;
 
     // --- Shadow stealth visual (semi-transparent when stealthed) ---
     if (this._stealthActive) {
@@ -1859,15 +1858,13 @@ class Player {
       ctx.globalAlpha = 1;
     }
 
-    // --- Draw ship design (skip hull if invincibility flicker) ---
-    if (!invFlicker) {
-      // Draw faction-specific ship design
-      var s = 13; // base ship size
+    // --- Draw ship design ---
+    {
+      var s = 13;
       var design = ShipDesigns[this.factionId];
       if (design) {
         design(ctx, s, this.factionColor, this._visualTime);
       } else {
-        // Fallback: simple triangle for unknown factions
         ctx.fillStyle = this.factionColor;
         ctx.beginPath();
         ctx.moveTo(0, -s);
@@ -1878,55 +1875,17 @@ class Player {
       }
     }
 
-    // --- Invincibility energy ring (draws even during flicker) ---
+    // --- Invincibility ring (subtle) ---
     if (this.invincibleTimer > 0) {
-      var invRingRadius = this.hitboxRadius + 6 + Math.sin(this._visualTime * 8) * 3;
-      var invAlpha = 0.3 + Math.sin(this._visualTime * 6) * 0.15;
-      ctx.strokeStyle = '#ffffff';
-      ctx.globalAlpha = invAlpha;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 3]);
-      ctx.lineDashOffset = -this._visualTime * 60;
-      ctx.beginPath();
-      ctx.arc(0, 0, invRingRadius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
-    }
-
-    // === FACTION AURA — pulsating glow ring ===
-    if (this.factionId && this.factionColor) {
-      var _auraPulse = 0.6 + Math.sin(this._visualTime * 3) * 0.2 + Math.sin(this._visualTime * 5.7) * 0.1;
-      var _auraRadius = this.hitboxRadius + 14 + Math.sin(this._visualTime * 2.5) * 4;
-      var _auraAlpha = 0.08 + _auraPulse * 0.08;
-
-      // Outer glow ring
-      ctx.strokeStyle = this.factionColor;
-      ctx.globalAlpha = _auraAlpha * 0.7;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, _auraRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Wider soft glow
-      ctx.strokeStyle = this.factionColor;
-      ctx.globalAlpha = _auraAlpha * 0.35;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.arc(0, 0, _auraRadius + 6, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Inner bright ring
-      ctx.strokeStyle = this.factionColor;
-      ctx.globalAlpha = _auraAlpha * 0.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.globalAlpha = 0.25 * invAlpha;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(0, 0, this.hitboxRadius + 8, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.hitboxRadius + 5, 0, Math.PI * 2);
       ctx.stroke();
-
-      ctx.globalAlpha = 1;
     }
 
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 

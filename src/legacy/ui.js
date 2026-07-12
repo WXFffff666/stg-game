@@ -1183,6 +1183,28 @@ class UIManager {
       var ic = sk.icon || '✨';
       if (icon.textContent !== ic) icon.textContent = ic;
 
+      var skCfg = null;
+      if (window.GAME_CONFIG && window.GAME_CONFIG.SKILLS) {
+        for (var si = 0; si < window.GAME_CONFIG.SKILLS.length; si++) {
+          if (window.GAME_CONFIG.SKILLS[si].id === sk.id) { skCfg = window.GAME_CONFIG.SKILLS[si]; break; }
+        }
+      }
+      if (skCfg) {
+        var autoTag = (!isPassive && skCfg.type === 'active') ? ' [自动]' : '';
+        slot.title = skCfg.name + autoTag + '\n' + (skCfg.description || '');
+      }
+
+      var lbl = slot.querySelector('.skill-name-label');
+      if (!lbl && skCfg) {
+        lbl = document.createElement('div');
+        lbl.className = 'skill-name-label';
+        slot.appendChild(lbl);
+      }
+      if (lbl && skCfg) {
+        var sn = skCfg.name.length > 4 ? skCfg.name.slice(0, 4) : skCfg.name;
+        if (lbl.textContent !== sn) lbl.textContent = sn;
+      }
+
       var cd = slot.querySelector('.skill-cooldown-overlay');
       if (!isPassive && sk.cooldownPct > 0) {
         if (!cd) {
@@ -1266,11 +1288,10 @@ class UIManager {
       grid.addEventListener('click', function(e) {
         var el = e.target.closest('.hud-weapon-slot');
         if (!el || el.classList.contains('empty')) return;
-        var idx = parseInt(el.dataset.slotIdx, 10);
-        if (isNaN(idx) || !window.weaponManager) return;
-        if (typeof window.weaponManager.toggleFocusedSlot === 'function') {
-          window.weaponManager.toggleFocusedSlot(idx);
-          if (window.ui) window.ui._markWeaponBarDirty();
+        var wId = el.dataset.weaponId;
+        var cfg = (window.GAME_CONFIG && wId) ? window.GAME_CONFIG.WEAPONS[wId] : null;
+        if (cfg && window.ui && typeof window.ui.showToast === 'function') {
+          window.ui.showToast((cfg.icon || '🔫') + ' ' + cfg.name + ' — ' + (cfg.description || ''), 2200, '#aaddff');
         }
       });
     }
@@ -1282,7 +1303,6 @@ class UIManager {
 
       if (w && w.id) {
         var wantClass = 'hud-weapon-slot' +
-          (i === focusedSlot ? ' active-weapon' : '') +
           (fusionGlowSlots.indexOf(i) !== -1 ? ' fusion-glow' : '');
         if (slot.className !== wantClass) slot.className = wantClass;
         slot.dataset.weaponId = w.id;
@@ -1295,6 +1315,20 @@ class UIManager {
           slot.appendChild(iconNode);
         }
         if (iconNode.textContent !== (w.icon || '🔫')) iconNode.textContent = w.icon || '🔫';
+
+        var wCfg = (window.GAME_CONFIG && w.id) ? window.GAME_CONFIG.WEAPONS[w.id] : null;
+        var nameNode = slot.querySelector('.weapon-name');
+        if (!nameNode) {
+          nameNode = document.createElement('div');
+          nameNode.className = 'weapon-name';
+          slot.appendChild(nameNode);
+        }
+        var shortName = wCfg ? wCfg.name : (w.id || '');
+        if (shortName.length > 5) shortName = shortName.slice(0, 5);
+        if (nameNode.textContent !== shortName) nameNode.textContent = shortName;
+        if (wCfg) {
+          slot.title = wCfg.name + '\n' + (wCfg.description || '');
+        }
 
         var cd = slot.querySelector('.weapon-cooldown-overlay');
         if (cd) cd.remove();
@@ -1494,6 +1528,7 @@ class UIManager {
         }
         if (!skillCfg) continue;
         var skillData = {
+          id: skillId,
           icon: skillCfg.icon || '✨',
           level: stackCount,
           cooldownPct: 0

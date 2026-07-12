@@ -384,8 +384,11 @@ class WeaponManager {
   //  WEAPON SLOT MANAGEMENT
   // ============================================================
 
+  _initialFireTimer(cfg) {
+    return Math.max(30, cfg.fireRate || 500);
+  }
+
   /**
-   * Find the index of the first empty weapon slot.
    * @returns {number} -1 if all slots full
    */
   _findEmptySlot() {
@@ -429,7 +432,7 @@ class WeaponManager {
     this.weaponSlots[idx] = {
       weaponId: weaponId,
       level: 1,
-      fireTimer: 0
+      fireTimer: this._initialFireTimer(cfg)
     };
 
     // Setup orbital state for orbital-type weapons
@@ -465,7 +468,7 @@ class WeaponManager {
     this.weaponSlots[slotIndex] = {
       weaponId: weaponId,
       level: 1,
-      fireTimer: 0
+      fireTimer: this._initialFireTimer(cfg)
     };
 
     if (weaponId === 'orbital' || weaponId === 'teslaOrbital') {
@@ -598,17 +601,16 @@ class WeaponManager {
       if (skillMgr) {
         effectiveFireRate *= skillMgr.getWeaponFireRateMult(slot.weaponId);
       }
-      // B6: Quick-switch — focused weapon gets +30% fire rate bonus (multiply by ~0.769 for 30% faster)
-      if (this.focusedSlot === i) {
-        effectiveFireRate /= 1.3;
-      }
+      // B6: 已取消聚焦射速加成 — 所有武器同时开火
       if (effectiveFireRate < 30) effectiveFireRate = 30;
 
       // Each slot has its own independent fire timer
       slot.fireTimer += dtMs;
 
       var shotsThisFrame = 0;
-      while (slot.fireTimer >= effectiveFireRate && shotsThisFrame < 3) {
+      var maxShots = 1;
+      while (slot.fireTimer >= effectiveFireRate && shotsThisFrame < maxShots) {
+        if (!this._canFirePlayerBullet()) break;
         slot.fireTimer -= effectiveFireRate;
         this._fireWeapon(slot.weaponId, cfg, stats);
         shotsThisFrame++;
@@ -638,6 +640,21 @@ class WeaponManager {
     return null;
   }
 
+  _canFirePlayerBullet() {
+    var cap = (GAME_CONFIG.BALANCE && GAME_CONFIG.BALANCE.MAX_PLAYER_BULLETS_PER_FRAME) || 16;
+    this._bulletsThisFrame = this._bulletsThisFrame || 0;
+    return this._bulletsThisFrame < cap;
+  }
+
+  _notePlayerBulletFired() {
+    this._bulletsThisFrame = (this._bulletsThisFrame || 0) + 1;
+  }
+
+  // Called at start of game loop frame (from main.js)
+  resetFrameBulletBudget() {
+    this._bulletsThisFrame = 0;
+  }
+
   // ============================================================
   //  CORE FIRE — per-weapon pattern dispatch (extracted from old fire())
   // ============================================================
@@ -649,6 +666,7 @@ class WeaponManager {
    * @param {object} stats - player stats
    */
   _fireWeapon(weaponId, cfg, stats) {
+    if (!this._canFirePlayerBullet()) return;
     if (!cfg) {
       cfg = GAME_CONFIG.WEAPONS[weaponId];
       if (!cfg) return;
@@ -839,7 +857,7 @@ class WeaponManager {
         break;
 
       case 'smartSpread':
-        if (B) B.smartSpread(x, y, cfg.bulletCount || 5, cfg.spreadAngle || 30, spd, dmg, color, trail, cfg.homingStrength || 0.04, cfg.homingRange || 350);
+        if (B) B.smartSpread(x, y, cfg.bulletCount || 5, cfg.spreadAngle || 30, spd, dmg, color, trail, cfg.homingStrength || 0.04, cfg.homingRange || 350, angleUp);
         break;
 
       case 'teslaOrbital':
@@ -1125,6 +1143,7 @@ class WeaponManager {
     if (extra > 0) {
       this._fireExtraBullets(x, y, extra, spd, dmg, color, trail);
     }
+    this._notePlayerBulletFired();
   }
 
   /**
