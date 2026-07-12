@@ -16,6 +16,10 @@ function patchMobileDetect(): void {
     const narrow = window.innerWidth < 1024;
     if (coarse || narrow) g.isMobile = true;
     g._mobileDetectDone = true;
+    if (g.isMobile) {
+      g.effectsQuality = 'low';
+      try { localStorage.setItem('stg_effects_quality', 'low'); } catch (_e) { /* ignore */ }
+    }
   };
   let n = 0;
   const id = window.setInterval(() => {
@@ -100,7 +104,7 @@ interface GameLike {
 }
 
 interface StgWindow extends Window {
-  game?: { isMobile?: boolean; _mobileDetectDone?: boolean };
+  game?: { isMobile?: boolean; _mobileDetectDone?: boolean; effectsQuality?: string };
   GAME_CONFIG?: { BALANCE?: Record<string, unknown> };
   ParticleSystem?: {
     damageNumber: (x: number, y: number, value: number | string, color?: string, isCrit?: boolean, isReact?: boolean) => void;

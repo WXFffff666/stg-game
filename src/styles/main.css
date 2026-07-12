@@ -1,4 +1,6 @@
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --hud-toolbar-h: 52px;
+}
 html, body {
   width: 100%; height: 100%; overflow: hidden;
   background: #000; font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -604,14 +606,41 @@ canvas {
     border-radius: 10px;
   }
 }
-/* Mobile/tablet: bottom horizontal */
+/* Mobile/tablet: bottom horizontal toolbar — reserve space for HUD */
 @media (max-width: 768px) {
   .hud-toolbar {
-    bottom: 0; left: 0; width: 100%;
-    flex-direction: row; align-items: center; justify-content: center;
-    padding: 4px 8px;
-    background: rgba(0,0,0,0.7);
-    border-top: 1px solid rgba(255,255,255,0.1);
+    bottom: 0; left: 0; right: 0; width: 100%;
+    flex-direction: row; align-items: center; justify-content: space-around;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    background: rgba(0,0,0,0.85);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    z-index: 100;
+    min-height: var(--hud-toolbar-h);
+  }
+  .toolbar-btn {
+    flex: 1;
+    min-width: 0;
+    max-width: 72px;
+    min-height: 44px;
+    padding: 4px 2px;
+  }
+  .toolbar-btn .tb-label { font-size: 9px; }
+  /* 全屏按钮移到右上角，避免挡住工具栏 */
+  .fs-toggle {
+    top: calc(6px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    right: 6px;
+    left: auto;
+    z-index: 90;
+  }
+  /* 局内弹窗置于工具栏之上 */
+  #backpack-screen,
+  #fusion-screen,
+  #status-panel {
+    z-index: 9000 !important;
+    justify-content: flex-start;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 .toolbar-btn {
@@ -722,13 +751,14 @@ canvas {
   .hud-boss-name { font-size: 12px; }
   .hud-boss-hp-pct { font-size: 12px; }
 
-  /* 技能栏 - 底部右侧，每行4个，60x60px */
+  /* 技能栏 - 底部右侧，在工具栏上方 */
   .hud-skill-bar {
     position: absolute;
     left: auto; right: 8px;
     transform: none;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--hud-toolbar-h) + env(safe-area-inset-bottom, 0px) + 6px);
     align-items: flex-end;
+    z-index: 50;
   }
   .hud-skill-row {
     display: grid;
@@ -745,9 +775,12 @@ canvas {
   .hud-skill-slot .skill-level-badge { font-size: 10px; }
   .hud-skill-label { font-size: 10px; text-align: right; }
 
-  /* 武器栏适配 */
+  /* 武器栏适配 - 在技能栏上方 */
   .hud-weapon-bar {
-    bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--hud-toolbar-h) + 76px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: auto;
+    z-index: 50;
     background: rgba(0,0,0,0.6); border-radius: 8px; padding: 4px 8px;
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     border: 1px solid rgba(255,255,255,0.1);
@@ -828,13 +861,14 @@ canvas {
   .hud-wave { font-size: 14px; padding: 2px 10px; }
   .hud-wave-progress { width: 120px; height: 4px; top: 30px; }
 
-  /* Skills: vertical right side, bottom-half */
+  /* Skills: vertical right side, above toolbar */
   .hud-skill-bar {
     left: auto;
     right: 6px;
-    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--hud-toolbar-h) + env(safe-area-inset-bottom, 0px) + 4px);
     transform: none;
     align-items: flex-end;
+    z-index: 50;
   }
   .hud-skill-label { font-size: 9px; text-align: right; }
   .hud-skill-row {
@@ -850,9 +884,12 @@ canvas {
   }
   .hud-skill-slot .skill-level-badge { font-size: 8px; }
 
-  /* Weapons: bottom full width */
+  /* Weapons: above toolbar, left side */
   .hud-weapon-bar {
-    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--hud-toolbar-h) + env(safe-area-inset-bottom, 0px) + 4px);
+    left: 6px;
+    right: auto;
+    z-index: 50;
     padding: 3px 6px;
   }
   .hud-weapon-grid {
@@ -872,11 +909,43 @@ canvas {
   .hud-boss-hp-bar { height: 14px; }
   .hud-boss-hp-pct { font-size: 9px; }
 
-  /* Fullscreen toggle: reposition */
+  /* Fullscreen toggle: top-right on landscape mobile */
   .fs-toggle {
     width: 36px;
     height: 36px;
     font-size: 14px;
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    right: 6px;
+    left: auto;
+  }
+
+  /* Landscape: toolbar on right edge, vertical */
+  .hud-toolbar {
+    top: 50%;
+    bottom: auto;
+    left: auto;
+    right: 0;
+    width: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    padding: 6px 4px calc(6px + env(safe-area-inset-right, 0px));
+    border-top: none;
+    border-left: 1px solid rgba(255,255,255,0.15);
+    min-height: 0;
+  }
+  .hud-toolbar .toolbar-btn {
+    flex: none;
+    width: 44px;
+    max-width: none;
+  }
+  .hud-skill-bar {
+    right: calc(52px + env(safe-area-inset-right, 0px));
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .hud-weapon-bar {
+    left: 6px;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Menu screens: compact */
@@ -887,6 +956,13 @@ canvas {
 
 /* ============ Tablet (481px - 768px, portrait & landscape) ============ */
 @media (min-width: 481px) and (max-width: 768px) {
+  :root { --hud-toolbar-h: 56px; }
+  .hud-skill-bar {
+    bottom: calc(var(--hud-toolbar-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+  .hud-weapon-bar {
+    bottom: calc(var(--hud-toolbar-h) + 80px + env(safe-area-inset-bottom, 0px));
+  }
   /* 48px min touch targets for toolbar */
   .toolbar-btn { min-height: 48px; }
   .toolbar-btn .tb-label { font-size: 11px; }

@@ -605,30 +605,28 @@
         fn();
       };
     }
+    function _bindToolbar(btn, fn) {
+      if (!btn) return;
+      var handler = _toolbarClick(fn);
+      btn.addEventListener('click', handler);
+      btn.addEventListener('touchend', handler, { passive: false });
+    }
 
-    var btnBackpack = document.getElementById('tb-backpack');
-    if (btnBackpack) {
-      btnBackpack.addEventListener('click', _toolbarClick(function() {
-        if (window.ui && typeof window.ui.toggleBackpack === 'function') window.ui.toggleBackpack();
-      }));
-    }
-    var btnStatus = document.getElementById('tb-status');
-    if (btnStatus) {
-      btnStatus.addEventListener('click', _toolbarClick(function() {
-        if (window.ui && typeof window.ui.toggleStatusPanel === 'function') window.ui.toggleStatusPanel();
-      }));
-    }
-    var btnShop = document.getElementById('tb-shop');
-    if (btnShop) {
-      btnShop.addEventListener('click', _toolbarClick(function() {
-        if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
-      }));
-    }
-    var btnFusion = document.getElementById('tb-fusion');
-    if (btnFusion) {
-      btnFusion.addEventListener('click', _toolbarClick(function() {
-        if (window.ui && typeof window.ui.toggleFusionPanel === 'function') window.ui.toggleFusionPanel();
-      }));
+    _bindToolbar(document.getElementById('tb-backpack'), function() {
+      if (window.ui && typeof window.ui.toggleBackpack === 'function') window.ui.toggleBackpack();
+    });
+    _bindToolbar(document.getElementById('tb-status'), function() {
+      if (window.ui && typeof window.ui.toggleStatusPanel === 'function') window.ui.toggleStatusPanel();
+    });
+    _bindToolbar(document.getElementById('tb-shop'), function() {
+      if (typeof window._toggleInRunShop === 'function') window._toggleInRunShop();
+    });
+    _bindToolbar(document.getElementById('tb-fusion'), function() {
+      if (window.ui && typeof window.ui.toggleFusionPanel === 'function') window.ui.toggleFusionPanel();
+    });
+    var toolbarEl = document.getElementById('hud-toolbar');
+    if (toolbarEl) {
+      toolbarEl.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: true });
     }
     var btnPause = document.getElementById('tb-pause');
     if (btnPause) {

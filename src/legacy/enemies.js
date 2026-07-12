@@ -4605,7 +4605,7 @@ class WaveSpawner {
     const spawnMeteor = () => {
       if (Date.now() - startTime >= duration) return;
 
-      const x = Math.random() * game.width;
+      const x = 40 + Math.random() * Math.max(80, game.width - 80);
       const y = -20;
       const speed = 200 + Math.random() * 150;
       const size = 8 + Math.random() * 12;

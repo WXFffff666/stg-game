@@ -416,10 +416,11 @@ class Game {
     var poolParticles = this.isMobile ? bCfg.POOL_PARTICLES_MOBILE : bCfg.POOL_PARTICLES;
     var poolEnemies = this.isMobile ? bCfg.POOL_ENEMIES_MOBILE : bCfg.POOL_ENEMIES;
     if (this.isMobile) {
-      // 移动端降低实体上限
       this.ENTITY_LIMITS.enemies = Math.min(this.ENTITY_LIMITS.enemies, poolEnemies);
       this.ENTITY_LIMITS.bullets = Math.min(this.ENTITY_LIMITS.bullets, poolBullets);
       this.ENTITY_LIMITS.particles = Math.min(this.ENTITY_LIMITS.particles, poolParticles);
+      this.effectsQuality = 'low';
+      if (!this.lowPerfMode) this._enableLowPerfMode();
     }
 
     // Bullet pool: 从配置读取
@@ -707,14 +708,14 @@ class Game {
   // ===== COORDINATE CONVERSION =====
   canvasToGame(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    // Client → canvas coordinates
     const canvasX = (clientX - rect.left) / this.scale;
     const canvasY = (clientY - rect.top) / this.scale;
-    // Canvas → game coordinates
-    return {
-      x: (canvasX - this.gameOffsetX) / this.gameScale,
-      y: (canvasY - this.gameOffsetY) / this.gameScale,
-    };
+    let x = (canvasX - this.gameOffsetX) / this.gameScale;
+    let y = (canvasY - this.gameOffsetY) / this.gameScale;
+    // 限制在游戏区域内，避免触摸到黑边时飞机/敌人坐标偏移
+    x = Math.max(0, Math.min(this.width, x));
+    y = Math.max(0, Math.min(this.height, y));
+    return { x, y };
   }
 
   // ===== MAIN GAME LOOP =====

@@ -756,14 +756,8 @@ class WeaponManager {
     }
 
     var B = window.BulletPatterns;
+    // 经典 STG：玩家子弹默认直线向上，仅追踪类武器在弹体上自行拐弯
     var angleUp = -Math.PI / 2;
-
-    if (this.player && this.player._autoShootTarget) {
-      var tgt = this.player._autoShootTarget;
-      if (tgt.active) {
-        angleUp = Math.atan2(tgt.y - y, tgt.x - x);
-      }
-    }
 
     switch (cfg.pattern) {
 

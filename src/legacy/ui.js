@@ -3429,6 +3429,8 @@ class UIManager {
     if (window.game && !this._backpackWasPaused) window.game.pause();
 
     document.getElementById('hud').style.display = 'none';
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
 
     this._backpackSelectedWeapon = null;
     this._renderBackpack();
@@ -3439,6 +3441,8 @@ class UIManager {
     var screen = document.getElementById('backpack-screen');
     if (screen) screen.style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'flex';
     if (window.game && !this._backpackWasPaused) window.game.resume();
     if (this._backpackEscHandler) {
       document.removeEventListener('keydown', this._backpackEscHandler);
@@ -3455,6 +3459,8 @@ class UIManager {
       return;
     }
     if (window.game) window.game.pause();
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
     this._renderFusionScreen();
     screen.style.display = 'flex';
     var self = this;
@@ -3470,6 +3476,8 @@ class UIManager {
     var screen = document.getElementById('fusion-screen');
     if (screen) screen.style.display = 'none';
     if (window.game && window.game.isPaused) window.game.resume();
+    var toolbar = document.getElementById('hud-toolbar');
+    if (toolbar) toolbar.style.display = 'flex';
     if (this._fusionEscHandler) {
       document.removeEventListener('keydown', this._fusionEscHandler);
     }
@@ -3480,9 +3488,10 @@ class UIManager {
     if (!screen) return;
     screen.innerHTML = '';
     screen.className = 'menu-screen';
-    screen.style.zIndex = '45';
+    screen.style.zIndex = '9000';
     screen.style.overflowY = 'auto';
-    screen.style.padding = '20px 16px';
+    screen.style.padding = '16px 12px';
+    screen.style.justifyContent = 'flex-start';
 
     var sm = window.skillManager;
     var cfg = window.GAME_CONFIG;
@@ -3589,10 +3598,11 @@ class UIManager {
     if (!screen) return;
 
     screen.innerHTML = '';
-    screen.className = 'menu-screen'; // Use same styling as other screens
-    screen.style.zIndex = '40';
+    screen.className = 'menu-screen';
+    screen.style.zIndex = '9000';
     screen.style.overflowY = 'auto';
-    screen.style.padding = '20px 16px';
+    screen.style.padding = '16px 12px';
+    screen.style.justifyContent = 'flex-start';
 
     // Title
     var title = document.createElement('h2');

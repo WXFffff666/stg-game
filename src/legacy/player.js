@@ -1608,13 +1608,10 @@ class Player {
     // SkillManager reference (set via linkSkillManager)
     this._skillManager = null;
 
-    // 触摸跟随模式
+    // 触摸跟随模式（子弹始终直线向前，不自动瞄准）
     this._touchActive = false;
     this._touchX = 0;
     this._touchY = 0;
-
-    // 自动瞄准目标（触摸时设置）
-    this._autoShootTarget = null;
 
     // Lifesteal per-second cap tracking (C8)
     this._lifestealThisSecond = 0;
@@ -1637,22 +1634,6 @@ class Player {
       var r = this.hitboxRadius;
       this.x = Math.max(r, Math.min(game.width - r, this.x));
       this.y = Math.max(r, Math.min(game.height - r, this.y));
-
-      // 自动瞄准：找最近敌人
-      var nearest = null;
-      var minDist = Infinity;
-      for (var i = 0; i < game.enemies.length; i++) {
-        var e = game.enemies[i];
-        if (!e.active) continue;
-        var dx = e.x - this.x;
-        var dy = e.y - this.y;
-        var dist = dx * dx + dy * dy;
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = e;
-        }
-      }
-      this._autoShootTarget = nearest;
     } else {
       // --- Smooth pointer follow（桌面端） ---
       var lerp = (window.game && window.game.isMobile) ? 0.38 : 0.28;
@@ -1665,9 +1646,6 @@ class Player {
       var r = this.hitboxRadius;
       this.x = Math.max(r, Math.min(game.width - r, this.x));
       this.y = Math.max(r, Math.min(game.height - r, this.y));
-
-      // 非触摸模式清除自动瞄准
-      this._autoShootTarget = null;
     }
 
     // --- Engine trail particles (spawn when moving) ---
