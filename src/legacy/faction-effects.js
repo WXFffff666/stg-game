@@ -385,10 +385,6 @@
 
   HANDLERS.blood = {
     onBulletHit: function(ctx) {
-      var p = ctx.player;
-      if (p.hp / p.maxHp > stat(p, 'bloodRageThreshold', 0.5)) {
-        p.takeDamage(1);
-      }
       ctx.enemy._bloodRite = (ctx.enemy._bloodRite || 0) + 1;
       if (ctx.ParticleSystem) ctx.ParticleSystem.screenFlash('rgba(204,0,0,0.08)', 80);
     },

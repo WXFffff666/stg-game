@@ -2177,6 +2177,11 @@ class Player {
       ParticleSystem.damageNumber(this.x, this.y - 20, Math.round(amount), '#ff4444');
       ParticleSystem.screenFlash('rgba(255,50,50,0.15)', 120);
       game.addShake(3);
+    } else if (rawAmount > 0 && wasShieldActive) {
+      // Shield-only hits still need brief i-frames — otherwise laser / reflect / blood
+      // can drain shield or HP one point per frame with no visible gap between hits.
+      var shieldIFrame = GAME_CONFIG.BALANCE.PLAYER_SHIELD_INVINCIBLE_MS || 300;
+      this.invincibleTimer = Math.max(this.invincibleTimer, shieldIFrame);
     }
 
     // Debug logging: trace the full damage pipeline

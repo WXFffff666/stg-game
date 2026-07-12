@@ -4181,6 +4181,8 @@
   }
 
   function playerTakeDamage(damage, sourceCategory) {
+    if (playerEntity.invincibleTimer > 0) return;
+
     // Check dodge
     if (playerEntity.stats.dodgeChance && Math.random() < playerEntity.stats.dodgeChance) {
       window.ParticleSystem.spark(playerEntity.x, playerEntity.y);

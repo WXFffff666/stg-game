@@ -1113,18 +1113,21 @@ class Enemy {
               this.isFiringLaser = false;
               this.laserTimer = 0;
             }
-            // 激光碰撞检测（每帧）
-            if (player && player.active && this.laserTimer % 100 < 20) {
+            // 激光碰撞检测（按间隔扣血，避免每帧连扣）
+            this._laserDmgTimer = (this._laserDmgTimer || 0) + dt * 1000;
+            if (player && player.active && this._laserDmgTimer >= 200) {
               const px = player.x - this.x;
               const py = player.y - this.y;
               const dist = Math.sqrt(px * px + py * py);
               const angleToPlayer = Math.atan2(py, px);
               const angleDiff = Math.abs(angleToPlayer - this.laserAngle);
               if (angleDiff < 0.1 && dist < 500) {
+                this._laserDmgTimer = 0;
+                const laserDmg = Math.max(1, Math.floor(this.bulletConfig.damage * 0.35));
                 if (game.playerTakeDamage) {
-                  game.playerTakeDamage(Math.max(1, Math.floor(this.bulletConfig.damage * dt * 5)), 'normal');
+                  game.playerTakeDamage(laserDmg, 'normal');
                 } else if (player.takeDamage) {
-                  player.takeDamage(this.bulletConfig.damage * dt * 5);
+                  player.takeDamage(laserDmg);
                 }
               }
             }
@@ -1958,9 +1961,12 @@ class Enemy {
       }
     }
 
-    // Mirror: 有概率反弹伤害
+    // Mirror: 有概率反弹伤害（带冷却，避免多武器连射瞬间连扣）
     if (this.type === 'mirror' && this.reflectChance > 0) {
+      var nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      if (!this._lastReflectAt || nowMs - this._lastReflectAt >= 400) {
       if (Math.random() < this.reflectChance) {
+        this._lastReflectAt = nowMs;
         const game = window.game;
         if (game && game.player && game.player.active) {
           const reflectedDmg = Math.floor(amount * this.reflectDamage);
@@ -1975,6 +1981,7 @@ class Enemy {
             }
           }
         }
+      }
       }
     }
 
@@ -5251,10 +5258,10 @@ DamageZone.prototype = {
         this._damageAccum += this.dps * dt;
         if (this._damageAccum >= 1) {
           var ticks = Math.floor(this._damageAccum);
-          for (var t = 0; t < ticks; t++) {
-            if (p.takeDamage) p.takeDamage(1);
-          }
+          var zoneDmg = ticks;
           this._damageAccum -= ticks;
+          if (game.playerTakeDamage) game.playerTakeDamage(zoneDmg, 'normal');
+          else if (p.takeDamage) p.takeDamage(zoneDmg);
         }
       }
     }
