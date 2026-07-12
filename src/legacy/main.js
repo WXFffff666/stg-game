@@ -2606,6 +2606,9 @@
 
     game.addEntity(playerEntity);
     game.player = playerEntity;
+    if (playerEntity.hp <= 0 || playerEntity.hp > playerEntity.maxHp) {
+      playerEntity.hp = playerEntity.maxHp;
+    }
 
     // Initialize systems
     skillManager = new window.SkillManager(playerEntity);
@@ -3380,16 +3383,20 @@
       for (let bi = 0; bi < maxCheck; bi++) {
         const bullet = game.enemyBullets[bi];
         if (!bullet.active) continue;
-        // Magnet: bullet repel - chance to deflect enemy bullets
-        if (playerEntity.stats.bulletRepelChance && Math.random() < playerEntity.stats.bulletRepelChance) {
+        // Magnet bullet repel — roll once per bullet when entering repel radius
+        var repelChance = playerEntity.stats.bulletRepelChance || 0;
+        if (repelChance > 0 && !bullet._repelRolled) {
           var _repelRadius = playerEntity.stats.bulletRepelRadius || 120;
           var _bdx = bullet.x - playerEntity.x;
           var _bdy = bullet.y - playerEntity.y;
-          if (Math.sqrt(_bdx * _bdx + _bdy * _bdy) < _repelRadius) {
-            if (typeof bullet._deactivate === 'function') bullet._deactivate();
-            else { bullet.active = false; game.removeEntity(bullet); }
-            if (window.ParticleSystem) window.ParticleSystem.spark(bullet.x, bullet.y);
-            continue;
+          if (_bdx * _bdx + _bdy * _bdy < _repelRadius * _repelRadius) {
+            bullet._repelRolled = true;
+            if (Math.random() < Math.min(repelChance, 0.85)) {
+              if (typeof bullet._deactivate === 'function') bullet._deactivate();
+              else { bullet.active = false; game.removeEntity(bullet); }
+              if (window.ParticleSystem) window.ParticleSystem.spark(bullet.x, bullet.y);
+              continue;
+            }
           }
         }
         if (game.checkCollision(bullet, playerEntity)) {
@@ -4181,12 +4188,13 @@
 
     // Enforce damage cap based on source category
     var bCfg = GAME_CONFIG.BALANCE;
-    var maxHp = playerEntity.maxHp || bCfg.PLAYER_BASE_HP;
+    var maxHp = Math.max(1, playerEntity.maxHp || bCfg.PLAYER_BASE_HP);
     var capPct = bCfg.NORMAL_ENEMY_DAMAGE_CAP || 0.30;
     if (sourceCategory === 'elite') capPct = bCfg.ELITE_ENEMY_DAMAGE_CAP || 0.50;
     else if (sourceCategory === 'boss') capPct = bCfg.BOSS_DAMAGE_CAP || 1.0;
-    var maxDamage = Math.floor(maxHp * capPct);
+    var maxDamage = Math.max(1, Math.floor(maxHp * capPct));
     if (damage > maxDamage) damage = maxDamage;
+    if (damage < 1) damage = 1;
 
     const alive = playerEntity.takeDamage(damage);
     game.addShake(5);
@@ -4212,6 +4220,7 @@
       endGame();
     }
   }
+  game.playerTakeDamage = playerTakeDamage;
 
   function handleItemPickup(item) {
     item.collected = true;

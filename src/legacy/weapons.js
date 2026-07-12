@@ -754,7 +754,10 @@ class WeaponManager {
         break;
 
       case 'spread':
-        if (B) B.spread(x, y, bulletCount, cfg.spreadAngle || 25, spd, dmg, color, trail);
+        if (B) {
+          var spreadRad = (cfg.spreadAngle || 25) * (Math.PI / 180);
+          B.spreadAimed(x, y, bulletCount, spreadRad, spd, dmg, angleUp, color, trail);
+        }
         break;
 
       case 'homing':

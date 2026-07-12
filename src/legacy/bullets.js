@@ -1456,6 +1456,21 @@ var BulletPatterns = {
   },
 
   // ----------------------------------------------------------
+  //  12b. down — straight downward shot(s) (STG default)
+  // ----------------------------------------------------------
+  down: function(x, y, count, speed, damage, color, spreadAngle, opts) {
+    var targetY = y + 800;
+    return this.aimed(x, y, count || 1, x, targetY, speed, damage, color, spreadAngle || 0, opts);
+  },
+
+  // ----------------------------------------------------------
+  //  12c. downSpread — fan of bullets firing downward
+  // ----------------------------------------------------------
+  downSpread: function(x, y, count, speed, damage, color, spreadAngle, opts) {
+    return this.aimed(x, y, count || 3, x, y + 800, speed, damage, color, spreadAngle || 30, opts);
+  },
+
+  // ----------------------------------------------------------
   //  13. spiralOut — Bullets in expanding spiral pattern
   // ----------------------------------------------------------
   spiralOut: function(x, y, count, speed, damage, color, spreadAngle, opts) {

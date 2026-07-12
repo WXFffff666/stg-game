@@ -935,9 +935,11 @@ class UIManager {
   // ====================================================================
 
   updateHP(current, max) {
-    const pct = max > 0 ? Math.max(0, current / max * 100) : 0;
+    const safeMax = Math.max(1, max);
+    const safeCur = Math.max(0, Math.min(current, safeMax));
+    const pct = safeCur / safeMax * 100;
     if (this.elHpFill) this.elHpFill.style.width = pct + '%';
-    if (this.elHpText) this.elHpText.textContent = Math.floor(current) + '/' + max;
+    if (this.elHpText) this.elHpText.textContent = Math.floor(safeCur) + '/' + Math.floor(safeMax);
   }
 
   updateScore(score) {

@@ -1572,6 +1572,7 @@ class Player {
     this.maxShield = 0;
     this.speed = GAME_CONFIG.BALANCE.PLAYER_BASE_SPEED;
     this.hitboxRadius = GAME_CONFIG.BALANCE.PLAYER_HITBOX_RADIUS;
+    this.hitRadius = this.hitboxRadius;
 
     // Invincibility frames (ms remaining)
     this.invincibleTimer = 0;
@@ -2102,28 +2103,35 @@ class Player {
       s.armorPenetration = 0;
     }
 
-    // Base lifesteal for sustain (configurable)
-    if (s.lifesteal === undefined || s.lifesteal === 0) {
-      s.lifesteal = GAME_CONFIG.BALANCE.PLAYER_BASE_LIFESTEAL || 0;
-    }
+    // Base lifesteal for sustain — always add global baseline on top of faction bonuses
+    var baseLs = GAME_CONFIG.BALANCE.PLAYER_BASE_LIFESTEAL || 0.05;
+    s.lifesteal = (s.lifesteal || 0) + baseLs;
+
+    // Collision uses hitRadius (alias hitboxRadius)
+    this.hitRadius = this.hitboxRadius;
 
     // Publish computed stats for other systems (weapons, skills, UI)
     this.stats = s;
 
     // --- Pull player-relevant values out of stats ---
 
-    // HP
+    // HP — clamp so talents cannot drive maxHp/hp negative
     var oldMaxHp = this.maxHp;
-    if (s.hp !== undefined) {
-      this.maxHp = s.hp;
-    } else {
-      this.maxHp = GAME_CONFIG.BALANCE.PLAYER_BASE_HP;
+    var baseHp = GAME_CONFIG.BALANCE.PLAYER_BASE_HP;
+    var rawHp = (s.hp !== undefined) ? s.hp : baseHp;
+    // Values <= 3 are treated as multipliers (e.g. 0.85 = 85% base HP)
+    if (rawHp > 0 && rawHp <= 3) {
+      rawHp = Math.floor(baseHp * rawHp);
     }
+    this.maxHp = Math.max(30, Math.floor(rawHp));
     if (oldMaxHp > 0 && this.maxHp !== oldMaxHp) {
-      var hpPct = this.hp / oldMaxHp;
+      var hpPct = Math.max(0, this.hp / oldMaxHp);
       this.hp = Math.floor(this.maxHp * hpPct);
     } else {
-      this.hp = Math.min(this.hp, this.maxHp);
+      this.hp = Math.max(0, Math.min(this.hp, this.maxHp));
+    }
+    if (this.hp <= 0) {
+      this.hp = this.maxHp;
     }
 
     // Speed

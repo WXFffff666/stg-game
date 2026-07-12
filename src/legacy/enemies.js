@@ -1017,7 +1017,9 @@ class Enemy {
           this.latchTimer += dt * 1000;
           if (this.latchTimer >= this.latchInterval) {
             this.latchTimer = 0;
-            if (player.takeDamage) {
+            if (game.playerTakeDamage) {
+              game.playerTakeDamage(this.latchDamage, 'elite');
+            } else if (player.takeDamage) {
               player.takeDamage(this.latchDamage);
             }
           }
@@ -1119,7 +1121,9 @@ class Enemy {
               const angleToPlayer = Math.atan2(py, px);
               const angleDiff = Math.abs(angleToPlayer - this.laserAngle);
               if (angleDiff < 0.1 && dist < 500) {
-                if (player.takeDamage) {
+                if (game.playerTakeDamage) {
+                  game.playerTakeDamage(Math.max(1, Math.floor(this.bulletConfig.damage * dt * 5)), 'normal');
+                } else if (player.takeDamage) {
                   player.takeDamage(this.bulletConfig.damage * dt * 5);
                 }
               }
@@ -1863,34 +1867,30 @@ class Enemy {
     const player = game.player;
     const cfg = this.bulletConfig;
 
-    // Available bullet patterns for random selection
-    const DEFAULT_POOL = ['aimed', 'circle', 'spiralOut', 'spread', 'burst'];
+    // Available bullet patterns — default STG: fire downward; homing/aimed only for specialists
+    const DOWN_POOL = ['down', 'downSpread', 'down'];
+    const AIMED_AIS = ['sniper', 'sniperElite', 'boss', 'boss_guardian', 'boss_summoner', 'boss_dragon', 'boss_phantom'];
 
     // Determine fire pattern based on AI type
     let pattern;
-    if (this.isBoss) {
-      // Boss: cycle through patterns based on phase
+    if (this.homingBullets || this.ai === 'homing') {
+      pattern = 'aimed';
+    } else if (this.isBoss) {
       const phaseIdx = this.bossPhase >= 0 ? this.bossPhase % 3 : 0;
       const bossPatterns = {
-        'boss_dragon': ['spiralOut', 'circle', 'aimed'],
-        'boss_summoner': ['circle', 'aimed', 'spiralOut'],
-        'boss_guardian': ['circle', 'spiralOut', 'aimed'],
-        'boss_phantom': ['aimed', 'burst', 'circle'],
+        'boss_dragon': ['downSpread', 'down', 'spiralOut'],
+        'boss_summoner': ['down', 'downSpread', 'circle'],
+        'boss_guardian': ['downSpread', 'circle', 'down'],
+        'boss_phantom': ['down', 'aimed', 'downSpread'],
       };
-      const patterns = bossPatterns[this.ai] || ['circle', 'spiralOut', 'aimed'];
-      pattern = patterns[phaseIdx] || 'aimed';
+      const patterns = bossPatterns[this.ai] || ['downSpread', 'down', 'circle'];
+      pattern = patterns[phaseIdx] || 'down';
     } else if (this.bulletPatternPool && this.bulletPatternPool.length > 0) {
-      // Per-enemy bullet pattern pool: pick randomly from the pool each cycle
       pattern = this.bulletPatternPool[Math.floor(Math.random() * this.bulletPatternPool.length)];
+    } else if (AIMED_AIS.indexOf(this.ai) >= 0) {
+      pattern = Math.random() < 0.65 ? 'aimed' : 'downSpread';
     } else {
-      // Regular enemies: random pattern selection from default pool (weighted)
-      // aimed: 40%, circle: 20%, spiralOut: 15%, spread: 15%, burst: 10%
-      const roll = Math.random();
-      if (roll < 0.40) pattern = 'aimed';
-      else if (roll < 0.60) pattern = 'circle';
-      else if (roll < 0.75) pattern = 'spiralOut';
-      else if (roll < 0.90) pattern = 'spread';
-      else pattern = 'burst';
+      pattern = DOWN_POOL[Math.floor(Math.random() * DOWN_POOL.length)];
     }
 
     const px = player ? player.x : GAME_CONFIG.BALANCE.CANVAS_WIDTH / 2;
@@ -1900,28 +1900,27 @@ class Enemy {
 
     // Determine source category for damage cap enforcement
     const sourceCategory = this.isBoss ? 'boss'
-      : (this.type === 'elite' || this.type === 'sniperElite' || this.type === 'titan' || this.type === 'colossus' || this.type === 'berserker') ? 'elite'
+      : (this.type === 'elite' || this.type === 'sniperElite' || this.type === 'titan' || this.type === 'colossus' || this.type === 'berserker' || this.isMidBoss) ? 'elite'
       : 'normal';
     const fireOpts = { sourceCategory: sourceCategory };
 
     // Fire based on pattern
-    if (pattern === 'circle' && BulletPatterns.circle) {
+    if (pattern === 'down' && BulletPatterns.down) {
+      BulletPatterns.down(baseX, baseY, cfg.count || 1, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0, fireOpts);
+    } else if (pattern === 'downSpread' && BulletPatterns.downSpread) {
+      BulletPatterns.downSpread(baseX, baseY, cfg.count || 3, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 25, fireOpts);
+    } else if (pattern === 'circle' && BulletPatterns.circle) {
       BulletPatterns.circle(baseX, baseY, cfg.count || 12, cfg.speed, cfg.damage, cfg.color, fireOpts);
     } else if (pattern === 'aimed' && BulletPatterns.aimed) {
       BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0, fireOpts);
     } else if (pattern === 'spiralOut' && BulletPatterns.spiralOut) {
       BulletPatterns.spiralOut(baseX, baseY, cfg.count || 8, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 30, fireOpts);
-    } else if (pattern === 'spread' && BulletPatterns.spread) {
-      // Spread pattern: fan of bullets toward player
-      const count = cfg.count || 5;
-      const angle = Math.atan2(py - baseY, px - baseX);
-      BulletPatterns.spread(baseX, baseY, count, cfg.spreadAngle || 45, cfg.speed, cfg.damage, cfg.color, angle);
-    } else if (pattern === 'burst' && BulletPatterns.circle) {
-      // Burst: rapid fire circle
-      BulletPatterns.circle(baseX, baseY, (cfg.count || 8) + 4, cfg.speed * 1.2, cfg.damage * 0.7, cfg.color, fireOpts);
+    } else if (pattern === 'spread' && BulletPatterns.downSpread) {
+      BulletPatterns.downSpread(baseX, baseY, cfg.count || 5, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 45, fireOpts);
     } else {
-      // Fallback to aimed
-      if (BulletPatterns.aimed) {
+      if (BulletPatterns.down) {
+        BulletPatterns.down(baseX, baseY, cfg.count || 1, cfg.speed, cfg.damage, cfg.color, 0, fireOpts);
+      } else if (BulletPatterns.aimed) {
         BulletPatterns.aimed(baseX, baseY, cfg.count || 1, px, py, cfg.speed, cfg.damage, cfg.color, cfg.spreadAngle || 0, fireOpts);
       }
     }
@@ -1965,8 +1964,9 @@ class Enemy {
         const game = window.game;
         if (game && game.player && game.player.active) {
           const reflectedDmg = Math.floor(amount * this.reflectDamage);
-          if (reflectedDmg > 0 && game.player.takeDamage) {
-            game.player.takeDamage(reflectedDmg);
+          if (reflectedDmg > 0) {
+            if (game.playerTakeDamage) game.playerTakeDamage(reflectedDmg, 'normal');
+            else if (game.player.takeDamage) game.player.takeDamage(reflectedDmg);
             // 反弹特效
             if (window.ParticleSystem) {
               window.ParticleSystem.spawn(this.x, this.y - this.size, {
@@ -2065,7 +2065,9 @@ class Enemy {
         if (dist < this.explodeRadius) {
           const dmgScale = 1 - (dist / this.explodeRadius);
           const dmg = Math.floor(this.explodeDamage * dmgScale);
-          if (game.player.takeDamage) {
+          if (game.playerTakeDamage) {
+            game.playerTakeDamage(dmg, 'elite');
+          } else if (game.player.takeDamage) {
             game.player.takeDamage(dmg);
           }
         }
@@ -2150,7 +2152,8 @@ class Enemy {
               var dy = player.y - this.y;
               var dist = Math.sqrt(dx * dx + dy * dy);
               if (dist < this._zoneRadius) {
-                if (player.takeDamage) player.takeDamage(this._zoneDamage);
+                if (game.playerTakeDamage) game.playerTakeDamage(this._zoneDamage, 'elite');
+                else if (player.takeDamage) player.takeDamage(this._zoneDamage);
               }
             }
           }
@@ -2189,7 +2192,9 @@ class Enemy {
         if (dist < this._volatileRadius) {
           const dmgScale = 1 - (dist / this._volatileRadius);
           const dmg = Math.floor(this._volatileDamage * dmgScale);
-          if (game.player.takeDamage) {
+          if (game.playerTakeDamage) {
+            game.playerTakeDamage(dmg, 'elite');
+          } else if (game.player.takeDamage) {
             game.player.takeDamage(dmg);
           }
         }
