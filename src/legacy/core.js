@@ -420,7 +420,6 @@ class Game {
       this.ENTITY_LIMITS.bullets = Math.min(this.ENTITY_LIMITS.bullets, poolBullets);
       this.ENTITY_LIMITS.particles = Math.min(this.ENTITY_LIMITS.particles, poolParticles);
       this.effectsQuality = 'low';
-      if (!this.lowPerfMode) this._enableLowPerfMode();
     }
 
     // Bullet pool: 从配置读取

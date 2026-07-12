@@ -804,7 +804,7 @@ class SkillManager {
     this._ultimateUnlocked = {};        // factionId → boolean
 
     // Auto-apply faction passive on creation if faction already set
-    if (this.player.factionId && FACTION_SYSTEM[this.player.factionId]) {
+    if (this.player.factionId) {
       this.applyFactionPassive();
     }
 
@@ -827,15 +827,63 @@ class SkillManager {
     var fid = this.player.factionId;
     if (!fid) return;
     var fData = FACTION_SYSTEM[fid];
-    if (!fData || !fData.corePassive) return;
 
     this._factionPassiveApplied = true;
-    this.player.applyStatModifiers(fData.corePassive.effects);
-    this._exclusiveSkillsLearned[fid] = [];
-    this._ultimateUnlocked[fid] = false;
+    this._exclusiveSkillsLearned[fid] = this._exclusiveSkillsLearned[fid] || [];
+    this._ultimateUnlocked[fid] = this._ultimateUnlocked[fid] || false;
+
+    if (fData && fData.corePassive) {
+      this.player.applyStatModifiers(fData.corePassive.effects);
+    }
+
+    this._grantFactionSignatureActive(fid);
 
     // Visual feedback: faction-colored burst
     this._spawnFactionVisual(this.player.x, this.player.y, 'burst');
+  }
+
+  /**
+   * 开局赠送流派专属主动战技（自动释放）
+   */
+  _grantFactionSignatureActive(fid) {
+    var fCfg = GAME_CONFIG.FACTIONS[fid];
+    var skillId = (fCfg && fCfg.signatureActive) ? fCfg.signatureActive : this._findFactionActiveSkillId(fid);
+    if (!skillId || this.learnedSkills.has(skillId)) return;
+
+    var skill = this._findSkill(skillId);
+    if (!skill || skill.type !== 'active') return;
+
+    this.learnedSkills.set(skillId, 1);
+    var warmCd = skill.cooldown ? Math.min(skill.cooldown * 0.12, 700) : 500;
+    this.activeCooldowns.set(skillId, warmCd);
+
+    if (window.ui && typeof window.ui.showToast === 'function') {
+      window.ui.showToast('⚡ ' + skill.name + ' [自动释放]', 2200, (fCfg && fCfg.color) || '#ffdd00');
+    }
+  }
+
+  _findFactionActiveSkillId(fid) {
+    var skills = GAME_CONFIG.SKILLS || [];
+    var best = null;
+    var bestScore = -1;
+    for (var i = 0; i < skills.length; i++) {
+      var s = skills[i];
+      if (s.faction !== fid || s.type !== 'active' || s.ultimate) continue;
+      var score = 0;
+      if (s.rarity === 'legendary') score = 4;
+      else if (s.rarity === 'epic') score = 3;
+      else if (s.rarity === 'rare') score = 2;
+      else score = 1;
+      if (score > bestScore) { bestScore = score; best = s.id; }
+    }
+    return best;
+  }
+
+  /** 玩家默认射击方向：直线向前（朝上） */
+  _getForwardAngle(spreadRad) {
+    var a = -Math.PI / 2;
+    if (spreadRad) a += (Math.random() - 0.5) * spreadRad;
+    return a;
   }
 
   /**
@@ -2711,8 +2759,7 @@ class SkillManager {
       fired++;
       // Fire toward mouse/enemy direction
       var game = window.game;
-      var angle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
-      angle += (Math.random() - 0.5) * 0.3; // slight spread
+      var angle = self._getForwardAngle(0.3);
       self._spawnPlayerBullet(player.x, player.y, angle);
       setTimeout(fireOne, interval);
     }
@@ -2960,10 +3007,7 @@ class SkillManager {
     var player = this.player;
     var interval = duration / bulletCount;
     var fired = 0;
-    var baseAngle = Math.atan2(
-      window.game.mouseY - player.y,
-      window.game.mouseX - player.x
-    );
+    var baseAngle = -Math.PI / 2;
     var halfSpread = (spreadAngle * Math.PI / 180) / 2;
 
     function fireOne() {
@@ -3178,8 +3222,7 @@ class SkillManager {
               }
             }
             if (nearest) {
-              var angle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
-              window._smCloneSpawnBullet(this.x, this.y, angle);
+              window._smCloneSpawnBullet(this.x, this.y, -Math.PI / 2);
             }
           }
         },
@@ -3861,7 +3904,7 @@ class SkillManager {
     angle = angle !== undefined ? angle : 180;
     var player = this.player;
     var game = window.game;
-    var targetAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    var targetAngle = -Math.PI / 2;
     var halfAngle = (angle * Math.PI / 180) / 2;
     var count = 8;
     if (window.BulletPatterns) {
@@ -4401,26 +4444,15 @@ class SkillManager {
             this._fireTimer += dt * 1000;
             if (this._fireTimer >= this._fireRate) {
               this._fireTimer -= this._fireRate;
-              var enemies = game.enemies;
-              var nearest = null, nd = Infinity;
-              for (var j = 0; j < enemies.length; j++) {
-                if (!enemies[j].active) continue;
-                var dx = enemies[j].x - this.x, dy = enemies[j].y - this.y;
-                var d = dx * dx + dy * dy;
-                if (d < nd) { nd = d; nearest = enemies[j]; }
-              }
-              if (nearest) {
-                var angle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
-                if (window.Bullet) {
-                  var b = new window.Bullet({
-                    x: this.x, y: this.y,
-                    vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
-                    damage: this._damage, speed: 400, size: 3,
-                    color: '#ffaa44', trailColor: '#ff8800',
-                    category: 'playerBullet', lifetime: 2
-                  });
-                  game.addEntity(b);
-                }
+              if (window.Bullet) {
+                var b = new window.Bullet({
+                  x: this.x, y: this.y,
+                  vx: 0, vy: -400,
+                  damage: this._damage, speed: 400, size: 3,
+                  color: '#ffaa44', trailColor: '#ff8800',
+                  category: 'playerBullet', lifetime: 2
+                });
+                game.addEntity(b);
               }
             }
           },
@@ -5114,7 +5146,7 @@ class SkillManager {
     pierce = pierce !== false;
     var game = window.game;
     var player = this.player;
-    var angle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    var angle = this._getForwardAngle(0);
     if (window.Bullet) {
       var b = new window.Bullet({
         x: player.x, y: player.y,
@@ -5158,7 +5190,7 @@ class SkillManager {
         var t = this._elapsed / this._lifetime;
         this._currentAngle = startAngle + (endAngle - startAngle) * Math.sin(t * Math.PI);
         // Damage along beam
-        var baseAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+        var baseAngle = -Math.PI / 2;
         var beamAngle = baseAngle + this._currentAngle;
         var endX = this.x + Math.cos(beamAngle) * beamLength;
         var endY = this.y + Math.sin(beamAngle) * beamLength;
@@ -5184,7 +5216,7 @@ class SkillManager {
       },
       draw: function(ctx) {
         var a = Math.max(0.3, 1 - this._elapsed / this._lifetime);
-        var baseAngle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+        var baseAngle = -Math.PI / 2;
         var beamAngle = baseAngle + this._currentAngle;
         var endX = this.x + Math.cos(beamAngle) * beamLength;
         var endY = this.y + Math.sin(beamAngle) * beamLength;
@@ -5472,7 +5504,7 @@ class SkillManager {
     pullForce = pullForce || 60;
     var game = window.game;
     var player = this.player;
-    var angle = Math.atan2(game.mouseY - player.y, game.mouseX - player.x);
+    var angle = this._getForwardAngle(0);
     if (window.Bullet) {
       var b = new window.Bullet({
         x: player.x, y: player.y,

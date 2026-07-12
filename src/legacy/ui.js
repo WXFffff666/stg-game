@@ -614,7 +614,17 @@ class UIManager {
 
       var fdesc = document.createElement('div');
       fdesc.className = 'desc';
-      fdesc.textContent = f.description;
+      var sigHint = '';
+      if (f.signatureActive && window.GAME_CONFIG && window.GAME_CONFIG.SKILLS) {
+        for (var si = 0; si < window.GAME_CONFIG.SKILLS.length; si++) {
+          var sk = window.GAME_CONFIG.SKILLS[si];
+          if (sk.id === f.signatureActive) {
+            sigHint = ' · 战技:' + sk.name + ' [自动]';
+            break;
+          }
+        }
+      }
+      fdesc.textContent = (f.description || '') + sigHint;
 
       fcard.appendChild(ficon);
       fcard.appendChild(fname);

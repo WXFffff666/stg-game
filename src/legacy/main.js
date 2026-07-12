@@ -3381,6 +3381,9 @@
       for (let bi = 0; bi < maxCheck; bi++) {
         const bullet = game.enemyBullets[bi];
         if (!bullet.active) continue;
+        // 屏幕外敌弹不参与碰撞，避免莫名扣血
+        if (bullet.y < -60 || bullet.y > game.height + 60 ||
+            bullet.x < -60 || bullet.x > game.width + 60) continue;
         // Magnet bullet repel — roll once per bullet when entering repel radius
         var repelChance = playerEntity.stats.bulletRepelChance || 0;
         if (repelChance > 0 && !bullet._repelRolled) {
@@ -3410,7 +3413,9 @@
       for (let ei = 0; ei < maxCheck; ei++) {
         const enemy = game.enemies[ei];
         if (!enemy.active) continue;
-        // Skip enemies far off-screen to prevent invisible contact damage
+        // 屏幕外敌人不参与贴身碰撞
+        if (enemy.y < -80 || enemy.y > game.height + 80 ||
+            enemy.x < -80 || enemy.x > game.width + 80) continue;
         if (enemy._isInVisibleArea && !enemy._isInVisibleArea()) continue;
         if (game.checkCollision(enemy, playerEntity)) {
           handleEnemyBodyHitPlayer(enemy);

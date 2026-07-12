@@ -382,6 +382,49 @@ canvas {
 .faction-char-card .fc-desc { font-size: 10px; color: #aaa; margin-top: 2px; }
 .faction-char-card .fc-unlock { font-size: 9px; color: #ff8888; margin-top: 4px; }
 
+/* 电脑端流派选择专属布局 */
+@media (min-width: 1024px) {
+  #char-select-screen {
+    justify-content: flex-start;
+    padding: 28px 24px 32px;
+  }
+  #char-select-screen h1 { font-size: 42px; margin-bottom: 6px; }
+  #char-select-screen .subtitle { font-size: 15px; margin-bottom: 20px; letter-spacing: 6px; }
+  #char-select {
+    width: min(960px, 92vw);
+    max-height: calc(100vh - 160px);
+    gap: 20px;
+    padding: 8px 12px 16px;
+  }
+  .faction-char-section { margin-bottom: 20px; }
+  .faction-char-label { font-size: 18px; margin-bottom: 14px; }
+  .faction-char-row { gap: 16px; }
+  .faction-char-card {
+    width: 160px;
+    padding: 14px 12px;
+    min-height: 120px;
+  }
+  .faction-char-card .fc-icon { font-size: 32px; }
+  .faction-char-card .fc-name { font-size: 14px; }
+  .faction-char-card .fc-desc { font-size: 11px; line-height: 1.35; }
+  .faction-row {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+  .char-card {
+    min-height: 108px;
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+  .char-card .icon { font-size: 28px; }
+  .char-card .name { font-size: 13px; }
+  .char-card .desc {
+    font-size: 11px;
+    -webkit-line-clamp: 3;
+    line-height: 1.35;
+  }
+}
+
 /* Faction row in combined screen */
 .faction-section { width: 100%; }
 .faction-row {

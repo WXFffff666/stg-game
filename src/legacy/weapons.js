@@ -1494,9 +1494,8 @@ OrbitalDrone.prototype = {
     }
 
     if (nearest) {
-      var angle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+      var angle = -Math.PI / 2;
       if (weaponId === 'teslaOrbital') {
-        // Tesla orbital fires chain lightning bullets
         B.lightningBolt(this.x, this.y, angle, spd, dmg, this.cfg.chainCount || 2, this.cfg.chainRange || 120, color, trail);
       } else {
         B.normal(this.x, this.y, angle, spd, dmg, color, trail);

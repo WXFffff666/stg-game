@@ -118,12 +118,40 @@ export function applyMassContentExtension(): void {
   }
 
   // ---- 流派 x20 ----
-  for (const f of FACTION_THEMES) {
+  const FACTION_SIG_ACTIVES = [
+    { action: 'nova', damage: 42, radius: 170 },
+    { action: 'shockwave', damage: 38, radius: 150 },
+    { action: 'lightning', damage: 55, count: 4 },
+    { action: 'burstFire', bulletCount: 24, duration: 400 },
+    { action: 'frostNova', damage: 48, radius: 190, freezeDuration: 1500 },
+    { action: 'fireNova', damage: 50, radius: 200, burnDuration: 3000 },
+    { action: 'heal', amount: 35 },
+    { action: 'invincible', duration: 2000 },
+    { action: 'timeSlow', amount: 0.35, duration: 3000 },
+    { action: 'overdrive', damage: 0, duration: 5000 },
+  ] as const;
+
+  for (let fi = 0; fi < FACTION_THEMES.length; fi++) {
+    const f = FACTION_THEMES[fi];
+    const sigTpl = FACTION_SIG_ACTIVES[fi % FACTION_SIG_ACTIVES.length];
+    const sigId = `${f.id}_signature`;
+    cfg.SKILLS.push({
+      id: sigId,
+      name: `${f.name}·专属战技`,
+      type: 'active',
+      faction: f.id,
+      rarity: 'epic',
+      icon: f.name.split(' ')[0] || '💥',
+      cooldown: 7000 + (fi % 5) * 1200,
+      description: `${f.name}专属自动战技，冷却后自动释放`,
+      effects: [{ ...sigTpl }],
+    });
     cfg.FACTIONS[f.id] = {
       id: f.id,
       name: f.name,
       color: f.color,
-      description: `${f.name}专属战斗流派`,
+      description: `${f.name}专属战斗流派，开局获得专属自动战技`,
+      signatureActive: sigId,
       baseStats: {
         attackSpeed: 1.0,
         attack: 1.0,

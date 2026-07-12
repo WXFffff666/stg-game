@@ -4676,12 +4676,22 @@ class WaveSpawner {
   // ---------------------------------------------------------------------------
   // SPAWN WAVE GROUP (Random Pool System)
   // ---------------------------------------------------------------------------
+  _getMaxEnemiesOnScreen(spawnRules) {
+    var isMobile = window.game && window.game.isMobile;
+    var baseMax = isMobile
+      ? (spawnRules.maxEnemiesOnScreenMobile || 12)
+      : (spawnRules.maxEnemiesOnScreen || 22);
+    var waveBonus = Math.floor((this.waveNumber || 1) / 4);
+    var cap = isMobile ? 18 : 32;
+    return Math.min(baseMax + waveBonus, cap);
+  }
+
   _spawnWaveGroup(game, difficulty, spawnRules) {
     let activeEnemies = 0;
     for (let i = 0; i < game.enemies.length; i++) {
       if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
     }
-    var maxOnScreen = (window.game && window.game.isMobile) ? (spawnRules.maxEnemiesOnScreenMobile || 8) : spawnRules.maxEnemiesOnScreen;
+    var maxOnScreen = this._getMaxEnemiesOnScreen(spawnRules);
     if (activeEnemies >= maxOnScreen) return;
 
     // Use enemy pool for random selection
@@ -4766,7 +4776,7 @@ class WaveSpawner {
     for (let i = 0; i < game.enemies.length; i++) {
       if (game.enemies[i].active && !game.enemies[i].isBoss) activeEnemies++;
     }
-    var maxOnScreen = (window.game && window.game.isMobile) ? (spawnRules.maxEnemiesOnScreenMobile || 8) : spawnRules.maxEnemiesOnScreen;
+    var maxOnScreen = this._getMaxEnemiesOnScreen(spawnRules);
     if (activeEnemies >= maxOnScreen) return;
 
     // Elite wave compositions
