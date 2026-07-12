@@ -39,6 +39,28 @@
 
 ## 🚀 快速开始
 
+### 开发（Vite + TypeScript）
+
+```bash
+npm install
+npm run dev
+```
+
+### 构建与部署（仅 Cloudflare Pages 静态）
+
+```bash
+npm run build
+# dist/ 目录由 GitHub Actions 自动部署到 CF Pages
+```
+
+**技术栈 v2.0**：TypeScript · Vite · vite-plugin-pwa · 纯静态（无 Worker）
+
+### 旧版本地静态服务（可选）
+
+```bash
+node server.js
+```
+
 ```bash
 # 启动本地服务器
 python -m http.server 8080

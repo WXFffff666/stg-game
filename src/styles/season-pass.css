@@ -1,0 +1,108 @@
+/* 免费赛季通行证 */
+#season-pass-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+.season-pass-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.season-pass-header h1 {
+  font-size: 28px;
+  color: #ffdd00;
+  margin-bottom: 4px;
+}
+.season-pass-free-badge {
+  display: inline-block;
+  font-size: 12px;
+  color: #44ff88;
+  border: 1px solid rgba(68, 255, 136, 0.5);
+  border-radius: 12px;
+  padding: 2px 10px;
+  margin-bottom: 8px;
+}
+.season-pass-progress {
+  width: min(400px, 90vw);
+  margin-bottom: 16px;
+}
+.season-pass-progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.season-pass-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffdd00, #ff8800);
+  width: 0%;
+  transition: width 0.3s;
+}
+.season-pass-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #aaa;
+  margin-top: 6px;
+}
+#season-pass-list {
+  width: min(440px, 95vw);
+  max-height: 55vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.season-reward-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+}
+.season-reward-row.unlocked {
+  border-color: rgba(255, 221, 0, 0.35);
+}
+.season-reward-row.claimed {
+  opacity: 0.55;
+}
+.season-reward-lv {
+  width: 42px;
+  color: #ffdd00;
+  font-weight: bold;
+}
+.season-reward-icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+}
+.season-reward-label {
+  flex: 1;
+  color: #fff;
+}
+.season-reward-xp {
+  font-size: 11px;
+  color: #888;
+  width: 56px;
+  text-align: right;
+}
+.season-claim-btn {
+  padding: 4px 10px;
+  border: 1px solid #ffdd00;
+  border-radius: 6px;
+  background: rgba(255, 221, 0, 0.12);
+  color: #ffdd00;
+  font-size: 11px;
+  cursor: pointer;
+}
+.season-claim-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #888;
+}
