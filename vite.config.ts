@@ -6,16 +6,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'es2020',
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('src/legacy/config')) return 'game-config';
-          if (id.includes('src/legacy/enemies')) return 'game-enemies';
-          if (id.includes('src/legacy/main')) return 'game-main';
-          if (id.includes('src/legacy/')) return 'game-core';
-        },
-      },
-    },
+    // Do NOT manualChunk legacy modules — splitting config away from core breaks
+    // window.GAME_CONFIG initialization order (GAME_CONFIG is not defined).
   },
   plugins: [
     VitePWA({
@@ -25,9 +17,12 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,json}'],
         navigateFallback: 'index.html',
+        // Only cache same-origin assets; avoid intercepting CF analytics / extensions
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.destination === 'script' || request.destination === 'style',
+            urlPattern: ({ request, url }) =>
+              url.origin === self.location.origin &&
+              (request.destination === 'script' || request.destination === 'style'),
             handler: 'NetworkFirst',
             options: { cacheName: 'stg-assets', networkTimeoutSeconds: 3 },
           },

@@ -167,32 +167,59 @@ stg-game/
 
 ---
 
-## 🌐 Cloudflare Pages 部署
+## 🌐 Cloudflare Pages 部署（推荐）
 
-### 推荐：GitHub Actions（Direct Upload）
+> v2 是 **Vite 项目**，必须先 `npm run build` 生成 `dist/`，**不能只上传仓库根目录**。  
+> 若控制台出现 `main.ts` MIME 为 `video/mp2t`，说明部署了源码而非 `dist/`。
 
-仓库已配置 `.github/workflows/deploy-cloudflare-pages.yml`：
+### 在 CF 控制台连接 GitHub（无需 GitHub API Token）
 
-1. `npm ci` → `npm run verify` → `npm run build`
-2. `wrangler pages deploy dist` 上传至 CF Pages
+1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+2. 选择仓库 `WXFffff666/stg-game`
+3. 构建设置：
 
-**Secrets（GitHub → Settings → Secrets）：**
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
+| 配置项 | 值 |
+|--------|-----|
+| Production branch | `master` |
+| Framework preset | **Vite**（或 None） |
+| Build command | `npm ci && npm run build` |
+| Build output directory | **`dist`** |
+| Environment variable | `NODE_VERSION` = `20` |
 
-项目名默认 `stg-game`，生产分支 `master`。
+4. **Save and Deploy**，等构建日志显示成功
 
-### 本地部署
+5. 自定义域名：项目 → **Custom domains** → 添加 `game1.the37777777.top`
+
+### 手动上传（不连 Git）
+
+```bash
+npm install
+npm run build
+```
+
+CF → **Upload assets** → 只拖入 **`dist` 文件夹里的内容**（含 `index.html`、`assets/`、`sw.js`）。
+
+### 本地 Wrangler 上传
 
 ```bash
 npm run build
-npx wrangler pages deploy dist --project-name=stg-game --branch=master
+npx wrangler login
+npx wrangler pages deploy dist --project-name=stg-game
 ```
 
-### Dashboard Git 连接（备选）
+### 故障排查
 
-- **构建命令**：`npm ci && npm run verify && npm run build`
-- **输出目录**：`dist`
+| 现象 | 原因 | 解决 |
+|------|------|------|
+| `main.ts` MIME `video/mp2t` | 部署了源码 | 输出目录改为 **`dist`** |
+| 界面无样式、按钮无效 | JS/CSS 未加载 | 同上，确认构建成功 |
+| `kaspersky-labs.com` 404 | 杀毒插件注入 | 可忽略，或换浏览器试 |
+| `cloudflareinsights` blocked | 广告拦截插件 | 可忽略 |
+| GitHub Actions 失败 | 未配 CF API Token | **可忽略**，用 CF 控制台部署即可 |
+
+### GitHub Actions（可选，需 API Token）
+
+仅在 GitHub Secrets 配置了 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID` 时才会自动部署；未配置可禁用该 workflow。
 
 ---
 

@@ -4,11 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>星域战机 - STG</title>
+<script>
+(function () {
+  var entry = document.querySelector('script[type="module"][src*="main.ts"]');
+  if (!entry) return;
+  var src = entry.getAttribute('src');
+  fetch(src, { method: 'HEAD' }).then(function (res) {
+    var ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (!res.ok || (ct.indexOf('javascript') === -1 && ct.indexOf('ecmascript') === -1 && ct.indexOf('wasm') === -1)) {
+      throw new Error('deploy');
+    }
+  }).catch(function () {
+    var loading = document.getElementById('loading-screen');
+    var err = document.getElementById('error-screen');
+    if (loading) loading.style.display = 'none';
+    if (err) {
+      var msg = err.querySelector('.error-msg');
+      if (msg) {
+        msg.innerHTML = '部署配置错误：站点正在加载源码 <code>main.ts</code>，浏览器无法运行。<br><br>'
+          + 'Cloudflare Pages 请设置：<br>'
+          + '· 构建命令：<code>npm ci && npm run build</code><br>'
+          + '· 输出目录：<code>dist</code><br><br>'
+          + '或本地 <code>npm run build</code> 后，仅上传 <code>dist</code> 文件夹内容。';
+      }
+      err.style.display = 'flex';
+    }
+  });
+})();
+</script>
 </head>
 <body>
 <!-- Loading Screen -->
