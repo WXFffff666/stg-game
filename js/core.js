@@ -144,6 +144,20 @@ class Game {
     // 设备检测：宽度<768px判定为手机
     this.isMobile = window.innerWidth < 768;
 
+    // 特效质量（影响粒子/混合模式开销）
+    this.effectsQuality = 'medium';
+    if (window.SettingsManager) {
+      this.effectsQuality = SettingsManager.load().effectsQuality || 'medium';
+    }
+    try {
+      var savedFx = localStorage.getItem('stg_effects_quality');
+      if (savedFx) this.effectsQuality = savedFx;
+    } catch (e) { /* ignore */ }
+
+    // 碰撞查询复用缓冲，避免每帧分配数组
+    this._nearbyScratch = [];
+    this._hudFrame = 0;
+
     // Entity pools
     this.entities = [];
     this.pendingAdd = [];
@@ -499,8 +513,9 @@ class Game {
    * @param {number} row - 网格行
    * @returns {Array} 相邻网格中的实体
    */
-  _getNearbyEntities(col, row) {
-    var result = [];
+  _getNearbyEntities(col, row, category) {
+    var result = this._nearbyScratch;
+    result.length = 0;
     for (var dr = -1; dr <= 1; dr++) {
       for (var dc = -1; dc <= 1; dc++) {
         var r = row + dr;
@@ -509,11 +524,27 @@ class Game {
         var gridIndex = r * this.gridCols + c;
         var cell = this.collisionGrid[gridIndex];
         for (var i = 0; i < cell.length; i++) {
-          result.push(cell[i]);
+          var ent = cell[i];
+          if (category && ent.category !== category) continue;
+          result.push(ent);
         }
       }
     }
     return result;
+  }
+
+  /**
+   * 获取实体所在网格附近的指定类别实体（复用内部缓冲）
+   */
+  _getNearbyForEntity(entity, category) {
+    if (!entity || !entity.active) return this._nearbyScratch;
+    var col = Math.floor(entity.x / this.gridCellW);
+    var row = Math.floor(entity.y / this.gridCellH);
+    if (col < 0) col = 0;
+    if (col >= this.gridCols) col = this.gridCols - 1;
+    if (row < 0) row = 0;
+    if (row >= this.gridRows) row = this.gridRows - 1;
+    return this._getNearbyEntities(col, row, category);
   }
 
   /**
@@ -534,11 +565,12 @@ class Game {
     var hits = [];
     for (var i = 0; i < nearby.length; i++) {
       var target = nearby[i];
-      if (!target.active) continue;
+      if (!target.active || target === entity) continue;
       if (this.checkCollision(entity, target)) {
         hits.push(target);
       }
     }
+    nearby.length = 0;
     return hits;
   }
 
@@ -740,7 +772,11 @@ class Game {
         window.homingTargets.tick(dt, this.player.x, this.player.y);
       }
       if (window.ui && typeof window.ui.updateHUD === 'function') {
-        try { window.ui.updateHUD(); } catch(e) { /* ignore */ }
+        this._hudFrame = (this._hudFrame || 0) + 1;
+        // HUD 降频：每 3 帧更新一次，减轻 DOM 与敌人遍历开销
+        if (this._hudFrame % (this.lowPerfMode ? 5 : 3) === 0) {
+          try { window.ui.updateHUD(); } catch(e) { /* ignore */ }
+        }
       }
     }
 

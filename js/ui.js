@@ -318,8 +318,13 @@ class UIManager {
         var q = effectsQuality.value;
         try { localStorage.setItem('stg_effects_quality', q); } catch (e) {}
         if (window.game) window.game.effectsQuality = q;
+        if (window.SettingsManager) SettingsManager.update({ effectsQuality: q });
         this.showToast('✨ 特效质量: ' + (q === 'low' ? '低' : q === 'high' ? '高' : '中'), 1500);
       });
+      // 启动时同步到 game 引擎
+      if (window.game) {
+        window.game.effectsQuality = effectsQuality.value || 'medium';
+      }
     }
 
     // Fullscreen toggle (delegates to unified window.toggleFullscreen in core.js)

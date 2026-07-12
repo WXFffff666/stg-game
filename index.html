@@ -1832,6 +1832,23 @@ canvas {
   0%, 100% { box-shadow: 0 0 15px rgba(255,221,0,0.4), inset 0 0 15px rgba(255,221,0,0.1); }
   50% { box-shadow: 0 0 25px rgba(255,221,0,0.7), inset 0 0 20px rgba(255,221,0,0.2); }
 }
+
+/* 移动端性能：禁用 HUD 毛玻璃，减轻 GPU 合成负担 */
+@media (hover: none) and (pointer: coarse), (max-width: 768px) {
+  .hud-skill-slot,
+  .hud-weapon-bar,
+  .hud-hp-container,
+  .hud-top-left,
+  .hud-top-right,
+  .hud-wave,
+  .hud-wave-progress,
+  .game-timer-hud,
+  .hud-boss-bar,
+  .fs-toggle {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -2257,25 +2274,25 @@ canvas {
 </script>
 
 <!-- Scripts loaded in dependency order -->
-<script src="js/codex.js?v=15"></script>
-<script src="js/faction-effects.js?v=15"></script>
-<script src="js/faction-talents.js?v=15"></script>
-<script src="js/faction-weapon-mods.js?v=15"></script>
-<script src="js/config.js?v=15"></script>
-<script src="js/homing.js?v=15"></script>
-<script src="js/upgrade-track.js?v=15"></script>
-<script src="js/core.js?v=15"></script>
-<script src="js/storage.js?v=15"></script>
-<script src="js/audio.js?v=15"></script>
-<script src="js/particles.js?v=15"></script>
-<script src="js/player.js?v=15"></script>
-<script src="js/bullets.js?v=15"></script>
-<script src="js/weapons.js?v=17"></script>
-<script src="js/enemies.js?v=15"></script>
-<script src="js/items.js?v=15"></script>
-<script src="js/skills.js?v=17"></script>
-<script src="js/ui.js?v=17"></script>
-<script src="js/main.js?v=17"></script>
+<script src="js/codex.js?v=18"></script>
+<script src="js/faction-effects.js?v=18"></script>
+<script src="js/faction-talents.js?v=18"></script>
+<script src="js/faction-weapon-mods.js?v=18"></script>
+<script src="js/config.js?v=18"></script>
+<script src="js/homing.js?v=18"></script>
+<script src="js/upgrade-track.js?v=18"></script>
+<script src="js/core.js?v=18"></script>
+<script src="js/storage.js?v=18"></script>
+<script src="js/audio.js?v=18"></script>
+<script src="js/particles.js?v=18"></script>
+<script src="js/player.js?v=18"></script>
+<script src="js/bullets.js?v=18"></script>
+<script src="js/weapons.js?v=18"></script>
+<script src="js/enemies.js?v=18"></script>
+<script src="js/items.js?v=18"></script>
+<script src="js/skills.js?v=18"></script>
+<script src="js/ui.js?v=18"></script>
+<script src="js/main.js?v=18"></script>
 
 <!-- Service Worker: register once, update via user prompt -->
 <script>

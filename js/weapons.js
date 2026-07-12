@@ -1163,6 +1163,9 @@ class WeaponManager {
    * @returns {object|null}
    */
   _findNearestEnemy(x, y, range) {
+    var htm = window.homingTargets;
+    if (htm) return htm.findNearestTo(x, y, range);
+
     var enemies = game.enemies;
     if (!enemies) return null;
 

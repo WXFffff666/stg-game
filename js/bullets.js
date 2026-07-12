@@ -213,8 +213,15 @@ class Bullet {
 
     // --- Trail particles ---
     this._trailTimer += dt;
-    if (this._trailTimer >= this._trailInterval) {
-      this._trailTimer -= this._trailInterval;
+    var trailInterval = this._trailInterval;
+    if (this.homingStrength > 0) {
+      var gq = window.game && window.game.effectsQuality;
+      if (window.game && window.game.lowPerfMode) trailInterval = 0.12;
+      else if (gq === 'low') trailInterval = 0.1;
+      else if (gq === 'high') trailInterval = 0.04;
+    }
+    if (this._trailTimer >= trailInterval) {
+      this._trailTimer -= trailInterval;
       this._emitTrail();
     }
 
@@ -235,9 +242,12 @@ class Bullet {
 
     ctx.save();
 
-    // Player bullets use additive blending for glow
+    // Player bullets use additive blending for glow (skip on low quality)
     if (this.category === 'playerBullet') {
-      ctx.globalCompositeOperation = 'lighter';
+      var g = window.game;
+      if (!g || g.effectsQuality !== 'low') {
+        ctx.globalCompositeOperation = 'lighter';
+      }
     }
 
     // --- Shuriken: spinning star ---
@@ -941,50 +951,9 @@ class Bullet {
       }
     }
 
-    // Explosion particles
-    var particleCount = 14;
-    for (var j = 0; j < particleCount; j++) {
-      if (game.particles.length >= GAME_CONFIG.BALANCE.MAX_PARTICLES) break;
-      var angle = (Math.PI * 2 * j) / particleCount;
-      var spd = 60 + Math.random() * 160;
-      var self = this;
-      game.addEntity({
-        x: this.x,
-        y: this.y,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
-        size: 2 + Math.random() * 4,
-        color: this.color,
-        lifetime: 0.3 + Math.random() * 0.4,
-        active: true,
-        category: 'particle',
-        drawLayer: 6,
-        _age: 0,
-
-        update: function(dt) {
-          this._age += dt;
-          if (this._age >= this.lifetime || this.size <= 0.1) {
-            self._cleanupParticle(this);
-            return;
-          }
-          this.x += this.vx * dt;
-          this.y += this.vy * dt;
-          this.vx *= 0.94;
-          this.vy *= 0.94;
-          this.size *= 0.91;
-        },
-
-        draw: function(ctx) {
-          if (!this.active) return;
-          var alpha = 1 - this._age / this.lifetime;
-          ctx.globalAlpha = Math.max(0, alpha);
-          ctx.fillStyle = this.color;
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-      });
+    // Explosion particles — 走对象池，避免 GC 尖峰
+    if (window.ParticleSystem && game.particles.length < GAME_CONFIG.BALANCE.MAX_PARTICLES) {
+      window.ParticleSystem.spawn(this.x, this.y, GAME_CONFIG.PARTICLE_PRESETS.smallExplosion);
     }
   }
 
@@ -1567,19 +1536,11 @@ var BulletPatterns = {
   //  16. missile — Homing missile with explosion
   // ----------------------------------------------------------
   missile: function(x, y, angle, speed, damage, homingStrength, explosionRadius, color, trailColor) {
-    // Auto-acquire nearest target for homing
+    // 复用全局寻敌管理器，避免每枚导弹 O(n) 扫描
     var nearest = null;
-    var game = window.game;
-    if (game && game.enemies) {
-      var minDist = Infinity;
-      var range = 400;
-      for (var i = 0; i < game.enemies.length; i++) {
-        var e = game.enemies[i];
-        if (!e.active) continue;
-        var dx = e.x - x, dy = e.y - y;
-        var d = dx * dx + dy * dy;
-        if (d < minDist && d < range * range) { minDist = d; nearest = e; }
-      }
+    var htm = window.homingTargets;
+    if (htm) {
+      nearest = htm.getTarget() || htm.findNearestTo(x, y, 400);
     }
     var bullet = this._create({
       x: x, y: y,

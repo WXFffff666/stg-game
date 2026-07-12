@@ -3247,23 +3247,22 @@
       }
     }
 
-    // Collision: player bullets vs enemies (only if both sides exist)
+    // Collision: player bullets vs enemies — 空间网格窄相位
     if (game.playerBullets.length > 0 && game.enemies.length > 0) {
       for (let bi = 0; bi < game.playerBullets.length; bi++) {
         const bullet = game.playerBullets[bi];
         if (!bullet.active) continue;
-        // Early bounds check: skip bullets far off screen
         if (bullet.x < -100 || bullet.x > game.width + 100 ||
             bullet.y < -100 || bullet.y > game.height + 100) continue;
-        for (let ei = 0; ei < game.enemies.length; ei++) {
-          const enemy = game.enemies[ei];
+        const nearby = game._getNearbyForEntity(bullet, 'enemy');
+        for (let ei = 0; ei < nearby.length; ei++) {
+          const enemy = nearby[ei];
           if (!enemy.active) continue;
           if (game.checkCollision(bullet, enemy)) {
             handleBulletHitEnemy(bullet, enemy);
-            if (!bullet.active) break; // Bullet destroyed
+            if (!bullet.active) break;
           }
         }
-        // Safety: break if too many collision iterations (performance guard)
         if (bi > 200) break;
       }
     }

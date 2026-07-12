@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stg-game-v5';
+const CACHE_NAME = 'stg-game-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,9 @@ const ASSETS = [
   './js/storage.js',
   './js/audio.js',
   './js/codex.js',
+  './js/faction-effects.js',
+  './js/faction-talents.js',
+  './js/faction-weapon-mods.js',
   './js/particles.js',
   './js/player.js',
   './js/bullets.js',
@@ -40,7 +43,6 @@ self.addEventListener('activate', event => {
       )
     ).then(() => {
       self.clients.claim();
-      // Notify all clients of the update
       return self.clients.matchAll().then(clients => {
         clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
       });
@@ -50,7 +52,6 @@ self.addEventListener('activate', event => {
 
 // Fetch: Network First strategy (for development, prevents stale cache issues)
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
@@ -64,14 +65,10 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(() => {
-        // Network failed, try cache
-        return caches.match(event.request);
-      })
+      .catch(() => caches.match(event.request))
   );
 });
 
-// Notify clients of updates
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
