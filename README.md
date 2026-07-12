@@ -65,7 +65,7 @@ npm run preview  # 预览 dist/
 
 ```bash
 npm run build
-node server.js   # 默认优先服务 dist/，端口 8080
+npm run preview   # 预览 dist/，默认 http://localhost:4173
 ```
 
 ---
@@ -112,9 +112,9 @@ stg-game/
 │       └── …
 ├── tools/
 │   ├── verify-migration.mjs
+│   ├── verify-content-ext.mjs
 │   └── validate-factions.js
-└── .github/workflows/
-    └── deploy-cloudflare-pages.yml
+└── wrangler.toml             # Cloudflare Pages 本地预览（可选）
 ```
 
 > **注意**：v1 的 `js/` 与根目录 `sw.js` 已移除。Service Worker 由 `vite-plugin-pwa` 在构建时生成至 `dist/sw.js`。
@@ -215,11 +215,6 @@ npx wrangler pages deploy dist --project-name=stg-game
 | 界面无样式、按钮无效 | JS/CSS 未加载 | 同上，确认构建成功 |
 | `kaspersky-labs.com` 404 | 杀毒插件注入 | 可忽略，或换浏览器试 |
 | `cloudflareinsights` blocked | 广告拦截插件 | 可忽略 |
-| GitHub Actions 失败 | 未配 CF API Token | **可忽略**，用 CF 控制台部署即可 |
-
-### GitHub Actions（可选，需 API Token）
-
-仅在 GitHub Secrets 配置了 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID` 时才会自动部署；未配置可禁用该 workflow。
 
 ---
 
