@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "node tools/verify-migration.mjs"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

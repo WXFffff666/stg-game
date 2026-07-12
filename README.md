@@ -7,6 +7,8 @@
 
 🕹️ **在线试玩**: [https://game1.the37777777.top](https://game1.the37777777.top)
 
+**当前版本：v2.0.0** — TypeScript + Vite 全量重构，Cloudflare Pages 纯静态部署。
+
 ---
 
 ## 🎯 游戏特色
@@ -23,55 +25,48 @@
 - 两把武器 Lv.5+ 消耗融合核心可融合进化
 - 技能融合、商店/波次奖励/升级三选一 统一升级轨道
 
-### 性能优化（v1.1）
-- 单 RAF 游戏循环（HUD 不再独立循环）
-- 追踪弹共享寻敌目标 + 碰撞网格查询
-- 穿透弹 Set 复用（零分配热路径）
+### 赛季通行证（v2 新增，100% 免费）
+- 主菜单「赛季通行证」入口
+- 对局结束自动结算赛季经验
+- 无付费、无内购，纯本地进度
+
+### 性能优化
+- 单 RAF 游戏循环（HUD 降频更新）
+- 追踪弹共享寻敌 + 碰撞空间网格
+- 导弹/爆炸对象池与拖尾降频
 - 低性能模式自动降级
+- Vite 代码分包（config / enemies / core / main）
 
 ### 敌人系统
-- 16+ 敌人类型（小兵、快速兵、中型机、障碍物、精英机、狙击机、分裂者、护盾者、冲锋者、编织者、传送者、生成者、坦克、狙击精英、集群者、神风）
-- 4 种 BOSS（守护者、召唤者、巨龙、经典BOSS）
-- 每种敌人独特外形和 AI 行为
+- 16+ 敌人类型、4 种 BOSS
 - 波次制：每 5 关精英波，每 10 关 BOSS
 
 ---
 
 ## 🚀 快速开始
 
-### 开发（Vite + TypeScript）
+### 开发
 
 ```bash
 npm install
 npm run dev
+# 浏览器打开 http://localhost:5173
 ```
 
-### 构建与部署（仅 Cloudflare Pages 静态）
+### 构建与校验
+
+```bash
+npm run verify   # 迁移完整性检查
+npm run build    # 输出 dist/
+npm run preview  # 预览 dist/
+```
+
+### 本地静态服务（构建后）
 
 ```bash
 npm run build
-# dist/ 目录由 GitHub Actions 自动部署到 CF Pages
+node server.js   # 默认优先服务 dist/，端口 8080
 ```
-
-**技术栈 v2.0**：TypeScript · Vite · vite-plugin-pwa · 纯静态（无 Worker）
-
-### 旧版本地静态服务（可选）
-
-```bash
-node server.js
-```
-
-```bash
-# 启动本地服务器
-python -m http.server 8080
-# 或
-npx serve .
-
-# 浏览器打开
-http://localhost:8080
-```
-
-或直接部署到 **Cloudflare Pages**（纯静态文件）。
 
 ---
 
@@ -87,39 +82,53 @@ http://localhost:8080
 
 ---
 
-## 📁 项目结构
+## 📁 项目结构（v2）
 
 ```
 stg-game/
-├── index.html          # 入口 HTML + CSS
-├── README.md
-└── js/
-    ├── config.js       # 游戏数据配置（驱动整个游戏）
-    ├── core.js         # 游戏引擎（循环/对象池/Canvas/场景/碰撞）
-    ├── player.js       # 玩家实体（20种飞机造型/输入/HP/护盾）
-    ├── bullets.js      # 子弹实体 + 弹道生成器
-    ├── enemies.js      # 敌人 AI + 波次生成 + BOSS
-    ├── items.js        # 道具掉落 + Buff/Debuff 系统
-    ├── weapons.js      # 武器管理器
-    ├── skills.js       # XP升级 + 技能选择
-    ├── particles.js    # 粒子特效（爆炸/闪电/冲击波/星空）
-    ├── storage.js      # localStorage 存档 + 排行榜
-    ├── audio.js        # Web Audio 程序化音效/BGM
-    ├── ui.js           # UI 管理
-    └── main.js         # 集成入口
+├── index.html              # 精简 HTML 壳（DOM + Vite 入口）
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+├── public/
+│   ├── manifest.json       # PWA 清单
+│   ├── icon.svg
+│   └── _headers            # Cloudflare Pages 缓存头
+├── src/
+│   ├── main.ts             # 入口：样式、legacy 模块、引擎补丁
+│   ├── loading.ts
+│   ├── engine/
+│   │   ├── balance.ts      # 平衡参数补丁
+│   │   └── bootstrap.ts    # 性能启动补丁
+│   ├── features/
+│   │   └── season-pass.ts  # 免费赛季通行证
+│   ├── styles/
+│   │   ├── main.css
+│   │   └── season-pass.css
+│   └── legacy/             # 游戏逻辑（原 js/，19 个模块）
+│       ├── config.js       # 数据配置
+│       ├── core.js         # 引擎循环/碰撞/Canvas
+│       ├── main.js         # 集成入口
+│       └── …
+├── tools/
+│   ├── verify-migration.mjs
+│   └── validate-factions.js
+└── .github/workflows/
+    └── deploy-cloudflare-pages.yml
 ```
+
+> **注意**：v1 的 `js/` 与根目录 `sw.js` 已移除。Service Worker 由 `vite-plugin-pwa` 在构建时生成至 `dist/sw.js`。
 
 ---
 
 ## 🛠️ 技术栈
 
-- **纯 Vanilla JavaScript**（ES6+，零依赖）
-- **HTML5 Canvas 2D** 渲染
-- **Web Audio API** 程序化音效
-- **localStorage** 数据持久化
-- **requestAnimationFrame** + deltaTime 游戏循环
-- **对象池** 模式优化性能
-- **数据驱动** 架构（config.js 定义所有内容）
+| 层级 | 技术 |
+|------|------|
+| 构建 | TypeScript 5 · Vite 6 · vite-plugin-pwa |
+| 运行时 | HTML5 Canvas 2D · Web Audio API · localStorage |
+| 部署 | Cloudflare Pages（纯静态 `dist/`，无 Worker） |
+| 游戏逻辑 | `src/legacy/*.js`（逐步 TS 化） |
 
 ---
 
@@ -127,61 +136,63 @@ stg-game/
 
 | 类别 | 数量 |
 |------|------|
-| 流派 | 20 |
-| 技能 | 200 |
-| 武器/弹道 | 20 |
-| 道具 | 40 |
+| 流派 | 87（配置驱动，部分自动补全） |
+| 技能 | 200+ |
+| 武器/弹道 | 50+ |
 | 敌人类型 | 16+ |
 | BOSS | 4 |
-| 飞机造型 | 20 |
-| 总代码行数 | ~11,500 |
+
+---
+
+## ✅ v2 功能迁移清单
+
+| 功能 | 状态 |
+|------|------|
+| 主菜单 / 开始游戏 | ✅ |
+| 每日挑战 / 无尽 / 挑战模式 | ✅ |
+| 角色选择 / 天赋树 | ✅ |
+| 图鉴 / 元商店 / 排行榜 | ✅ |
+| 设置 / 重置数据 | ✅ |
+| 对局 HUD / 暂停 / 局内商店 | ✅ |
+| 升级三选一 / 波次商店 | ✅ |
+| 武器融合 / 背包 | ✅ |
+| 教程 / 倒计时 | ✅ |
+| 结算 / 分享 | ✅ |
+| 赛季通行证（免费） | ✅ v2 新增 |
+| PWA 离线缓存 | ✅ Workbox |
+| 性能补丁（导弹/碰撞/HUD） | ✅ |
+| 回放 / 成就 / 每日任务扩展 | ⏳ 后续迭代 |
+
+运行 `npm run verify` 可自动检查模块、DOM、赛季钩子与目录结构。
 
 ---
 
 ## 🌐 Cloudflare Pages 部署
 
-### 方式 A：Git 连接（Dashboard）
+### 推荐：GitHub Actions（Direct Upload）
 
-1. 在 Cloudflare Pages 中连接 GitHub 仓库 `WXFffff666/stg-game`
-2. 构建设置：
-   - **构建命令**：留空（或填 `exit 0`）
-   - **输出目录**：`.`（根目录，不要用 `/`）
-   - **生产分支**：`master`
-3. 部署完成
+仓库已配置 `.github/workflows/deploy-cloudflare-pages.yml`：
 
-若出现 `Failed: unable to submit build job`（卡在 Initializing build environment），这是 **Cloudflare 与 GitHub 集成故障**，不是代码问题。按下方「故障排查」处理。
+1. `npm ci` → `npm run verify` → `npm run build`
+2. `wrangler pages deploy dist` 上传至 CF Pages
 
-### 方式 B：GitHub Actions 直接上传（推荐，更稳定）
+**Secrets（GitHub → Settings → Secrets）：**
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
-仓库已包含 `.github/workflows/deploy-cloudflare-pages.yml`，用 Wrangler **Direct Upload** 上传静态文件，不经过 CF 的 Git 构建队列。
+项目名默认 `stg-game`，生产分支 `master`。
 
-**一次性配置：**
-
-1. Cloudflare Dashboard → **My Profile** → **API Tokens** → Create Token  
-   - 模板选 **Edit Cloudflare Workers**，或自定义权限包含 **Account → Cloudflare Pages → Edit**
-2. GitHub 仓库 → **Settings** → **Secrets and variables** → **Actions**，添加：
-   - `CLOUDFLARE_API_TOKEN`：上一步的 Token
-   - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 控制台右侧边栏 Account ID
-3. 确认 Pages 项目名称为 `stg-game`（若不同，改 workflow 里的 `--project-name=`）
-4. push 到 `master` 后 Actions 自动部署；也可在 Actions 页手动 **Run workflow**
-
-### 方式 C：本地命令行部署
+### 本地部署
 
 ```bash
-npx wrangler login
-npx wrangler pages deploy . --project-name=stg-game --branch=master
+npm run build
+npx wrangler pages deploy dist --project-name=stg-game --branch=master
 ```
 
-### 故障排查：`unable to submit build job`
+### Dashboard Git 连接（备选）
 
-| 步骤 | 操作 |
-|------|------|
-| 1 | Cloudflare Pages 项目 → **Settings** → **Builds** → 暂时关闭 **Automatic deployments**（若已用 Actions） |
-| 2 | GitHub → **Settings** → **Applications** → **Cloudflare Pages** → 检查授权 → 必要时 **Reconfigure** 或重装 |
-| 3 | Cloudflare → **Workers & Pages** → 创建项目 → **Connect to Git** → 重新连接 GitHub |
-| 4 | 改用 **方式 B（GitHub Actions）** 或 **方式 C（wrangler 本地）** |
-
-排行榜功能在本地使用 localStorage，部署后可配合 Cloudflare Workers + KV 实现联网排行。
+- **构建命令**：`npm ci && npm run verify && npm run build`
+- **输出目录**：`dist`
 
 ---
 

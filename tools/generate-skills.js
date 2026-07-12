@@ -6,7 +6,7 @@
  *
  * Usage: node tools/generate-skills.js
  * Output is written to stdout. Pipe to append:
- *   node tools/generate-skills.js >> js/config.js
+ *   node tools/generate-skills.js >> src/legacy/config.js
  *   (manually insert before the closing ] of SKILLS array)
  */
 

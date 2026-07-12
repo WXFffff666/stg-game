@@ -28,7 +28,7 @@ jobs:
       - name: Install and build
         run: |
           npm ci
-          node tools/build-index.mjs
+          npm run verify
           npm run build
 
       - name: Deploy to Cloudflare Pages

@@ -7,6 +7,17 @@
  */
 
 class UIManager {
+  _getUiOverlay() {
+    var el = document.getElementById('ui-overlay');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'ui-overlay';
+    el.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:30;';
+    var gc = document.getElementById('game-container');
+    (gc || document.body).appendChild(el);
+    return el;
+  }
+
   constructor() {
     // Cache frequently accessed DOM elements
     const gid = (id) => document.getElementById(id);
@@ -2194,7 +2205,8 @@ class UIManager {
   showFusionConfirm(recipe, onConfirm, onCancel) {
     // Create overlay
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    var uiRoot = this._getUiOverlay();
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;';
 
     var title = document.createElement('div');
     title.style.cssText = 'font-size:24px;font-weight:bold;color:#ff88ff;margin-bottom:16px;text-shadow:0 0 20px rgba(255,136,255,0.6);';
@@ -2219,7 +2231,7 @@ class UIManager {
     btnConfirm.textContent = '确认融合';
     btnConfirm.style.cssText = 'background:linear-gradient(135deg,#6633aa,#3366aa);border:2px solid #ff44ff;';
     btnConfirm.addEventListener('click', function() {
-      document.body.removeChild(overlay);
+      uiRoot.removeChild(overlay);
       if (typeof onConfirm === 'function') onConfirm();
     });
     btnRow.appendChild(btnConfirm);
@@ -2228,13 +2240,13 @@ class UIManager {
     btnCancel.className = 'menu-btn';
     btnCancel.textContent = '取消';
     btnCancel.addEventListener('click', function() {
-      document.body.removeChild(overlay);
+      uiRoot.removeChild(overlay);
       if (typeof onCancel === 'function') onCancel();
     });
     btnRow.appendChild(btnCancel);
 
     overlay.appendChild(btnRow);
-    document.getElementById('ui-overlay').appendChild(overlay);
+    uiRoot.appendChild(overlay);
   }
 
   // ====================================================================
@@ -3183,7 +3195,7 @@ class UIManager {
   _showResetConfirm() {
     var self = this;
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;';
 
     var title = document.createElement('div');
     title.style.cssText = 'font-size:22px;font-weight:bold;color:#ff6666;margin-bottom:12px;text-shadow:0 0 15px rgba(255,68,68,0.5);';
@@ -3202,8 +3214,9 @@ class UIManager {
     btnConfirm.className = 'menu-btn';
     btnConfirm.textContent = '确认重置';
     btnConfirm.style.cssText = 'border-color:#ff4444;color:#ff4444;';
+    var uiRoot = self._getUiOverlay();
     btnConfirm.addEventListener('click', function() {
-      document.getElementById('ui-overlay').removeChild(overlay);
+      uiRoot.removeChild(overlay);
       self._resetAllData();
     });
     btnRow.appendChild(btnConfirm);
@@ -3212,12 +3225,12 @@ class UIManager {
     btnCancel.className = 'menu-btn';
     btnCancel.textContent = '取消';
     btnCancel.addEventListener('click', function() {
-      document.getElementById('ui-overlay').removeChild(overlay);
+      uiRoot.removeChild(overlay);
     });
     btnRow.appendChild(btnCancel);
 
     overlay.appendChild(btnRow);
-    document.getElementById('ui-overlay').appendChild(overlay);
+    uiRoot.appendChild(overlay);
   }
 
   /**

@@ -4,6 +4,25 @@ import { startLoadingScreen } from './loading';
 import { bootstrapEngine } from './engine/bootstrap';
 import { initSeasonPass } from './features/season-pass';
 
+// PWA manifest (avoid Vite hashing the link in index.html)
+{
+  const href = './manifest.json';
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+}
+
+window.addEventListener('error', (event) => {
+  console.error('[STG] Uncaught error:', event.error ?? event.message);
+  const err = document.getElementById('error-screen');
+  const loading = document.getElementById('loading-screen');
+  if (loading) loading.style.display = 'none';
+  if (err) err.style.display = 'flex';
+});
+
 startLoadingScreen();
 
 // Legacy modules (dependency order preserved)

@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Minimal eval context
-const configSrc = fs.readFileSync(path.join(__dirname, '../js/config.js'), 'utf8');
-const skillsSrc = fs.readFileSync(path.join(__dirname, '../js/skills.js'), 'utf8');
+const configSrc = fs.readFileSync(path.join(__dirname, '../src/legacy/config.js'), 'utf8');
+const skillsSrc = fs.readFileSync(path.join(__dirname, '../src/legacy/skills.js'), 'utf8');
 
 const GAME_CONFIG = {};
 eval(configSrc.replace('window.GAME_CONFIG = GAME_CONFIG;', ''));

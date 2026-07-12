@@ -8,7 +8,6 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="manifest" href="./manifest.json">
 <title>星域战机 - STG</title>
 </head>
 <body>
@@ -377,7 +376,7 @@
         <button class="menu-btn" id="btn-reset-data" style="width:180px;padding:10px 0;font-size:14px;border-color:rgba(255,68,68,0.5);color:#ff6666">🗑️ 重置数据</button>
       </div>
     </div>
-    <div class="version-info" id="version-info">v1.0.0</div>
+    <div class="version-info" id="version-info">v2.0.0</div>
     <button class="menu-btn" id="btn-back-from-settings">返回</button>
   </div>
 
@@ -399,6 +398,9 @@
 
   <!-- Fusion Screen (独立融合界面) -->
   <div class="menu-screen" id="fusion-screen" style="display:none;z-index:45"></div>
+
+  <!-- Dynamic overlays (融合确认、重置数据等) -->
+  <div id="ui-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:30;"></div>
 
 </div>
 
