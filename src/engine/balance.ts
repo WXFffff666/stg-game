@@ -30,9 +30,9 @@ export function applyBalancePatch(): void {
 
   b.BOSS_FIRST_HP_SCALE = 0.75;
 
-  b.MAX_PLAYER_BULLETS_PER_FRAME = 12;
+  b.MAX_PLAYER_BULLETS_PER_FRAME = 20;
 
-  b.POOL_BULLETS = 280;
+  b.POOL_BULLETS = 350;
 
   b.POOL_BULLETS_MOBILE = 130;
 
@@ -45,7 +45,7 @@ export function applyBalancePatch(): void {
   b.PLAYER_POINTER_LERP_MOBILE = 0.72;
   b.PLAYER_BULLET_SPEED_DEFAULT = 520;
 
-  cfg.VERSION = '2.1.6';
+  cfg.VERSION = '2.1.7';
 
 
 

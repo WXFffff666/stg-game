@@ -787,7 +787,7 @@ class SkillManager {
     // Slot expansion system
     this.MAX_WEAPON_SLOTS = 6;
     this.MAX_PASSIVE_SLOTS = 6;
-    this.weaponSlotsUnlocked = 2;   // Start with 2 weapon slots
+    this.weaponSlotsUnlocked = 4;   // Start with 4 weapon slots for smoother endless runs
     this.passiveSlotsUnlocked = 2;  // Start with 2 passive skill slots
     this._slotUnlockLevel = 5;      // Minimum level for passive slot expansion
 

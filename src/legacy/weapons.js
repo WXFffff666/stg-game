@@ -397,7 +397,7 @@ class WeaponManager {
   // ============================================================
 
   _initialFireTimer(cfg) {
-    return Math.max(30, cfg.fireRate || 500);
+    return 0;
   }
 
   /**
@@ -1003,7 +1003,7 @@ class WeaponManager {
         break;
 
       case 'spreadBeam':
-        if (B) B.spreadBeam(x, y, angleUp, cfg.bulletCount || 5, cfg.spreadAngle || 20, spd, dmg, color, trail);
+        if (B) B.spreadBeam(x, y, angleUp, spd, dmg, cfg.bulletCount || 5, cfg.spreadAngle || 20, color, trail);
         break;
 
       case 'pulseBeam':

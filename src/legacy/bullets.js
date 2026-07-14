@@ -2670,7 +2670,7 @@ var BulletPatterns = {
   // ----------------------------------------------------------
   spreadBeam: function(x, y, angle, speed, damage, bulletCount, spreadAngle, color, trailColor) {
     var bullets = [];
-    var count = bulletCount || 5;
+    var count = Math.min(Math.max(1, bulletCount || 5), 24);
     var halfAngle = (spreadAngle || 20) * Math.PI / 180 / 2;
     for (var i = 0; i < count; i++) {
       var offset = -halfAngle + (i / (count - 1 || 1)) * (halfAngle * 2);

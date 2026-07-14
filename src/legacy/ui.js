@@ -1451,6 +1451,21 @@ class UIManager {
   // ====================================================================
 
   /**
+   * Lightweight HUD refresh for gold/XP/level only (used during level-up pause).
+   */
+  updateHUDResources() {
+    if (!game) return;
+    if (typeof skillManager !== 'undefined' && skillManager) {
+      this.updateLevel(skillManager.level);
+      this.updateXP(skillManager.xp || 0, skillManager.xpNeeded || 100);
+    }
+    var goldEl = document.getElementById('gold-text');
+    if (goldEl && typeof window._getInRunGold === 'function') {
+      goldEl.textContent = window._getInRunGold();
+    }
+  }
+
+  /**
    * Update all HUD elements from current game state.
    * Enhanced version that handles wave, boss, skills, weapons, HP colors.
    */

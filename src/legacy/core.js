@@ -777,16 +777,21 @@ class Game {
     }
 
     // HUD + homing target manager (single RAF — no separate ui loop)
-    if (this.scene === GAME_CONFIG.SCENES.GAMEPLAY && !this.isPaused) {
-      if (window.homingTargets && this.player) {
-        window.homingTargets.tick(dt, this.player.x, this.player.y);
-      }
-      if (window.ui && typeof window.ui.updateHUD === 'function') {
-        this._hudFrame = (this._hudFrame || 0) + 1;
-        // HUD 降频：每 3 帧更新一次，减轻 DOM 与敌人遍历开销
-        if (this._hudFrame % (this.lowPerfMode ? 5 : 3) === 0) {
-          try { window.ui.updateHUD(); } catch(e) { /* ignore */ }
+    if (this.scene === GAME_CONFIG.SCENES.GAMEPLAY) {
+      if (!this.isPaused) {
+        if (window.homingTargets && this.player) {
+          window.homingTargets.tick(dt, this.player.x, this.player.y);
         }
+        if (window.ui && typeof window.ui.updateHUD === 'function') {
+          this._hudFrame = (this._hudFrame || 0) + 1;
+          // HUD 降频：每 3 帧更新一次，减轻 DOM 与敌人遍历开销
+          if (this._hudFrame % (this.lowPerfMode ? 5 : 3) === 0) {
+            try { window.ui.updateHUD(); } catch(e) { /* ignore */ }
+          }
+        }
+      } else if (window._isLevelingUp && window.ui && typeof window.ui.updateHUDResources === 'function') {
+        // Keep gold/XP visible while choosing skills
+        try { window.ui.updateHUDResources(); } catch(e) { /* ignore */ }
       }
     }
 

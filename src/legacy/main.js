@@ -2469,6 +2469,29 @@
     return weapons;
   }
 
+  function _applyShopPermanentUpgrades(player) {
+    if (!player || !player.applyStatModifiers) return;
+    try {
+      var raw = localStorage.getItem('stg_shop_purchases');
+      if (!raw) return;
+      var purchases = JSON.parse(raw);
+      var effects = [];
+      if (purchases.goldMagnet) {
+        effects.push({ stat: 'pickupRange', op: 'add', value: 20 });
+      }
+      if (purchases.critRing) {
+        effects.push({ stat: 'critRate', op: 'add', value: 0.03 });
+      }
+      if (purchases.speedBoots) {
+        effects.push({ stat: 'speed', op: 'multiply', value: 0.08 });
+      }
+      if (purchases.armorPlate) {
+        effects.push({ stat: 'damageReduction', op: 'add', value: 0.05 });
+      }
+      if (effects.length > 0) player.applyStatModifiers(effects);
+    } catch (e) { /* ignore parse errors */ }
+  }
+
   /**
    * Apply meta shop permanent upgrade effects to the player entity.
    * Reads purchased upgrades from localStorage and applies stat modifiers.
@@ -2589,6 +2612,7 @@
 
     // Apply meta shop permanent upgrades
     _applyMetaShopUpgrades(playerEntity);
+    _applyShopPermanentUpgrades(playerEntity);
 
     // G5: Apply challenge mode rules
     _applyChallengeRules();
@@ -2719,8 +2743,6 @@
         if (selectedItem._choiceType === 'slot') {
           skillManager._assignSlot(selectedItem._slotType);
           ui.hideLevelUp();
-          // 设置1.5秒恢复缓冲期
-          window._resumeTimer = 1.5;
           // 恢复BGM音量
           if (window.audio && window.audio._bgmNodes) {
             window.audio._bgmNodes.forEach(function(n) {
@@ -2742,8 +2764,6 @@
           skillManager.learnSkill(selectedItem._data.id);
         }
         ui.hideLevelUp();
-        // 设置1.5秒恢复缓冲期
-        window._resumeTimer = 1.5;
         // 恢复BGM音量
         if (window.audio && window.audio._bgmNodes) {
           window.audio._bgmNodes.forEach(function(n) {
@@ -2779,8 +2799,6 @@
             skillManager._showLevelUpChoices();
           } else {
             skillManager._isChoosing = false;
-            // 设置1.5秒恢复缓冲期
-            window._resumeTimer = 1.5;
             // 恢复BGM音量
             if (window.audio && window.audio._bgmNodes) {
               window.audio._bgmNodes.forEach(function(n) {
@@ -3100,14 +3118,8 @@
     originalUpdate(dt);
 
     if (game.scene !== cfg.SCENES.GAMEPLAY || game.isPaused) return;
-    // 恢复缓冲期计时
-    if (window._resumeTimer > 0) {
-      window._resumeTimer -= dt;
-      if (window._resumeTimer <= 0) {
-        window._resumeTimer = 0;
-      }
-      return; // 缓冲期内不更新游戏逻辑
-    }
+    // Reset per-frame VFX budget
+    window._hitFxBudget = 0;
     if (!playerEntity || !playerEntity.active) {
       if (!gameOverShown) endGame();
       return;
@@ -3371,7 +3383,7 @@
             if (!bullet.active) break;
           }
         }
-        if (bi > 200) break;
+        if (bi > 400) break;
       }
     }
 
@@ -3742,15 +3754,17 @@
       playerEntity.heal(bullet.healOnHit);
     }
 
-    // C1: Color-coded damage numbers
+    // C1: Color-coded damage numbers (budget-limited for non-crit hits)
+    var fxBudget = window._hitFxBudget || 0;
     if (isCrit) {
       window.ParticleSystem.damageNumber(enemy.x, enemy.y - enemy.size / 2, Math.round(damage), '#ffdd00', true);
-    } else {
+      window.ParticleSystem.hitEffect(enemy.x, enemy.y);
+      window._hitFxBudget = fxBudget + 2;
+    } else if (fxBudget < 10) {
       window.ParticleSystem.damageNumber(enemy.x, enemy.y - enemy.size / 2, Math.round(damage), '#ffffff');
+      if (fxBudget < 5) window.ParticleSystem.hitEffect(enemy.x, enemy.y);
+      window._hitFxBudget = fxBudget + 1;
     }
-
-    // Hit particles
-    window.ParticleSystem.hitEffect(enemy.x, enemy.y);
 
     // Conditional skills: onHit (attack landed)
     if (skillManager && typeof skillManager.onAttackHit === 'function') {
@@ -3955,7 +3969,6 @@
     if (skillManager) skillManager.addXp(xpGain);
 
     // Gold (in-run currency) — spawn physical gold coins
-    // A3: Boss gold formula: max(300, inRunGold * 0.3), ring pattern
     var goldGain;
     if (enemy.isBoss) {
       goldGain = Math.max(300, Math.floor(inRunGold * 0.3));
@@ -3968,9 +3981,7 @@
     // Auto-collect gold and XP (configurable)
     if (cfg.BALANCE.AUTO_COLLECT_GOLD_XP) {
       addInRunGold(goldGain);
-      if (skillManager) skillManager.addXp(xpGain);
     } else {
-      // Legacy: spawn GoldCoin entities
       if (typeof GoldCoin !== 'undefined' && GoldCoin) {
         var coinCount = enemy.isBoss ? 8 + Math.floor(Math.random() * 5) : (enemy.type === 'elite' ? 3 + Math.floor(Math.random() * 3) : 1 + Math.floor(Math.random() * 2));
         var coinValue = Math.floor(goldGain / coinCount);
@@ -4003,6 +4014,11 @@
           if (game.addEntity) game.addEntity(orb);
         }
       }
+    }
+
+    // Refresh gold/XP HUD immediately (especially during level-up pause)
+    if (ui && typeof ui.updateHUDResources === 'function') {
+      ui.updateHUDResources();
     }
 
     // Lifesteal — only heal based on actual damage dealt (capped at enemy HP before death)
